@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 export default function TabLayout() {
   return (
@@ -18,7 +19,7 @@ export default function TabLayout() {
         options={{
           title: "Recordings",
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="folder-open" color={color} size={size} />
+            <MaterialCommunityIcons name="video-outline" color={color} size={size} />
           ),
         }}
       />
