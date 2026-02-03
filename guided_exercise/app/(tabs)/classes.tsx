@@ -2,7 +2,6 @@ import { File, Directory, Paths } from "expo-file-system";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRef, useState } from "react";
 import { Button, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { ZoomVideoSdkProvider, useZoom } from "@zoom/react-native-videosdk";
 
 /*
 <ZoomVideoSdkProvider
