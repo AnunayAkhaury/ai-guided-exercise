@@ -6,12 +6,12 @@ import { getAuth } from 'firebase/auth';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
+  apiKey: 'AIzaSyAQNGH2BNurUfZlPn2mWgkHcQb5kbD3QX8',
+  authDomain: 'ai-guided-exercise-feedback.firebaseapp.com',
+  projectId: 'ai-guided-exercise-feedback',
+  storageBucket: 'ai-guided-exercise-feedback.firebasestorage.app',
+  messagingSenderId: '396997576150',
+  appId: '1:396997576150:web:951882abe0ac424de35077'
 };
 
 // Initialize Firebase
