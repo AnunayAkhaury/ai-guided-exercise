@@ -1,0 +1,21 @@
+# Dependencies
+node_modules
+/coverage
+/benchmarks/graphs
+
+# Environment
+development_env.json
+
+# Build artifacts
+/build
+/dist
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+*.tgz
+
+# Misc
+.nyc_output
+.DS_Store
+*.log
