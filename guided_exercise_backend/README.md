@@ -50,10 +50,10 @@ Developement server runs at: `http://localhost:4000`
 
 ## API Endpoints
 
-| Method | Endpoint           | Description                   | Request Body                                                                              | Response              |
-| ------ | ------------------ | ----------------------------- | ----------------------------------------------------------------------------------------- | --------------------- |
-| GET    | `/`                | hello world check             | —                                                                                         | `{ "message": "OK" }` |
-| POST   | `/api/createUsers` | Create a new user in Firebase | `{ "email": "string", "password": "string", "username": "string", "fullname": "string" }` | `{ "uid": "string" }` |
+| Method | Endpoint             | Description                             | Request Body                                                      | Response              |
+| ------ | -------------------- | --------------------------------------- | ----------------------------------------------------------------- | --------------------- |
+| GET    | `/`                  | Hello world check                       | —                                                                 | `{ "message": "OK" }` |
+| POST   | `/api/createProfile` | Create new profile and add to database. | `{ "uid": "string", "username": "string", "fullname": "string" }` | `{ "uid": "string" }` |
 
 > POST requests must be `application/json`.
 > Please update the endpoint list when you add a new endpoint.

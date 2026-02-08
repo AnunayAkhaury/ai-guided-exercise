@@ -1,23 +1,18 @@
 import { auth, db } from './firebase-service.js';
 
-export async function createUser(email: string, password: string, username: string, fullname: string) {
+export async function createProfile(uid: string, role: string, username: string, fullname: string) {
   try {
-    // Create user
-    const userRecord = await auth.createUser({
-      email: email,
-      password: password,
-      emailVerified: false,
-      disabled: false
-    });
+    // Set user role (can be accessed in frontend)
+    await auth.setCustomUserClaims(uid, { role: role });
 
     // Add to user collection
-    await db.collection('users').doc(userRecord.uid).set({
-      email: userRecord.email,
+    await db.collection('users').doc(uid).set({
+      role: role,
       username: username,
       fullname: fullname
     });
 
-    return userRecord;
+    return uid;
   } catch (error) {
     throw error;
   }
