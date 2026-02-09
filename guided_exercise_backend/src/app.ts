@@ -1,8 +1,11 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import router from '@/routes/base-routes.js';
 import morgan from 'morgan';
+
+dotenv.config();
 
 const app = express();
 
