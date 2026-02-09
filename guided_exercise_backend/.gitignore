@@ -5,6 +5,7 @@ node_modules
 
 # Environment
 development_env.json
+.env
 
 # Build artifacts
 /build
