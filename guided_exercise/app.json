@@ -42,6 +42,14 @@
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera."
         }
       ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 28
+          }
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",
