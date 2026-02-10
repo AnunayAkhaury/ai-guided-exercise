@@ -1,11 +1,26 @@
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Button, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import BgImage from '@/src/assets/images/profile-background.png'; 
 import ProfileImage from '@/src/assets/images/default-profile.jpg'; 
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { useState } from 'react';
+import { getZoomToken } from '@/src/api/zoom';
 
 
-export default function profile() {
+export default function Profile() {
+    const [status, setStatus] = useState<string>('');
+
+    const handleTestToken = async () => {
+        try {
+        setStatus('Requesting token...');
+        const token = await getZoomToken({ sessionName: 'test-session', userName: 'teacher' });
+        console.log('Zoom token:', token);
+        setStatus('Token received. Check console output.');
+        } catch (err: any) {
+        console.error('Token request failed:', err);
+        setStatus(err?.message || 'Token request failed.');
+        }
+    };
     return (
         <View>
             <Image
@@ -27,6 +42,10 @@ export default function profile() {
                     <MaterialIcons name="edit" size={24} color="black" />
                 </TouchableOpacity>
 
+                <Text style={styles.title}>Profile (Temp Test)</Text>
+                <Button title="Test Zoom Token" onPress={handleTestToken} />
+                {!!status && <Text style={styles.status}>{status}</Text>}
+                    
                 <View style={styles.list}>
                     <View style={styles.listItem}>
                         <MaterialCommunityIcons name="medal" size={24} color="black" />
@@ -105,5 +124,12 @@ const styles = StyleSheet.create({
     },
     listText: {
         fontSize: 20,
+    },
+    title: {
+        fontSize: 18,
+        fontWeight: '600'
+    },
+    status: {
+        marginTop: 8
     }
 })
