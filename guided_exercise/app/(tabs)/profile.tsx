@@ -42,7 +42,7 @@ export default function Profile() {
                     <MaterialIcons name="edit" size={24} color="black" />
                 </TouchableOpacity>
 
-                <Text style={styles.title}>Profile (Temp Test)</Text>
+                <Text style={styles.title}>(Development Only)</Text>
                 <Button title="Test Zoom Token" onPress={handleTestToken} />
                 {!!status && <Text style={styles.status}>{status}</Text>}
                     
