@@ -10,30 +10,31 @@
     "ios": {
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to share your video",
-        "NSMicrophoneUsageDescription": "This app uses the microphone to share your audio"
+        "NSMicrophoneUsageDescription": "This app uses the microphone to share your audio",
+        "NSBluetoothPeripheralUsageDescription": "This app uses Bluetooth for audio devices",
+        "NSPhotoLibraryUsageDescription": "This app uses the photo library for screen sharing"
       },
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.guided-exercise"
     },
     "android": {
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "CAMERA",
-        "RECORD_AUDIO",
+        "BLUETOOTH",
+        "BLUETOOTH_CONNECT",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#E6F4FE"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.guided_exercise"
     },
     "web": {
-      "output": "static",
+      "output": "static"
     },
     "plugins": [
       [
