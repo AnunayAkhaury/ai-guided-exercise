@@ -168,8 +168,13 @@ export default function Session() {
           <Text style={styles.overlayText}>
             Connected • {users.length} participant{users.length === 1 ? '' : 's'}
           </Text>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backText}>Back</Text>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => {
+              zoom.leaveSession(false);
+              router.back();
+            }}>
+            <Text style={styles.backText}>Leave</Text>
           </Pressable>
         </View>
       )}
