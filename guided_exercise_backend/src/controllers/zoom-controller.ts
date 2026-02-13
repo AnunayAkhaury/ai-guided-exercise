@@ -35,6 +35,8 @@ export function zoomTokenController(req: Request, res: Response, next: NextFunct
       return res.status(400).json({ message: 'Invalid userName.' });
     }
 
+
+    // Should we consider making roleType = 0 the default?? for security maybe?
     const roleType = role === 0 || role === 1 ? role : 1;
 
     if (expirationSeconds && (expirationSeconds < MIN_EXP_SECONDS || expirationSeconds > MAX_EXP_SECONDS)) {

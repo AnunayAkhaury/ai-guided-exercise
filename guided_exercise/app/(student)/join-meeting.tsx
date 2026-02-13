@@ -1,43 +1,51 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Alert, StyleSheet } from 'react-native';
-import { useZoom } from '@zoom/react-native-videosdk';
+import { useRouter } from 'expo-router';
 
 export default function JoinSessionScreen() {
+  const router = useRouter();
   const [sessionName, setSessionName] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const zoom = useZoom();
+  const [loading, setLoading] = useState(false);
 
   const handleJoin = async () => {
+    if (!sessionName || !displayName) {
+        Alert.alert("Error", "Please fill in all fields");
+        return;
+    }
+
+    setLoading(true);
+
     try {
       // Request token from zoom-controller.ts
-      const response = await fetch('tempURLforAPI', {
+      const response = await fetch('tempURLforAPI', { ///////////// /* REPLACE tempURLforAPI */ //////////////
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sessionName: sessionName,
-          userName: displayName,
+          sessionName: sessionName.trim(),
+          userName: displayName.trim(),
           role: 0, // Enforces "Join Only" so user is only participant
         }),
       });
 
-      const { token } = await response.json();
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Failed to get token");
 
-      // join session 
-      await zoom.joinSession({
-        sessionName: sessionName,
-        userName: displayName,
-        token: token,
-        sessionPassword: '', // Add if your logic requires it
-        audioOptions: { connect: true, mute: false },
-        videoOptions: { localVideoOn: true },
-        sessionIdleTimeoutMins: 40, 
+      // navigate to session screen
+      router.push({
+        pathname: '/(student)/session',
+        params: {
+            sessionName: sessionName.trim(),
+            userName: displayName.trim(),
+            token: data.token
+        }
       });
-
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to join session');
     }
   };
 
+  // session join display screen
   return (
     <View style={styles.container}>
       <TextInput 
