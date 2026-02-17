@@ -81,6 +81,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="person-outline" color={color} size={size} />
           ),
+          headerShown: false
         }}
       />
     </Tabs>
