@@ -2,15 +2,16 @@ import React from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons'; // Standard in modern Expo
+import ClassCard from '@/src/components/ClassCard';
 
 // Mock data: In a real app, fetch this from your 'zoom-controller' or DB
 const CLASSES_DATA = [
-  { id: 'classid1', title: 'Tuesday, 3PM', instructor: 'Instructor Name' },
-  { id: 'classid2', title: 'Saturday, 2PM', instructor: 'Instructor Name' },
-  { id: 'classid3', title: 'Sunday, 1PM', instructor: 'Instructor Name' },
+  { id: 'classid1', start: new Date(), end: new Date(), title: 'Session', desc: 'This is a session', active: false },
+  { id: 'classid2', start: new Date(), end: new Date(), title: 'Session', desc: 'This is a session', active: false },
+  { id: 'classid3', start: new Date(), end: new Date(), title: 'Session', desc: 'This is a session', active: false },
 ];
 
-export default function ClassesScreen() {
+function JoinMeetingBttn({ item }: { item: typeof CLASSES_DATA[0] }) {
   const router = useRouter();
 
   const handleClassSelect = (sessionName: string) => {
@@ -22,26 +23,25 @@ export default function ClassesScreen() {
     });
   };
 
-  const renderClassItem = ({ item }: { item: typeof CLASSES_DATA[0] }) => (
+  return (
     <TouchableOpacity 
-      style={styles.classCard} 
+      style={styles.bttn} 
       onPress={() => handleClassSelect(item.id)}
     >
-      <View style={styles.classInfo}>
-        <Text style={styles.classTitle}>{item.title}</Text>
-        <Text style={styles.classInstructor}>{item.instructor}</Text>
-      </View>
+      <Text>Join Meeting</Text>
       <Ionicons name="videocam" size={24} color="#2D8CFF" />
     </TouchableOpacity>
   );
+}
 
+export default function ClassesScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Available Sessions</Text>
       <FlatList
         data={CLASSES_DATA}
         keyExtractor={(item) => item.id}
-        renderItem={renderClassItem}
+        renderItem={({ item }) => <ClassCard {...item}><JoinMeetingBttn item={item} /></ClassCard>}
         contentContainerStyle={styles.listPadding}
       />
     </View>
@@ -52,22 +52,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   header: { fontSize: 22, fontWeight: 'bold', margin: 20, marginBottom: 10 },
   listPadding: { paddingHorizontal: 20 },
-  classCard: {
+  bttn: {
     backgroundColor: '#fff',
-    padding: 20,
+    paddingHorizontal: 20,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-    // Soft shadow for modern look
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 10,
   },
-  classTitle: { fontSize: 18, fontWeight: '600' },
-  classInstructor: { fontSize: 14, color: '#666', marginTop: 4 },
-  classInfo: {}
 });
