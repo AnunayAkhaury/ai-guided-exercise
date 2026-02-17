@@ -1,3 +1,4 @@
+import { useUserStore } from '@/src/store/userStore';
 import { auth } from './firebase-config';
 
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
@@ -26,7 +27,12 @@ export async function createProfile(uid: string, role: string, username: string,
     if (!response.ok) {
       throw new Error(`Failed to create profile: ${response.statusText}`);
     }
+
+    const data = await response.json();
+
+    useUserStore.setState({ uid: uid, role: data.role, fullname: data.fullname });
   } catch (err) {
+    console.log(err);
     throw new Error(`Unknown Error.`);
   }
 }
@@ -34,8 +40,24 @@ export async function createProfile(uid: string, role: string, username: string,
 export async function login(email: string, password: string) {
   try {
     const userCredential: UserCredential = await signInWithEmailAndPassword(auth, email, password);
-    return userCredential.user.uid;
+
+    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/getProfile`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ uid: userCredential.user.uid })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to login: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    useUserStore.setState({ uid: userCredential.user.uid, role: data.role, fullname: data.fullname });
   } catch (err) {
+    console.log(err);
     throw new Error(`Unknown Error.`);
   }
 }

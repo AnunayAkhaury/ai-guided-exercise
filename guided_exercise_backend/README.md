@@ -54,6 +54,7 @@ Developement server runs at: `http://localhost:4000`
 | ------ | -------------------- | --------------------------------------- | ----------------------------------------------------------------- | --------------------- |
 | GET    | `/`                  | Hello world check                       | —                                                                 | `{ "message": "OK" }` |
 | POST   | `/api/createProfile` | Create new profile and add to database. | `{ "uid": "string", "username": "string", "fullname": "string" }` | `{ "uid": "string" }` |
+| POST   | `/api/getProfile` | Get profile from database. | `{ "uid": "string" }` | `{ "username": "string", "role": "string", "fullname": "string" }` |
 
 > POST requests must be `application/json`.
 > Please update the endpoint list when you add a new endpoint.

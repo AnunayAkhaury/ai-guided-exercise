@@ -5,7 +5,7 @@ export default function Instructors() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Instructors</Text>
-      <Link href="/(teacher)/start-meeting" asChild>
+      <Link href="/(tabs)/(teacher)/start-meeting" asChild>
         <Pressable style={styles.button}>
           <Text style={styles.buttonText}>Start Teacher Session</Text>
         </Pressable>
