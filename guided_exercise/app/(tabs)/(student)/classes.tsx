@@ -1,140 +1,73 @@
-import { File, Directory, Paths } from "expo-file-system";
-import { CameraView, useCameraPermissions } from "expo-camera";
-import { useRef, useState } from "react";
-import { Button, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons'; // Standard in modern Expo
 
-/*
-<ZoomVideoSdkProvider
-  config={{
-    domain: "zoom.us",
-    enableLog: true,
-  }}
->
-</ZoomVideoSdkProvider>
-*/
+// Mock data: In a real app, fetch this from your 'zoom-controller' or DB
+const CLASSES_DATA = [
+  { id: 'classid1', title: 'Tuesday, 3PM', instructor: 'Instructor Name' },
+  { id: 'classid2', title: 'Saturday, 2PM', instructor: 'Instructor Name' },
+  { id: 'classid3', title: 'Sunday, 1PM', instructor: 'Instructor Name' },
+];
 
-export default function Classes() {
-  const [permission, requestPermission] = useCameraPermissions();
-  const [recording, setRecording] = useState(false);
-  const ref = useRef<CameraView>(null);
+export default function ClassesScreen() {
+  const router = useRouter();
 
-  if (!permission) {
-    return <View />; // default view while permissions load
-  }
-
-  // request camera permissions from user
-  if (!permission.granted) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.message}> We need your permission to show the camera</Text>
-        <Button onPress={requestPermission} title="grant permission" />
-      </View>
-    );
-  }
-  
-  // record video from camera
-  const recordVideo = async () => {
-    if (recording) {
-      setRecording(false);
-      ref.current?.stopRecording();
-
-      return;
-    }
-    setRecording(true);
-    const video = await ref.current?.recordAsync();
-    console.log({video});
+  const handleClassSelect = (sessionName: string) => {
+    // Navigate to the student join folder
+    // Passing sessionName as a parameter
+    router.push({
+      pathname: "/(student)/join-meeting",
+      params: { sessionName: sessionName }
+    });
   };
 
-  // save video to app storage
-  async function saveVideo(tempURI: string) {
-    try {
-      const recordingsDir = new Directory(Paths.document, 'recordings');
-
-      if (!recordingsDir.exists) {
-        recordingsDir.create();
-      }
-
-      const tempFile = new File(tempURI);
-      tempFile.move(recordingsDir);
-      console.log("Video permanently saved at: ", tempFile.uri);
-      return tempFile.uri;
-    } catch (e) {
-      console.error("Failed to save video: ", e);
-    }
-  }
-
-  // render camera view
-  // will change record button to a syncronized toggle from livestream in future update
-  const renderCamera = () => {
-    return (
-      <View style={styles.container}>
-        <CameraView style={styles.camera} facing={'front'} mirror={true} mode={'video'} mute={true} ref={ref}/>
-        <View style={styles.buttonContainer}>
-          <Pressable style={styles.button} onPress={recordVideo}>
-            {({ pressed }) => (
-              <Text style=
-                {[
-                  recording ? styles.squareRecordButton : styles.circleRecordButton, 
-                  { opacity: pressed ? 0.5 : 1 },
-                ]}></Text>
-            )}
-          </Pressable>
-            
-        </View>
-              
+  const renderClassItem = ({ item }: { item: typeof CLASSES_DATA[0] }) => (
+    <TouchableOpacity 
+      style={styles.classCard} 
+      onPress={() => handleClassSelect(item.id)}
+    >
+      <View style={styles.classInfo}>
+        <Text style={styles.classTitle}>{item.title}</Text>
+        <Text style={styles.classInstructor}>{item.instructor}</Text>
       </View>
-    );
-  };
+      <Ionicons name="videocam" size={24} color="#2D8CFF" />
+    </TouchableOpacity>
+  );
 
-  return renderCamera();
-  
-
+  return (
+    <View style={styles.container}>
+      <Text style={styles.header}>Available Sessions</Text>
+      <FlatList
+        data={CLASSES_DATA}
+        keyExtractor={(item) => item.id}
+        renderItem={renderClassItem}
+        contentContainerStyle={styles.listPadding}
+      />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  message: {
-    textAlign: 'center',
-    paddingBottom: 10,
-  },
-  camera: {
-    flex: 1,
-  },
-  buttonContainer: {
-    position: 'absolute',
-    bottom: 64,
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  header: { fontSize: 22, fontWeight: 'bold', margin: 20, marginBottom: 10 },
+  listPadding: { paddingHorizontal: 20 },
+  classCard: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
     flexDirection: 'row',
-    backgroundColor: 'transparent',
-    width: '100%',
-    paddingHorizontal: 64,
-  },
-  button: {
-    flex: 1,
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+    // Soft shadow for modern look
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  circleRecordButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'red',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  squareRecordButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 5,
-    backgroundColor: 'red',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 13,
-  },
-  text: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-  },
+  classTitle: { fontSize: 18, fontWeight: '600' },
+  classInstructor: { fontSize: 14, color: '#666', marginTop: 4 },
+  classInfo: {}
 });

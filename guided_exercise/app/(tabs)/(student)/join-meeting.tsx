@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Alert, StyleSheet } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { useZoom } from '@zoom/react-native-videosdk';
 
 export default function JoinSessionScreen() {
-  const [sessionName, setSessionName] = useState('');
+  const { sessionName: paramSessionName } = useLocalSearchParams(); // Grab param
+  const [sessionName, setSessionName] = useState((paramSessionName as string) || '');
   const [displayName, setDisplayName] = useState('');
   const zoom = useZoom();
 
@@ -16,7 +18,7 @@ export default function JoinSessionScreen() {
         body: JSON.stringify({
           sessionName: sessionName,
           userName: displayName,
-          role: 0, // Enforces "Join Only" so user is only participant
+          role: 0, // enforces "Join Only" so user is only participant
         }),
       });
 
@@ -27,7 +29,7 @@ export default function JoinSessionScreen() {
         sessionName: sessionName,
         userName: displayName,
         token: token,
-        sessionPassword: '', // Add if your logic requires it
+        sessionPassword: '', 
         audioOptions: { connect: true, mute: false },
         videoOptions: { localVideoOn: true },
         sessionIdleTimeoutMins: 40, 
@@ -41,9 +43,9 @@ export default function JoinSessionScreen() {
   return (
     <View style={styles.container}>
       <TextInput 
-        placeholder="Session Name" 
+        value={sessionName}
         style={styles.input} 
-        onChangeText={setSessionName} 
+        editable={false} 
       />
       <TextInput 
         placeholder="Your Name" 
