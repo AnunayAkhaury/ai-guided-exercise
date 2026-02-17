@@ -17,3 +17,17 @@ export async function createProfile(uid: string, role: string, username: string,
     throw error;
   }
 }
+
+export async function getProfile(uid: string) {
+  try {
+    // Retrieve from user collection
+    const doc = await db.collection('users').doc(uid).get();
+    if (!doc.exists) {
+      return null;
+    }
+    const user = doc.data();
+    return user;
+  } catch (error) {
+    throw error;
+  }
+}

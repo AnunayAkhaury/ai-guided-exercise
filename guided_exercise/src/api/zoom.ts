@@ -9,15 +9,12 @@ type ZoomTokenResponse = {
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
-export async function getZoomToken({
-  sessionName,
-  userName
-}: ZoomTokenRequest): Promise<string> {
+export async function getZoomToken({ sessionName, userName }: ZoomTokenRequest): Promise<string> {
   if (!API_BASE_URL) {
     throw new Error('EXPO_PUBLIC_API_URL is not set.');
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/zoom/token`, {
+  const response = await fetch(`${API_BASE_URL}/zoom/token`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
