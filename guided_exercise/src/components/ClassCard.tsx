@@ -100,15 +100,15 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: '600'
+    fontWeight: '600',
   },
   time: {
     display: 'flex',
     flexDirection: 'row',
-    
+    gap: 8,
   },
   leaf: {
-    width: 81,
+    width: 58,
     height: 81,
   }
 });

@@ -1,26 +1,12 @@
-import { Button, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import BgImage from '@/src/assets/images/profile-background.png'; 
 import ProfileImage from '@/src/assets/images/default-profile.jpg'; 
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { useState } from 'react';
-import { getZoomToken } from '@/src/api/zoom';
+import { AntDesign, Ionicons } from "@expo/vector-icons";
 
 
 export default function Profile() {
-    const [status, setStatus] = useState<string>('');
-
-    const handleTestToken = async () => {
-        try {
-        setStatus('Requesting token...');
-        const token = await getZoomToken({ sessionName: 'test-session', userName: 'teacher' });
-        console.log('Zoom token:', token);
-        setStatus('Token received. Check console output.');
-        } catch (err: any) {
-        console.error('Token request failed:', err);
-        setStatus(err?.message || 'Token request failed.');
-        }
-    };
     return (
         <View>
             <Image
@@ -38,30 +24,29 @@ export default function Profile() {
                 <TextInput style={styles.username} editable={false}>Username</TextInput>
 
                 <TouchableOpacity style={styles.editButton}>
-                    <Text style={{fontSize: 18}}>Edit User Details</Text>
+                    <Text style={{fontSize: 18}}>Edit Details</Text>
                     <MaterialIcons name="edit" size={24} color="black" />
                 </TouchableOpacity>
-
-                <Text style={styles.title}>(Development Only)</Text>
-                <Button title="Test Zoom Token" onPress={handleTestToken} />
-                {!!status && <Text style={styles.status}>{status}</Text>}
                     
                 <View style={styles.list}>
-                    <View style={styles.listItem}>
-                        <MaterialCommunityIcons name="medal" size={24} color="black" />
+                    <TouchableOpacity style={styles.listItem}>
+                        <Ionicons name="ribbon" size={24} color="black" />
                         <Text style={styles.listText}>Achievements</Text>
-                    </View>
-                    <View style={styles.listItem}>
-                        <MaterialCommunityIcons name="chart-line" size={24} color="black" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.listItem}>
+                        <AntDesign name="line-chart" size={24} color="black" />
                         <Text style={styles.listText}>Stats</Text>
-                    </View>
-                    <View style={styles.listItem}>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.listItem}>
                         <MaterialCommunityIcons name="heart-circle" size={24} color="black" />
                         <Text style={styles.listText}>Donate</Text>
-                    </View>
-                    <View style={styles.listItem}>
-                        <Text style={[styles.listText, {color: 'red'}]}>Logout</Text>
-                    </View>  
+                    </TouchableOpacity>
+
+                    <TouchableOpacity>
+                        <Text style={[styles.listText, styles.logout]}>Logout</Text>
+                    </TouchableOpacity>  
                 </View>
             </View>
             
@@ -89,11 +74,14 @@ const styles = StyleSheet.create({
         top: -78,
         width: 156,
         height: 156,
-        borderRadius: 156
+        borderRadius: 156,
+        borderWidth: 1,
+        borderColor: 'white'
     },
     username: {
         fontSize: 30,
-        marginTop: 80,
+        marginTop: 90,
+        fontWeight: '500',
     },
     editButton: {
         display: 'flex',
@@ -101,35 +89,43 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         gap: 5,
-        backgroundColor: 'lightblue',
-        padding: 10,
+        backgroundColor: '#C3F5FF',
+        padding: 20,
         paddingTop: 5,
         paddingBottom: 5,
-        borderRadius: 5,
-        borderColor: 'black',
-        borderWidth: 1,
+        borderRadius: 8,
     },
     list: {
         width: '100%',
         display: 'flex',
         paddingTop: 50,
+        paddingHorizontal: 12,
+        gap: 20,
     },
     listItem: {
-        borderBottomWidth: 1,
-        borderBottomColor: 'lightgrey',
-        padding: 30,
+        width: '100%',
+        padding: 20,
+        paddingTop: 18,
+        paddingBottom: 16,
         display: 'flex',
         flexDirection: 'row',
+        alignItems: 'center',
         gap: 10,
+        borderRadius: 8,
+        backgroundColor: 'white',
+        // Soft shadow for modern look
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     listText: {
         fontSize: 20,
     },
-    title: {
-        fontSize: 18,
-        fontWeight: '600'
+    logout: {
+        color: 'red',
+        alignSelf: 'center',
+        marginTop: 30,
     },
-    status: {
-        marginTop: 8
-    }
 })

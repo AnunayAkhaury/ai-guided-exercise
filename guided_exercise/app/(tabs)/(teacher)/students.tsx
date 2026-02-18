@@ -1,5 +1,6 @@
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import DefaultImage from '@/src/assets/images/default-profile.jpg'; 
+import { AntDesign } from "@expo/vector-icons";
 
 const students = [
     {id: 1, fullname: "Jane", profileImage: null},
@@ -8,7 +9,18 @@ const students = [
 
 export default function Students() {
     return (
-        <View>
+        <View style={styles.main}>
+            <Text style={styles.title}>Manage Students</Text>
+
+            <TouchableOpacity>
+                <View style={styles.dropdownTrigger}>
+                    <AntDesign name="sort-ascending" size={24} color="black" />
+                    <AntDesign name="down" size={14} color="black" />
+                </View>
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
             {students.map((student) => 
                 <View key={student.id} style={styles.container}>
                     <View style={styles.content}>
@@ -20,7 +32,7 @@ export default function Students() {
                         <Text style={styles.name}>{student.fullname}</Text>
                     </View>
                     <TouchableOpacity>
-                        <Text style={styles.deleteBttn}>Delete</Text>
+                        <Text style={styles.deleteBttn}>Remove</Text>
                     </TouchableOpacity>
                 </View>
             )}
@@ -30,19 +42,49 @@ export default function Students() {
 
 const styles = StyleSheet.create({
     main: {
-        marginTop: 150,
+        padding: 20,
+        paddingTop: 50,
         width: '100%',
         height: '100%',
-        alignItems: 'center',
         backgroundColor: 'white',
-        borderRadius: 20,
+    },
+    title: {
+        fontSize: 24,
+        color: '#00C8B3',
+    },
+    dropdownTrigger: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignSelf: 'flex-end',
+        alignItems: 'center',
+        gap: 5,
+        backgroundColor: '#FEF8FF',
+        padding: 8,
+        borderRadius: 10
+    },
+    divider: {
+        width: '100%',
+        borderWidth: 0.5,
+        borderColor: 'grey',
+        marginVertical: 20,
     },
     container: {
+        width: '100%',
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: 20,
+        padding: 13,
+        paddingHorizontal: 17,
+        backgroundColor: '#EAFBFF',
+        borderRadius: 8,
+        marginBottom: 20,
+        // Soft shadow for modern look
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     content: {
         display: 'flex',
@@ -72,27 +114,5 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: 'white'
     },
-    list: {
-        width: '100%',
-        display: 'flex',
-        paddingTop: 50,
-    },
-    listItem: {
-        borderBottomWidth: 1,
-        borderBottomColor: 'lightgrey',
-        padding: 30,
-        display: 'flex',
-        flexDirection: 'row',
-        gap: 10,
-    },
-    listText: {
-        fontSize: 20,
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: '600'
-    },
-    status: {
-        marginTop: 8
-    }
+
 })
