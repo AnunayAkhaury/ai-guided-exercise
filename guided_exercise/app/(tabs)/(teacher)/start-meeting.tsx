@@ -27,6 +27,17 @@ export default function StartMeeting() {
         userName: trimmedName
       });
 
+      // add session to Firestore db
+      await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/firebase/addSession`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionName: trimmedSession,
+          joinUrl: `/session?sessionName=${trimmedSession}` 
+        }),
+      });
+
+      // reroute instructor to join session page
       router.push({
         pathname: '/(tabs)/(teacher)/session',
         params: { sessionName: trimmedSession, userName: trimmedName, token }
