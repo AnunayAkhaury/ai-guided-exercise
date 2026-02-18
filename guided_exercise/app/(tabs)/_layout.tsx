@@ -96,6 +96,17 @@ export default function TabLayout() {
           headerShown: false,
         }}
       />
+      <Tabs.Screen
+        name="(teacher)/session"
+        options={{
+          title: "Session",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="screenshot-monitor" color={color} size={size} />
+          ),
+          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/session" : null,
+          headerShown: false,
+        }}
+      />
 
       {/* Common tabs */}
       <Tabs.Screen
