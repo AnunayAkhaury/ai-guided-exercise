@@ -108,14 +108,6 @@ export default function TabLayout() {
           headerShown: false,
         }}
       />
-      <Tabs.Screen
-        name="(student)/join-meeting"
-        options={{
-          title: 'Join Meeting',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="screenshot-monitor" color={color} size={size} />,
-          href: '/(tabs)/(student)/join-meeting'
-        }}
-      />
     </Tabs>
   );
 }

@@ -1,8 +1,4 @@
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import BgImage from '@/src/assets/images/profile-background.png'; 
-import ProfileImage from '@/src/assets/images/default-profile.jpg'; 
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { AntDesign, Entypo, Ionicons } from "@expo/vector-icons";
 
 
@@ -85,14 +81,14 @@ export default function Shedule() {
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#ADEBF2',
+        backgroundColor: '#C3F5FF',
     },
     title: {
-        marginTop: 60,
-        marginBottom: 20,
+        marginTop: 80,
+        marginBottom: 10,
         fontSize: 24,
-        fontWeight: '500',
-        marginLeft: 10,
+        fontWeight: '600',
+        marginLeft: 20,
     },
     main: {
         width: '100%',
