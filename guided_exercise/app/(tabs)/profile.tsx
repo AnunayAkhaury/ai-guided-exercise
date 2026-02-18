@@ -8,6 +8,7 @@ import { useUserStore } from "@/src/store/userStore";
 
 
 export default function Profile() {
+    const fullname = useUserStore((state) => state.fullname);
     const role = useUserStore((state) => state.role);
     
     return (
@@ -24,7 +25,7 @@ export default function Profile() {
                     style={styles.profileImage}
                 />
 
-                <TextInput style={styles.username} editable={false}>Username</TextInput>
+                <TextInput style={styles.username} editable={false}>{fullname ?? 'User'}</TextInput>
 
                 <TouchableOpacity style={styles.editButton}>
                     <Text style={{fontSize: 18}}>Edit Details</Text>
