@@ -32,8 +32,10 @@ export default function RecordingsScreen() {
         }
         const userRecordings = await fetchRecordings(uid);
         setRecordings(userRecordings);
-      } finally {
+      } catch (err) {
         setRecordings([]);
+        setLoading(false);
+      } finally {
         setLoading(false);
       }
     };
