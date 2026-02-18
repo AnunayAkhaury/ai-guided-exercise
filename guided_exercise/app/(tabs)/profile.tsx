@@ -4,9 +4,12 @@ import ProfileImage from '@/src/assets/images/default-profile.jpg';
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { AntDesign, Ionicons } from "@expo/vector-icons";
+import { useUserStore } from "@/src/store/userStore";
 
 
 export default function Profile() {
+    const role = useUserStore((state) => state.role);
+    
     return (
         <View>
             <Image
@@ -29,15 +32,15 @@ export default function Profile() {
                 </TouchableOpacity>
                     
                 <View style={styles.list}>
-                    <TouchableOpacity style={styles.listItem}>
+                    {role!=='instructor' && <TouchableOpacity style={styles.listItem}>
                         <Ionicons name="ribbon" size={24} color="black" />
                         <Text style={styles.listText}>Achievements</Text>
-                    </TouchableOpacity>
+                    </TouchableOpacity>}
 
-                    <TouchableOpacity style={styles.listItem}>
+                    {role!=='instructor' && <TouchableOpacity style={styles.listItem}>
                         <AntDesign name="line-chart" size={24} color="black" />
                         <Text style={styles.listText}>Stats</Text>
-                    </TouchableOpacity>
+                    </TouchableOpacity>}
 
                     <TouchableOpacity style={styles.listItem}>
                         <MaterialCommunityIcons name="heart-circle" size={24} color="black" />
