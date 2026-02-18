@@ -9,6 +9,7 @@ export async function createAccount(email: string, password: string) {
     const userCredential: UserCredential = await createUserWithEmailAndPassword(auth, email, password);
     return userCredential.user.uid;
   } catch (err) {
+    console.log(err);
     throw new Error(`Unknown Error.`);
   }
 }
@@ -16,7 +17,7 @@ export async function createAccount(email: string, password: string) {
 export async function createProfile(uid: string, role: string, username: string, fullname: string) {
   try {
     // Create user profile in Firestore
-    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/createProfile`, {
+    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/firebase/createProfile`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -41,7 +42,7 @@ export async function login(email: string, password: string) {
   try {
     const userCredential: UserCredential = await signInWithEmailAndPassword(auth, email, password);
 
-    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/getProfile`, {
+    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/firebase/getProfile`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
