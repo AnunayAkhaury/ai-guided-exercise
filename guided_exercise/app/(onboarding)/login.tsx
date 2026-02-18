@@ -21,12 +21,7 @@ export default function Login() {
       <Text style={styles.title}>Login</Text>
       <View style={styles.inputContainer}>
         <Text>Email</Text>
-        <TextInput
-          secureTextEntry={true}
-          style={styles.input}
-          onChangeText={(email) => setEmail(email)}
-          value={email}
-        />
+        <TextInput style={styles.input} onChangeText={(email) => setEmail(email)} value={email} />
       </View>
       <View style={styles.inputContainer}>
         <Text>Password</Text>
@@ -67,9 +62,12 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: 'white',
     borderRadius: 5,
-    height: 30,
+    height: 40,
     width: '100%',
-    color: 'black'
+    color: 'black',
+    paddingHorizontal: 10,
+    textAlignVertical: 'center',
+    includeFontPadding: false
   },
   button: {
     marginTop: 15,

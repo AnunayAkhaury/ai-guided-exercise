@@ -73,9 +73,12 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: 'white',
     borderRadius: 5,
-    height: 30,
+    height: 40,
     width: '100%',
-    color: 'black'
+    color: 'black',
+    paddingHorizontal: 10,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   button: {
     marginTop: 15,
