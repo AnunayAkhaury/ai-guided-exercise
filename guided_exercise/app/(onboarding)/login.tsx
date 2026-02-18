@@ -1,16 +1,22 @@
 import { Text, TextInput, Button, StyleSheet, View, Pressable } from 'react-native';
-import { Link, router, useLocalSearchParams } from 'expo-router';
+import { Link, router } from 'expo-router';
 import React, { useState } from 'react';
 import { login } from '@/src/api/Firebase/firebase-auth';
+import { useUserStore } from '@/src/store/userStore';
 
 export default function Login() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const role = useUserStore((state) => state.role);
 
   const handleLogin = async () => {
     try {
       await login(email, password);
-      router.replace('/(tabs)/classes');
+      if (role === 'student') {
+        router.replace('/(tabs)/(student)/classes');
+      } else {
+        router.replace('/(tabs)/(teacher)/classes');
+      }
     } catch (error) {
       console.error('Login failed:', error);
     }
@@ -38,7 +44,7 @@ export default function Login() {
       <Link href="/signup" push>
         <Text style={styles.linkText}>Signup Instead</Text>
       </Link>
-      <Button title="Skip Auth (For Development)" onPress={() => router.replace('/(tabs)/classes')} />
+      <Button title="Skip Auth (For Development)" onPress={() => router.replace('/')} />
     </View>
   );
 }

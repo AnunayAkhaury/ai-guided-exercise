@@ -18,7 +18,11 @@ export default function CreateProfile() {
 
   const handleCreateProfile = async () => {
     await createProfile(uid!, role, username, fullname);
-    router.replace('/(tabs)/classes');
+    if (role === 'student') {
+      router.replace('/(tabs)/(student)/classes');
+    } else {
+      router.replace('/(tabs)/(teacher)/classes');
+    }
   };
 
   return (
