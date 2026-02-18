@@ -35,6 +35,13 @@ export default function TabLayout() {
           headerShown: false
         }}
       />
+      <Tabs.Screen
+        name="(student)/session"
+        options={{
+          href: null,
+          headerShown: false
+        }}
+      />
 
       {/* Instructor tabs */}
       <Tabs.Screen
@@ -59,6 +66,13 @@ export default function TabLayout() {
           title: 'Students',
           tabBarIcon: ({ color, size }) => <MaterialIcons name="screenshot-monitor" color={color} size={size} />,
           href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/students' : null
+        }}
+      />
+      <Tabs.Screen
+        name="(teacher)/session"
+        options={{
+          href: null,
+          headerShown: false
         }}
       />
 
