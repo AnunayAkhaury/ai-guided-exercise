@@ -28,7 +28,7 @@ export default function StartMeeting() {
       });
 
       router.push({
-        pathname: '/(teacher)/session',
+        pathname: '/(tabs)/(teacher)/session',
         params: { sessionName: trimmedSession, userName: trimmedName, token }
       });
     } catch (err: any) {

@@ -14,7 +14,7 @@ export async function getZoomToken({ sessionName, userName }: ZoomTokenRequest):
     throw new Error('EXPO_PUBLIC_API_URL is not set.');
   }
 
-  const response = await fetch(`${API_BASE_URL}/zoom/token`, {
+  const response = await fetch(`${API_BASE_URL}/api/zoom/token`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
