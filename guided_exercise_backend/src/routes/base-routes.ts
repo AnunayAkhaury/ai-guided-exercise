@@ -7,6 +7,7 @@ import {
 } from '@/controllers/firebase-controller.js';
 import { addRecordingController } from '@/controllers/firebase-controller.js';
 import { uploadVideoController, getVideoUrlController } from '@/controllers/aws-controller.js';
+import { createIvsTokenController } from '@/controllers/ivs-controller.js';
 
 const router = Router();
 router.get('/', helloWorldController);
@@ -14,6 +15,7 @@ router.post('/api/firebase/createProfile', createProfileController);
 router.post('/api/firebase/getProfile', getProfileController);
 router.post('/api/firebase/addRecording', addRecordingController);
 router.post('/api/firebase/getUserRecordings', getUserRecordingsController);
+router.post('/api/ivs/token', createIvsTokenController);
 router.post('/api/aws/uploadVideo', uploadVideoController);
 router.post('/api/aws/getVideo', getVideoUrlController);
 
