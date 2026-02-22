@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { AntDesign, Ionicons } from '@expo/vector-icons'; // Standard in modern Expo
 import ClassCard from '@/src/components/ClassCard';
 
-// Mock data: In a real app, fetch this from your 'zoom-controller' or DB
+// Mock data: In a real app, fetch this from your backend or DB
 const CLASSES_DATA = [
   { id: 'classid1', start: new Date(Date.now() + 24 * 60 * 60 * 1000), end: new Date(Date.now() + 25 * 60 * 60 * 1000), title: 'Session', desc: 'This is a session', active: false },
   { id: 'classid2', start: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000), title: 'Session', desc: 'This is a session', active: false },

@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Alert, StyleSheet, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useZoom } from '@zoom/react-native-videosdk';
-import { getZoomToken } from '@/src/api/zoom';
 
 export default function JoinSessionScreen() {
   const { sessionName: paramSessionName } = useLocalSearchParams(); // Grab param
   const [sessionName, setSessionName] = useState((paramSessionName as string) || '');
   const [displayName, setDisplayName] = useState('');
-  const zoom = useZoom();
   const router = useRouter();
 
   const handleJoin = async () => {
@@ -23,16 +20,9 @@ export default function JoinSessionScreen() {
         sessionName: trimmedSession,
         displayName: trimmedName
       });
-      const token = await getZoomToken({
-        sessionName: trimmedSession,
-        userName: trimmedName,
-        role: 0
-      });
-      console.log('[StudentJoin] token received', { length: token.length });
-
       router.push({
         pathname: '/(tabs)/(student)/session',
-        params: { sessionName: trimmedSession, userName: trimmedName, token }
+        params: { sessionName: trimmedSession, userName: trimmedName }
       });
 
     } catch (error: any) {

@@ -9,13 +9,13 @@ export async function uploadVideoToS3(bucketName: string, key: string, filePath:
     if (!bucketName || !key || !filePath) {
       throw new Error('Missing parameters (bucketName, key, filePath)');
     }
-    // TODO: Using a hard coded video path rn, will update to video from zoom
+    // TODO: Using a hard coded video path rn, will update to actual capture source
     const fileStream = fs.createReadStream(
       'C:/Users/grace/All Programming/ai-guided-exercise/guided_exercise_backend/src/services/AWS/testvideo30sec.mp4'
     );
 
     if (!fileStream) {
-      throw new Error('Unable to get zoom link.');
+      throw new Error('Unable to read video file.');
     }
 
     const upload = new Upload({
