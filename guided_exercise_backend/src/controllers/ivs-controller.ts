@@ -10,12 +10,10 @@ type IvsTokenRequest = {
   durationMinutes?: number;
 };
 
-const USER_NAME_MAX = 128; // IVS max length for userId and attributes
+const USER_NAME_MAX = 128; 
 const MIN_DURATION_MINUTES = 1;
-const MAX_DURATION_MINUTES = 20160; // Max allowed by IVS (14 days)
+const MAX_DURATION_MINUTES = 120; // 2 hours
 
-// Ensure your AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY 
-// are set in your environment variables for the SDK to pick them up.
 const ivsClient = new IVSRealTimeClient({ region: process.env.AWS_REGION || 'us-west-2' });
 
 export async function ivsTokenController(req: Request, res: Response, next: NextFunction) {
@@ -45,9 +43,9 @@ export async function ivsTokenController(req: Request, res: Response, next: Next
     // Prepare the command for AWS IVS
     const command = new CreateParticipantTokenCommand({
       stageArn,
-      duration: durationMinutes || 120, // 2 hours default, matching your old Zoom logic
+      duration: durationMinutes || 120, // 2 hours
       userId: userId || userName || `user-${Date.now()}`,
-      attributes: userName ? { username: userName } : undefined, // Useful for storing participant specific info
+      attributes: userName ? { username: userName } : undefined, // for storing participant-specific info
       capabilities: capabilities && capabilities.length > 0 ? capabilities : ['PUBLISH', 'SUBSCRIBE']
     });
 

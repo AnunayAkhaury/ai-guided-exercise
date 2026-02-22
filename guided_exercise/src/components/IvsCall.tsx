@@ -97,6 +97,7 @@ export default function IvsCall({ token, onLeave }: IvsCallProps) {
     console.log("Toggle video triggered");
   };
 
+  // not in session yet, show join screen
   if (!isInStage) {
     return (
       <View style={styles.container}>
@@ -110,17 +111,18 @@ export default function IvsCall({ token, onLeave }: IvsCallProps) {
     );
   }
 
+  // show stage view with other participants
   return (
     <View style={styles.container}>
       <ScrollView style={styles.videoContainer}>
         
-        {/* Local Participant (Your Camera) */}
+        {/* local participant */}
         <View style={styles.participantWrapper}>
           <Text style={styles.participantLabel}>You</Text>
           <ExpoIVSStagePreviewView style={styles.videoFrame} />
         </View>
 
-        {/* Remote Participants */}
+        {/* other participants */}
         {remoteParticipants.map((participant) => (
           <View key={participant.participantId} style={styles.participantWrapper}>
              <Text style={styles.participantLabel}>{participant.participantId}</Text>
