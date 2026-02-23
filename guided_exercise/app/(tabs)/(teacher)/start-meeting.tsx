@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { getIvsToken } from '@/src/api/ivs';
 
 export default function StartMeeting() {
   const router = useRouter();
@@ -9,7 +10,7 @@ export default function StartMeeting() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleStart = () => {
+  const handleStart = async () => {
     const trimmedSession = sessionName.trim();
     const trimmedName = displayName.trim();
 
@@ -20,11 +21,22 @@ export default function StartMeeting() {
 
     setError('');
     setLoading(true);
-    router.push({
-      pathname: '/(tabs)/(teacher)/session',
-      params: { sessionName: trimmedSession, userName: trimmedName }
-    });
-    setLoading(false);
+    try {
+      const token = await getIvsToken({
+        userId: trimmedName,
+        publish: true,
+        subscribe: true,
+        durationSeconds: 3600
+      });
+      router.push({
+        pathname: '/(tabs)/(teacher)/session',
+        params: { sessionName: trimmedSession, userName: trimmedName, token }
+      });
+    } catch (err: any) {
+      setError(err?.message || 'Failed to start session.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -59,7 +71,7 @@ export default function StartMeeting() {
       {!!error && <Text style={styles.error}>{error}</Text>}
 
       <Pressable style={styles.button} onPress={handleStart} disabled={loading}>
-        <Text style={styles.buttonText}>Start</Text>
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Start</Text>}
       </Pressable>
     </View>
   );

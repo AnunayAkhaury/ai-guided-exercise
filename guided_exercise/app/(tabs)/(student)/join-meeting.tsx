@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Alert, StyleSheet, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { getIvsToken } from '@/src/api/ivs';
 
 export default function JoinSessionScreen() {
   const { sessionName: paramSessionName } = useLocalSearchParams(); // Grab param
@@ -20,9 +21,15 @@ export default function JoinSessionScreen() {
         sessionName: trimmedSession,
         displayName: trimmedName
       });
+      const token = await getIvsToken({
+        userId: trimmedName,
+        publish: false,
+        subscribe: true,
+        durationSeconds: 3600
+      });
       router.push({
         pathname: '/(tabs)/(student)/session',
-        params: { sessionName: trimmedSession, userName: trimmedName }
+        params: { sessionName: trimmedSession, userName: trimmedName, token }
       });
 
     } catch (error: any) {
