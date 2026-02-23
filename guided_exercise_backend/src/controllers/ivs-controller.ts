@@ -16,9 +16,10 @@ const MAX_DURATION_SECONDS = 43200; // 12 hours
 export async function createIvsTokenController(req: Request, res: Response, next: NextFunction) {
   try {
     const { stageArn, userId, publish, subscribe, attributes, durationSeconds } = req.body as IvsTokenRequest;
+    const effectiveStageArn = stageArn ?? process.env.IVS_STAGE_ARN;
 
-    if (!stageArn) {
-      return res.status(400).json({ message: 'stageArn is required.' });
+    if (!effectiveStageArn) {
+      return res.status(400).json({ message: 'stageArn is required (or set IVS_STAGE_ARN).' });
     }
 
     const capabilities: Array<'PUBLISH' | 'SUBSCRIBE'> = [];
@@ -38,7 +39,7 @@ export async function createIvsTokenController(req: Request, res: Response, next
 
     const client = new IVSRealTimeClient({ region: DEFAULT_REGION });
     const command = new CreateParticipantTokenCommand({
-      stageArn,
+      stageArn: effectiveStageArn,
       userId,
       capabilities,
       attributes,
