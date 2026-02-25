@@ -27,11 +27,12 @@ export default function ActiveClassCard({
     });
 
     return (
-      <View className="w-full rounded-xl shadow gap-2 overflow-hidden">
+      <View className="relative w-full rounded-xl shadow-md shadow-black bg-white mb-3 overflow-hidden">
+        
         <Image
-            source={ActiveClassBg}
-            resizeMode="cover"
-            className="absolute w-full h-full"
+          source={ActiveClassBg}
+          resizeMode="cover"
+          className="absolute w-full h-full inset-0"
         />
 
         <View className="w-full p-5 px-5 flex flex-col justify-center items-center">
