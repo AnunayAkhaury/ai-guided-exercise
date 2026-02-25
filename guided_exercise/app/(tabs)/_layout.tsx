@@ -8,7 +8,17 @@ export default function TabLayout() {
   const skipAuth = __DEV__ && role == null;
 
   return (
-    <Tabs>
+    <Tabs
+      screenOptions={{
+        tabBarStyle: {
+          backgroundColor: "#A980FE",
+        },
+        tabBarLabelStyle: {
+          fontSize: 14,
+          fontFamily: "Inter_600SemiBold",
+        },
+      }}
+    >
       {/* Student tabs */}
       <Tabs.Screen
         name="(student)/classes"
