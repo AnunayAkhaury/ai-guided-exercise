@@ -15,5 +15,6 @@
     "expo-env.d.ts",
     "babel.config.js",
     "declarations.d.ts",
+    "nativewind-env.d.ts"
   ]
 }
