@@ -38,8 +38,8 @@ export default function ClassesScreen() {
             <Typography font='inter-semibold' className=''>Upcoming Sessions</Typography>
             <Ionicons name="calendar-clear-sharp" size={17} color="black" />
           </View>
-          <TouchableOpacity>
-            <AntDesign name="delete" size={17} color="black" />
+          <TouchableOpacity className='p-1 rounded-lg border-[#DFDFDF] border-[1px]'>
+            <AntDesign name="delete" size={17} color="#929292" />
           </TouchableOpacity>
         </View>
 
