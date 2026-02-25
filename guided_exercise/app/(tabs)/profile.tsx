@@ -8,7 +8,7 @@ import { ReactNode } from "react";
 
 function Button({ icon, title }: { icon: ReactNode, title: string, }) {
     return (
-        <TouchableOpacity className="w-full flex flex-row p-5 justify-between items-center">
+        <TouchableOpacity className="w-full flex flex-row p-5 justify-between items-center bg-[#EDEDED]">
             <View className="flex flex-row gap-5 justify-center items-center">
                 {icon}
                 <Typography font='inter-medium' className="text-base">{title}</Typography>
@@ -41,15 +41,15 @@ export default function Profile() {
                 </Typography>
 
                 <Typography font='inter-medium' className="w-full text-start text-base mt-6 mb-3">Personal</Typography>
-                <View className="w-full rounded-3xl overflow-hidden bg-[#EDEDED]">
-                    <Button icon={<MaterialIcons name="edit" size={20} color="black" />} title="Edit Profile" />
-                    <View className="w-full h-[1px] bg-[#B9B9B9]" />
-                    <Button icon={<Ionicons name="ribbon-sharp" size={20} color="black" />} title="Achievements" />
+                <View className="w-full rounded-3xl overflow-hidden">
+                    <Button icon={<MaterialIcons name="edit" size={17} color="black" />} title="Edit Profile" />
+                    <View className="w-full h-[1px] bg-[#dadada]" />
+                    <Button icon={<Ionicons name="ribbon-sharp" size={17} color="black" />} title="Achievements" />
                 </View>
 
                 <Typography font='inter-medium' className="w-full text-start text-base mt-6 mb-3">Other</Typography>
-                <View className="w-full rounded-3xl overflow-hidden bg-[#EDEDED]">
-                    <Button icon={<Ionicons name="heart" size={20} color="black" />} title="Donate Page" />
+                <View className="w-full rounded-3xl overflow-hidden">
+                    <Button icon={<Ionicons name="heart" size={17} color="black" />} title="Donate Page" />
                 </View>
 
                 <TouchableOpacity className="mt-24">
