@@ -3,6 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons'; // Standard in modern Expo
 import ClassCard from '@/src/components/ClassCard';
+import Header from '@/src/components/ui/Header';
 
 // Mock data: In a real app, fetch this from your 'zoom-controller' or DB
 const CLASSES_DATA = [
@@ -36,6 +37,7 @@ function JoinMeetingBttn({ item }: { item: typeof CLASSES_DATA[0] }) {
 export default function ClassesScreen() {
   return (
     <View style={styles.container}>
+      <Header title='Classes'/>
       <Text style={styles.header}>Available Sessions</Text>
       <FlatList
         data={CLASSES_DATA}
