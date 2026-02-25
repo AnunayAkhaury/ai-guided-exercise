@@ -1,6 +1,10 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, TextInput, TouchableOpacity, View } from "react-native";
 import DefaultImage from '@/src/assets/images/default-profile.jpg'; 
-import { AntDesign } from "@expo/vector-icons";
+import { AntDesign, Ionicons } from "@expo/vector-icons";
+import Header from "@/src/components/ui/Header";
+import Gradient from '@/src/assets/images/RecordingsGradient.jpeg'; 
+import Typography from "@/src/components/ui/Typography";
+
 
 const students = [
     {id: 1, fullname: "Jane", profileImage: null},
@@ -9,110 +13,56 @@ const students = [
 
 export default function Students() {
     return (
-        <View style={styles.main}>
-            <Text style={styles.title}>Manage Students</Text>
+        <View className="flex-grow bg-white">
+            <Header title="Students" />
 
-            <TouchableOpacity>
-                <View style={styles.dropdownTrigger}>
-                    <AntDesign name="sort-ascending" size={24} color="black" />
-                    <AntDesign name="down" size={14} color="black" />
-                </View>
-            </TouchableOpacity>
-
-            <View style={styles.divider} />
-
-            {students.map((student) => 
-                <View key={student.id} style={styles.container}>
-                    <View style={styles.content}>
-                        <Image
-                            source={student.profileImage ?? DefaultImage}
-                            resizeMode="cover"
-                            style={styles.profileImage}
+            <View className="w-full p-8">
+                <View className="flex flex-row justify-between items-center">
+                    <View className="flex flex-row items-center bg-[#E6E6E6] w-80 h-11 rounded-xl gap-1 pl-3">
+                        <Ionicons name="search-sharp" size={12} color="black" />
+                        <TextInput
+                            editable placeholder="Search name..."
+                            className="flex-grow text-base"
+                            style={{ fontFamily: 'Inter_400Regular' }}
+                            placeholderTextColor="#000"
                         />
-                        <Text style={styles.name}>{student.fullname}</Text>
                     </View>
                     <TouchableOpacity>
-                        <Text style={styles.deleteBttn}>Remove</Text>
+                        <View className="relative flex flex-row items-center gap-1 p-2 rounded-xl overflow-hidden">
+                            <Image
+                                source={Gradient}
+                                resizeMode="cover"
+                                className="absolute flex-grow inset-0"
+                            />
+                            <AntDesign name="sort-ascending" size={16} color="black" />
+                            <AntDesign name="down" size={14} color="black" />
+                        </View>
                     </TouchableOpacity>
                 </View>
-            )}
+
+                <View className="my-2 w-full bg-[#D3D3D3] h-[1px]" />
+
+                <Typography font='inter-semibold' className="text-sm pb-3">{`${students.length} students`}</Typography>
+
+                {students.map((student, idx) => 
+                    <View key={student.id}>
+                        {idx !== 0 && <View className="my-2 w-full bg-[#EFEFEF] h-[1px]" />}
+                        <View className="flex flex-row justify-between items-center py-4">
+                            <View className="flex flex-row items-center gap-3">
+                                <Image
+                                    source={student.profileImage ?? DefaultImage}
+                                    resizeMode="cover"
+                                    className="w-10 h-10 rounded-full"
+                                />
+                                <Typography font='inter-medium'>{student.fullname}</Typography>
+                            </View>
+                            <TouchableOpacity>
+                                <Typography font='inter-semibold' className="py-1 px-3 text-[#FF0000] text-sm bg-[#B3B3B3] rounded-md">Remove</Typography>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+            </View>
         </View>
     )
 }
-
-const styles = StyleSheet.create({
-    main: {
-        padding: 20,
-        paddingTop: 50,
-        width: '100%',
-        height: '100%',
-        backgroundColor: 'white',
-    },
-    title: {
-        fontSize: 24,
-        color: '#00C8B3',
-    },
-    dropdownTrigger: {
-        display: 'flex',
-        flexDirection: 'row',
-        alignSelf: 'flex-end',
-        alignItems: 'center',
-        gap: 5,
-        backgroundColor: '#FEF8FF',
-        padding: 8,
-        borderRadius: 10
-    },
-    divider: {
-        width: '100%',
-        borderWidth: 0.5,
-        borderColor: 'grey',
-        marginVertical: 20,
-    },
-    container: {
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 13,
-        paddingHorizontal: 17,
-        backgroundColor: '#EAFBFF',
-        borderRadius: 8,
-        marginBottom: 20,
-        // Soft shadow for modern look
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-    },
-    content: {
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    profileImage: {
-        width: 50,
-        height: 50,
-        borderRadius: 25
-    },
-    name: {
-        fontSize: 20,
-    },
-    deleteBttn: {
-        display: 'flex',
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 5,
-        backgroundColor: 'red',
-        padding: 10,
-        paddingTop: 5,
-        paddingBottom: 5,
-        borderRadius: 10,
-        fontSize: 16,
-        color: 'white'
-    },
-
-})
