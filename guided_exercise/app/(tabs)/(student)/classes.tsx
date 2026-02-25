@@ -1,11 +1,17 @@
 import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons'; // Standard in modern Expo
-import ClassCard from '@/src/components/ClassCard';
+import { FontAwesome6, Ionicons } from '@expo/vector-icons';
+import ClassCard from '@/src/components/classes/ClassCard';
 import Header from '@/src/components/ui/Header';
+import ActiveClassCard from '@/src/components/classes/ActiveClassCard';
+import Typography from '@/src/components/ui/Typography';
 
 // Mock data: In a real app, fetch this from your 'zoom-controller' or DB
+const ACTIVE_CLASSES_DATA = [
+  { id: 'classid1', start: new Date(Date.now() + 24 * 60 * 60 * 1000), end: new Date(Date.now() + 25 * 60 * 60 * 1000), title: 'Session', desc: 'This is a session', active: false },
+];
+
 const CLASSES_DATA = [
   { id: 'classid1', start: new Date(Date.now() + 24 * 60 * 60 * 1000), end: new Date(Date.now() + 25 * 60 * 60 * 1000), title: 'Session', desc: 'This is a session', active: false },
   { id: 'classid2', start: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000), title: 'Session', desc: 'This is a session', active: false },
@@ -25,7 +31,6 @@ function JoinMeetingBttn({ item }: { item: typeof CLASSES_DATA[0] }) {
 
   return (
     <TouchableOpacity 
-      style={styles.bttn} 
       onPress={() => handleClassSelect(item.id)}
     >
       <Text>Join Meeting</Text>
@@ -36,31 +41,32 @@ function JoinMeetingBttn({ item }: { item: typeof CLASSES_DATA[0] }) {
 
 export default function ClassesScreen() {
   return (
-    <View style={styles.container}>
-      <Header title='Classes'/>
-      <Text style={styles.header}>Available Sessions</Text>
-      <FlatList
-        data={CLASSES_DATA}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ClassCard {...item}><JoinMeetingBttn item={item} /></ClassCard>}
-        contentContainerStyle={styles.listPadding}
-      />
+    <View className='bg-white flex-grow'>
+      <Header title='Classes' />
+
+      <View className='px-5 pt-9'>
+        <View className='pb-6 flex flex-row items-center gap-2'>
+          <Typography font='inter-semibold' className=''>Active Sessions</Typography>
+          <FontAwesome6 name="dumbbell" size={16} color="black" className="-rotate-45" />
+        </View>
+
+        <FlatList
+          data={ACTIVE_CLASSES_DATA}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => <ActiveClassCard {...item} />}
+        />
+
+        <View className='pt-20 pb-6 flex flex-row items-center gap-2'>
+          <Typography font='inter-semibold' className=''>Upcoming Sessions</Typography>
+          <Ionicons name="calendar-clear-sharp" size={17} color="black" />
+        </View>
+
+        <FlatList
+          data={CLASSES_DATA}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => <ClassCard {...item} />}
+        />
+      </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { fontSize: 22, fontWeight: 'bold', margin: 20, marginBottom: 10 },
-  listPadding: { paddingHorizontal: 20 },
-  bttn: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    marginTop: 10,
-  },
-});

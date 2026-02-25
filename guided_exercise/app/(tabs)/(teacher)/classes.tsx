@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AntDesign, Ionicons } from '@expo/vector-icons'; // Standard in modern Expo
-import ClassCard from '@/src/components/ClassCard';
+import ClassCard from '@/src/components/classes/ClassCard';
 
 // Mock data: In a real app, fetch this from your 'zoom-controller' or DB
 const CLASSES_DATA = [
@@ -41,7 +41,7 @@ export default function ClassesScreen() {
       <FlatList
         data={CLASSES_DATA}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ClassCard {...item}><JoinMeetingBttn item={item} /></ClassCard>}
+        renderItem={({ item }) => <ClassCard {...item} />}
         contentContainerStyle={styles.listPadding}
       />
       <View style={styles.floatBttn}>
