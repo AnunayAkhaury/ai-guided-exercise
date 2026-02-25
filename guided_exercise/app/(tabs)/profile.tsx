@@ -1,135 +1,63 @@
 import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import BgImage from '@/src/assets/images/profile-background.png'; 
-import ProfileImage from '@/src/assets/images/default-profile.jpg'; 
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { AntDesign, Ionicons } from "@expo/vector-icons";
+import ProfileImage from '@/src/assets/images/default-profile.jpg';
+import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useUserStore } from "@/src/store/userStore";
+import Typography from "@/src/components/ui/Typography";
+import { ReactNode } from "react";
 
+function Button({ icon, title }: { icon: ReactNode, title: string, }) {
+    return (
+        <TouchableOpacity className="w-full flex flex-row p-5 justify-between items-center">
+            <View className="flex flex-row gap-5 justify-center items-center">
+                {icon}
+                <Typography font='inter-medium' className="text-base">{title}</Typography>
+            </View>
+            <AntDesign name="right" size={12} color="#868686" />
+        </TouchableOpacity>
+    );
+}
 
 export default function Profile() {
     const fullname = useUserStore((state) => state.fullname);
     const role = useUserStore((state) => state.role);
     
     return (
-        <View>
+        <View className="relative flex-grow">
             <Image
                 source={BgImage}
                 resizeMode="cover"
-                style={styles.bgImage}
+                className="absolute inset-0 w-full h-52"
             />
-            <View style={styles.main}>
+            <View className="relative rounded-3xl mt-36 w-full flex-grow flex flex-col items-center bg-white px-12">
                 <Image
                     source={ProfileImage}
                     resizeMode="cover"
-                    style={styles.profileImage}
+                    className="absolute w-[126px] h-[126px] top-[-69px] rounded-full shadow-lg "
                 />
 
-                <TextInput style={styles.username} editable={false}>{fullname ?? 'User'}</TextInput>
+                <Typography font='inter-medium' className="mt-20 text-4xl">
+                    {fullname ?? 'User'}
+                </Typography>
 
-                <TouchableOpacity style={styles.editButton}>
-                    <Text style={{fontSize: 18}}>Edit Details</Text>
-                    <MaterialIcons name="edit" size={24} color="black" />
-                </TouchableOpacity>
-                    
-                <View style={styles.list}>
-                    {role!=='instructor' && <TouchableOpacity style={styles.listItem}>
-                        <Ionicons name="ribbon" size={24} color="black" />
-                        <Text style={styles.listText}>Achievements</Text>
-                    </TouchableOpacity>}
-
-                    {role!=='instructor' && <TouchableOpacity style={styles.listItem}>
-                        <AntDesign name="line-chart" size={24} color="black" />
-                        <Text style={styles.listText}>Stats</Text>
-                    </TouchableOpacity>}
-
-                    <TouchableOpacity style={styles.listItem}>
-                        <MaterialCommunityIcons name="heart-circle" size={24} color="black" />
-                        <Text style={styles.listText}>Donate</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity>
-                        <Text style={[styles.listText, styles.logout]}>Logout</Text>
-                    </TouchableOpacity>  
+                <Typography font='inter-medium' className="w-full text-start text-base mt-6 mb-3">Personal</Typography>
+                <View className="w-full rounded-3xl overflow-hidden bg-[#EDEDED]">
+                    <Button icon={<MaterialIcons name="edit" size={20} color="black" />} title="Edit Profile" />
+                    <View className="w-full h-[1px] bg-[#B9B9B9]" />
+                    <Button icon={<Ionicons name="ribbon-sharp" size={20} color="black" />} title="Achievements" />
                 </View>
+
+                <Typography font='inter-medium' className="w-full text-start text-base mt-6 mb-3">Other</Typography>
+                <View className="w-full rounded-3xl overflow-hidden bg-[#EDEDED]">
+                    <Button icon={<Ionicons name="heart" size={20} color="black" />} title="Donate Page" />
+                </View>
+
+                <TouchableOpacity className="mt-24">
+                    <Typography font='inter-bold' className="text-[#FF0000] text-lg">Logout</Typography>
+                </TouchableOpacity>
             </View>
             
 
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    bgImage: {
-        width: '100%',
-        height: 200,
-        position: 'absolute'
-    },
-    main: {
-        marginTop: 150,
-        width: '100%',
-        height: '100%',
-        alignItems: 'center',
-        backgroundColor: 'white',
-        borderRadius: 20,
-    },
-    profileImage: {
-        position: 'absolute',
-        top: -78,
-        width: 156,
-        height: 156,
-        borderRadius: 156,
-        borderWidth: 1,
-        borderColor: 'white'
-    },
-    username: {
-        fontSize: 30,
-        marginTop: 90,
-        fontWeight: '500',
-    },
-    editButton: {
-        display: 'flex',
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 5,
-        backgroundColor: '#C3F5FF',
-        padding: 20,
-        paddingTop: 5,
-        paddingBottom: 5,
-        borderRadius: 8,
-    },
-    list: {
-        width: '100%',
-        display: 'flex',
-        paddingTop: 50,
-        paddingHorizontal: 12,
-        gap: 20,
-    },
-    listItem: {
-        width: '100%',
-        padding: 20,
-        paddingTop: 18,
-        paddingBottom: 16,
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        borderRadius: 8,
-        backgroundColor: 'white',
-        // Soft shadow for modern look
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-    },
-    listText: {
-        fontSize: 20,
-    },
-    logout: {
-        color: 'red',
-        alignSelf: 'center',
-        marginTop: 30,
-    },
-})

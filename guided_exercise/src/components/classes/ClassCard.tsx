@@ -34,7 +34,7 @@ export default function ClassCard({
 
     return (
       <View className="w-full flex flex-row justify-center items-center py-5 px-2 rounded-lg shadow mb-3 bg-white gap-2">
-        <View className="bg-[#E1D5FF] rounded-md flex flex-col justify-center w-20 h-20 ">
+        <View className="bg-[#E1D5FF] rounded-md flex flex-col justify-center w-20 h-20 overflow-hidden">
           <Typography font='istokWeb-bold' className="text-[13px] h-6 text-center">8:00 AM</Typography>
           <Typography
             font='istokWeb-bold'
