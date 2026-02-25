@@ -19,8 +19,7 @@ function Button({ icon, title }: { icon: ReactNode, title: string, }) {
 }
 
 export default function Profile() {
-    const fullname = useUserStore((state) => state.fullname);
-    const role = useUserStore((state) => state.role);
+    const username = useUserStore((state) => state.username);
     
     return (
         <View className="relative flex-grow">
@@ -37,7 +36,7 @@ export default function Profile() {
                 />
 
                 <Typography font='inter-medium' className="mt-20 text-4xl">
-                    {fullname ?? 'User'}
+                    {username ?? 'user'}
                 </Typography>
 
                 <Typography font='inter-medium' className="w-full text-start text-base mt-6 mb-3">Personal</Typography>
