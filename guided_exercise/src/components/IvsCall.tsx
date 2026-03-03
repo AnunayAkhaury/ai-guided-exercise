@@ -15,10 +15,15 @@ import {
 
 type IvsCallProps = {
   token?: string;
+  publishOnJoin?: boolean;
   onLeave?: () => void;
 };
 
-export default function IvsCall({ token, onLeave }: IvsCallProps) {
+type RemoteParticipant = {
+  participantId: string;
+};
+
+export default function IvsCall({ token, publishOnJoin = true, onLeave }: IvsCallProps) {
   const [isInStage, setIsInStage] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
@@ -26,7 +31,12 @@ export default function IvsCall({ token, onLeave }: IvsCallProps) {
   const [status, setStatus] = useState('');
 
   // replaces Zoom's manual listener mapping for users.
-  const remoteParticipants = useStageParticipants();
+  const remoteParticipants = useStageParticipants() as unknown;
+  const participants: RemoteParticipant[] = Array.isArray(remoteParticipants)
+    ? (remoteParticipants as RemoteParticipant[])
+    : Array.isArray((remoteParticipants as { participants?: RemoteParticipant[] })?.participants)
+      ? ((remoteParticipants as { participants?: RemoteParticipant[] }).participants ?? [])
+      : [];
 
   useEffect(() => {
     // setup the connection listener
@@ -70,11 +80,15 @@ export default function IvsCall({ token, onLeave }: IvsCallProps) {
       // connect to the stage using token
       await joinStage(token);
 
-      // start broadcasting local streams to others
-      await setStreamsPublished(true);
+      // start broadcasting local streams only when participant has publish capability
+      if (publishOnJoin) {
+        await setStreamsPublished(true);
+      }
       
-      // Sync initial mute state
-      await setMicrophoneMuted(isAudioMuted);
+      // Sync initial mute state (only relevant if publishing is enabled)
+      if (publishOnJoin) {
+        await setMicrophoneMuted(isAudioMuted);
+      }
 
     } catch (err: any) {
       setError(err.message || 'Failed to join stage.');
@@ -88,6 +102,10 @@ export default function IvsCall({ token, onLeave }: IvsCallProps) {
   };
 
   const toggleAudio = async () => {
+    if (!publishOnJoin) {
+      setError('Audio controls are disabled for view-only participants.');
+      return;
+    }
     const willMute = !isAudioMuted;
     await setMicrophoneMuted(willMute);
     setIsAudioMuted(willMute);
@@ -123,7 +141,7 @@ export default function IvsCall({ token, onLeave }: IvsCallProps) {
         </View>
 
         {/* other participants */}
-        {remoteParticipants.map((participant) => (
+        {participants.map((participant) => (
           <View key={participant.participantId} style={styles.participantWrapper}>
              <Text style={styles.participantLabel}>{participant.participantId}</Text>
              {/* Render the remote streams natively */}
@@ -137,7 +155,11 @@ export default function IvsCall({ token, onLeave }: IvsCallProps) {
       </ScrollView>
 
       <View style={styles.buttonHolder}>
-        <Button title={isAudioMuted ? 'Unmute Audio' : 'Mute Audio'} onPress={toggleAudio} />
+        <Button
+          title={isAudioMuted ? 'Unmute Audio' : 'Mute Audio'}
+          onPress={toggleAudio}
+          disabled={!publishOnJoin}
+        />
         <View style={styles.spacer} />
         <Button title="Toggle Video" onPress={toggleVideo} />
       </View>
