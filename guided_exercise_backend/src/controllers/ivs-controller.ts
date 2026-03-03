@@ -7,15 +7,15 @@ type IvsTokenRequest = {
   publish?: boolean;
   subscribe?: boolean;
   attributes?: Record<string, string>;
-  durationSeconds?: number;
+  durationMinutes?: number;
 };
 
 const DEFAULT_REGION = process.env.AWS_REGION || 'us-west-2';
-const MAX_DURATION_SECONDS = 43200; // 12 hours
+const MAX_DURATION_MINUTES = 720; // 12 hours
 
 export async function createIvsTokenController(req: Request, res: Response, next: NextFunction) {
   try {
-    const { stageArn, userId, publish, subscribe, attributes, durationSeconds } = req.body as IvsTokenRequest;
+    const { stageArn, userId, publish, subscribe, attributes, durationMinutes } = req.body as IvsTokenRequest;
     const effectiveStageArn = stageArn ?? process.env.IVS_STAGE_ARN;
 
     if (!effectiveStageArn) {
@@ -33,8 +33,13 @@ export async function createIvsTokenController(req: Request, res: Response, next
       return res.status(400).json({ message: 'At least one capability is required.' });
     }
 
-    if (durationSeconds && (durationSeconds < 60 || durationSeconds > MAX_DURATION_SECONDS)) {
-      return res.status(400).json({ message: 'durationSeconds must be between 60 and 43200.' });
+    if (
+      durationMinutes !== undefined &&
+      (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > MAX_DURATION_MINUTES)
+    ) {
+      return res
+        .status(400)
+        .json({ message: `durationMinutes must be an integer between 1 and ${MAX_DURATION_MINUTES}.` });
     }
 
     const client = new IVSRealTimeClient({ region: DEFAULT_REGION });
@@ -43,7 +48,7 @@ export async function createIvsTokenController(req: Request, res: Response, next
       userId,
       capabilities,
       attributes,
-      duration: durationSeconds
+      duration: durationMinutes
     });
 
     const response = await client.send(command);

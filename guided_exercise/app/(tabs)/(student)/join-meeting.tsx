@@ -25,7 +25,7 @@ export default function JoinSessionScreen() {
         userId: trimmedName,
         publish: false,
         subscribe: true,
-        durationSeconds: 3600
+        durationMinutes: 60
       });
       router.push({
         pathname: '/(tabs)/(student)/session',

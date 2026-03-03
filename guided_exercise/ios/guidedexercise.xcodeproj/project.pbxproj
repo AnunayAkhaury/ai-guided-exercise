@@ -181,7 +181,7 @@
 			);
 			mainGroup = 83CBB9F61A601CBA00E9B192;
 			packageReferences = (
-				4948CB822F4BFB160026CAAE /* XCLocalSwiftPackageReference "../../../../../../Downloads/AmazonIVSBroadcast" */,
+				4948CB822F4BFB160026CAAE /* XCLocalSwiftPackageReference "AmazonIVSBroadcast" */,
 			);
 			productRefGroup = 83CBBA001A601CBA00E9B192 /* Products */;
 			projectDirPath = "";
@@ -364,7 +364,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.guided-exercise";
-				PRODUCT_NAME = "guidedexercise";
+				PRODUCT_NAME = guidedexercise;
 				SWIFT_OBJC_BRIDGING_HEADER = "guidedexercise/guidedexercise-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -395,7 +395,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.guided-exercise";
-				PRODUCT_NAME = "guidedexercise";
+				PRODUCT_NAME = guidedexercise;
 				SWIFT_OBJC_BRIDGING_HEADER = "guidedexercise/guidedexercise-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -545,7 +545,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		4948CB822F4BFB160026CAAE /* XCLocalSwiftPackageReference "../../../../../../Downloads/AmazonIVSBroadcast" */ = {
+		4948CB822F4BFB160026CAAE /* XCLocalSwiftPackageReference "AmazonIVSBroadcast" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../../../../../../Downloads/AmazonIVSBroadcast;
 		};

@@ -2,7 +2,7 @@ type IvsTokenRequest = {
   userId: string;
   publish: boolean;
   subscribe: boolean;
-  durationSeconds?: number;
+  durationMinutes?: number;
 };
 
 type IvsTokenResponse = {

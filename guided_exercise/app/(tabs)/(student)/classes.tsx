@@ -17,7 +17,7 @@ function JoinMeetingBttn({ item }: { item: typeof CLASSES_DATA[0] }) {
     // Navigate to the student join folder
     // Passing sessionName as a parameter
     router.push({
-      pathname: "/(student)/join-meeting",
+      pathname: "/(tabs)/(student)/join-meeting",
       params: { sessionName: sessionName }
     });
   };

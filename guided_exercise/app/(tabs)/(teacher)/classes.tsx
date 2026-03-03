@@ -17,7 +17,7 @@ function JoinMeetingBttn({ item }: { item: typeof CLASSES_DATA[0] }) {
     // Navigate to the student join folder
     // Passing sessionName as a parameter
     router.push({
-      pathname: "/(teacher)/start-meeting",
+      pathname: "/(tabs)/(teacher)/start-meeting",
       params: { sessionName: sessionName }
     });
   };
@@ -45,10 +45,13 @@ export default function ClassesScreen() {
         contentContainerStyle={styles.listPadding}
       />
       <View style={styles.floatBttn}>
-        <TouchableOpacity style={styles.plusIcon} onPress={() => {
-          router.push({
-            pathname: "/(teacher)/start-meeting",
-          })}}
+        <TouchableOpacity
+          style={styles.plusIcon}
+          onPress={() => {
+            router.push({
+              pathname: "/(tabs)/(teacher)/start-meeting",
+            });
+          }}
         >
           <AntDesign name="plus" size={30} color="white" />
         </TouchableOpacity>

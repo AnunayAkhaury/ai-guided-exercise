@@ -26,7 +26,7 @@ export default function StartMeeting() {
         userId: trimmedName,
         publish: true,
         subscribe: true,
-        durationSeconds: 3600
+        durationMinutes: 60
       });
       router.push({
         pathname: '/(tabs)/(teacher)/session',
