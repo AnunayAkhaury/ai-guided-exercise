@@ -31,7 +31,7 @@ export async function createProfile(uid: string, role: string, username: string,
 
     const data = await response.json();
 
-    useUserStore.setState({ uid: uid, role: data.role, fullname: data.fullname });
+    useUserStore.setState({ uid: uid, role: data.role, fullname: data.fullname, username: data.username });
   } catch (err) {
     console.log(err);
     throw new Error(`Unknown Error.`);
@@ -56,7 +56,7 @@ export async function login(email: string, password: string) {
 
     const data = await response.json();
 
-    useUserStore.setState({ uid: userCredential.user.uid, role: data.role, fullname: data.fullname });
+    useUserStore.setState({ uid: userCredential.user.uid, role: data.role, fullname: data.fullname, username: data.username });
   } catch (err) {
     console.log(err);
     throw new Error(`Unknown Error.`);

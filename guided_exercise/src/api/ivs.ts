@@ -1,8 +1,11 @@
 type IvsTokenRequest = {
+  stageArn?: string;
   userId: string;
+  userName?: string;
   publish: boolean;
   subscribe: boolean;
   durationMinutes?: number;
+  attributes?: Record<string, string>;
 };
 
 type IvsTokenResponse = {

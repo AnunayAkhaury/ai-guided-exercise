@@ -1,21 +1,35 @@
 import { Tabs } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useUserStore } from "@/src/store/userStore";
-import { AntDesign, Entypo, FontAwesome5, Ionicons } from "@expo/vector-icons";
+import { AntDesign, Entypo, Ionicons, Octicons } from "@expo/vector-icons";
 
 export default function TabLayout() {
   const role = useUserStore((state) => state.role);
   const skipAuth = __DEV__ && role == null;
 
   return (
-    <Tabs>
+    <Tabs
+      screenOptions={{
+        tabBarStyle: {
+          backgroundColor: "#A980FE",
+          height: 80,
+          paddingTop: 13,
+        },
+        tabBarLabelStyle: {
+          fontSize: 14,
+          fontFamily: "Inter_600SemiBold",
+        },
+        tabBarActiveTintColor: "#6155F5",
+        tabBarInactiveTintColor: "#000",
+      }}
+    >
       {/* Student tabs */}
       <Tabs.Screen
         name="(student)/classes"
         options={{
           title: "Classes",
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome5 name="chalkboard-teacher" color={color} size={size} />
+            <AntDesign name="book" color={color} size={size} />
           ),
           href: role === 'student' || skipAuth ? "/(tabs)/(student)/classes" : null,
           headerShown: false,
@@ -57,7 +71,7 @@ export default function TabLayout() {
         options={{
           title: "Classes",
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome5 name="chalkboard-teacher" color={color} size={size} />
+            <AntDesign name="book" color={color} size={size} />
           ),
           href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/classes" : null,
           headerShown: false,
@@ -114,7 +128,7 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-circle-outline" color={color} size={size} />
+            <Octicons name="person" color={color} size={size} />
           ),
           headerShown: false,
         }}

@@ -1,77 +1,77 @@
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { AntDesign, Entypo, Ionicons } from "@expo/vector-icons";
+import { AntDesign, Ionicons } from "@expo/vector-icons";
+import Header from "@/src/components/ui/Header";
+import Typography from "@/src/components/ui/Typography";
 
+
+function Dropdown({ title } : { title: string }) {
+    return (
+        <TouchableOpacity className="flex flex-row items-center rounded-lg border-[1px] border-[#CACCD2] py-2 px-3 gap-1">
+            <Typography font="istokWeb" className="text-sm">{title}</Typography>
+            <AntDesign name="down" size={12} color="#D9D9D9" />
+        </TouchableOpacity>
+    );
+}
 
 export default function Shedule() {
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>New Meeting</Text>
-            <View style={styles.main}>
-                <TextInput style={styles.input} placeholder="Meeting Title" />
-                    
-                <View style={styles.list}>
-                    <View style={styles.listItem}>
-                        <Entypo name="calendar" size={22} color="black" />
+        <View className="flex-grow bg-white">
+            <Header title="New Meeting" />
+            <View className="flex-grow pt-10 px-6">
+                <Typography font='inter-semibold' className="self-start pb-1">Title</Typography>
+                <TextInput
+                    className="w-80 text-base border-[1px] border-[#CACCD2] rounded-lg pl-7"
+                    placeholder="Meeting Title"
+                    placeholderTextColor="#919191"
+                    style={{fontFamily: 'Inter_400Regular'}}
+                />
+                
+                <Typography font='inter-semibold' className="self-start pt-7 pb-1">Timing</Typography>
+                <View className="w-full flex flex-col gap-5">
+                    <View className="self-start flex flex-row items-center rounded-lg border-[1px] border-[#CACCD2] bg-[#CACCD2] overflow-hidden">
+                        <View className="flex items-center pl-3 pr-1">
+                            <Ionicons name="calendar-clear-sharp" size={16} color="#9C9C9C" />
+                        </View>
                         <TouchableOpacity>
-                            <View style={styles.dropdownTrigger}>
-                                <Text style={styles.listText}>{
-                                    (new Date()).toLocaleDateString('en-US', {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        year: 'numeric'
-                                    })
-                                }</Text>
-                                <AntDesign name="down" size={18} color="black" />
-                            </View> 
+                            <Typography font="istokWeb" className="text-sm py-2 px-3 bg-white">
+                                {(new Date()).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                })}
+                            </Typography>
                         </TouchableOpacity>
                     </View>
 
-                    <View style={styles.listItem}>
-                        <AntDesign name="clock-circle" size={22} color="black" />
-                        <View style={styles.timeDropdowns}>
-                            <TouchableOpacity>
-                                <View style={styles.dropdownTrigger}>
-                                    <Text style={styles.listText}>{
-                                        (new Date()).toLocaleString('en-US', { 
-                                            hour: 'numeric',
-                                            minute: '2-digit',
-                                            hour12: true
-                                        })
-                                    }</Text>
-                                    <AntDesign name="down" size={18} color="black" />
-                                </View> 
-                            </TouchableOpacity>
-                            <TouchableOpacity>
-                                <View style={styles.dropdownTrigger}>
-                                    <Text style={styles.listText}>{
-                                        (new Date()).toLocaleString('en-US', { 
-                                            hour: 'numeric',
-                                            minute: '2-digit',
-                                            hour12: true
-                                        })
-                                    }</Text>
-                                    <AntDesign name="down" size={18} color="black" />
-                                </View> 
-                            </TouchableOpacity>
-                            <TouchableOpacity>
-                                <View style={styles.dropdownTrigger}>
-                                    <Text style={styles.listText}>No Repeat</Text>
-                                    <AntDesign name="down" size={18} color="black" />
-                                </View> 
-                            </TouchableOpacity>
-                        </View>
+                    <View className="flex flex-row gap-7">
+                        <Dropdown
+                            title={(new Date()).toLocaleString('en-US', { 
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                            })}
+                        />
+                        <Dropdown
+                            title={(new Date()).toLocaleString('en-US', { 
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                            })}
+                        />        
                     </View>
-
-                    <View style={styles.listItem}>
-                        <Ionicons name="document-text-outline" size={24} color="black" />
-                        <TextInput style={[styles.input, { height: 150, textAlignVertical: 'top', width: null, flexGrow: 1 } ]} placeholder="Add description" multiline numberOfLines={5} />
-                    </View> 
+                    
+                    <View className="self-start">
+                        <Dropdown title="No Repeat" />
+                    </View>
                 </View>
 
-                <TouchableOpacity style={styles.submitBttn}>
-                    <Text style={styles.bttnText}>Create Meeting</Text>
+                <Typography font='inter-semibold' className="self-start pt-7 pb-1">More info</Typography>
+                <TextInput className="w-96 text-base border-[1px] border-[#CACCD2] rounded-lg pl-7 h-40 align-top" placeholder="Add description" multiline numberOfLines={5} />
+
+                <TouchableOpacity className="mt-20">
+                    <Typography font='inter-medium' className="self-center px-10 py-3 bg-[#6155F5] text-white rounded-lg">Create Meeting</Typography>
                 </TouchableOpacity>
-                <Text>This meeting will show up for all students</Text>
+                <Typography className="self-center text-xs pt-3">Meeting link will be active 10 min before</Typography>
             </View>
             
 
