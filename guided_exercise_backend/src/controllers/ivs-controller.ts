@@ -30,6 +30,17 @@ export async function createIvsTokenController(req: Request, res: Response, next
     } = req.body as IvsTokenRequest;
     const effectiveStageArn = stageArn ?? process.env.IVS_STAGE_ARN;
 
+    console.log('[IVS][Server] /api/ivs/token request', {
+      stageArnProvided: Boolean(stageArn),
+      effectiveStageArn,
+      userName,
+      userId,
+      publish,
+      subscribe,
+      requestedCapabilities,
+      durationMinutes
+    });
+
     if (!effectiveStageArn) {
       return res.status(400).json({ message: 'stageArn is required (or set IVS_STAGE_ARN).' });
     }
@@ -80,6 +91,11 @@ export async function createIvsTokenController(req: Request, res: Response, next
     });
 
     const response = await client.send(command);
+
+    console.log('[IVS][Server] token created', {
+      participantId: response.participantToken?.participantId,
+      expirationTime: response.participantToken?.expirationTime
+    });
 
     return res.status(200).json({
       participantId: response.participantToken?.participantId,

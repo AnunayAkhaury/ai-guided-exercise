@@ -30,7 +30,7 @@ export default function StudentSessionScreen() {
         <Text style={styles.title}>{sessionName || 'Live Session'}</Text>
         <Text style={styles.subText}>{userName ? `Participant: ${userName}` : 'Student view'}</Text>
       </View>
-      <IvsCall token={token} publishOnJoin={false} onLeave={() => router.back()} />
+      <IvsCall token={token} publishOnJoin onLeave={() => router.back()} />
     </View>
   );
 }

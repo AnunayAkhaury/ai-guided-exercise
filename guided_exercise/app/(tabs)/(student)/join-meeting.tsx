@@ -23,7 +23,7 @@ export default function JoinSessionScreen() {
       });
       const token = await getIvsToken({
         userId: trimmedName,
-        publish: false,
+        publish: true,
         subscribe: true,
         durationMinutes: 60
       });

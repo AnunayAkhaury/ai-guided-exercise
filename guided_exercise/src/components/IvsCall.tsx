@@ -7,11 +7,13 @@ import {
   leaveStage,
   setStreamsPublished,
   setMicrophoneMuted,
+  setCameraMuted,
   useStageParticipants,
   ExpoIVSStagePreviewView,
   ExpoIVSRemoteStreamView,
   addOnStageConnectionStateChangedListener
 } from 'expo-realtime-ivs-broadcast';
+import type { Participant } from 'expo-realtime-ivs-broadcast';
 
 type IvsCallProps = {
   token?: string;
@@ -19,24 +21,25 @@ type IvsCallProps = {
   onLeave?: () => void;
 };
 
-type RemoteParticipant = {
-  participantId: string;
-};
-
 export default function IvsCall({ token, publishOnJoin = true, onLeave }: IvsCallProps) {
   const [isInStage, setIsInStage] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
 
-  // replaces Zoom's manual listener mapping for users.
-  const remoteParticipants = useStageParticipants() as unknown;
-  const participants: RemoteParticipant[] = Array.isArray(remoteParticipants)
-    ? (remoteParticipants as RemoteParticipant[])
-    : Array.isArray((remoteParticipants as { participants?: RemoteParticipant[] })?.participants)
-      ? ((remoteParticipants as { participants?: RemoteParticipant[] }).participants ?? [])
-      : [];
+  const { participants } = useStageParticipants() as { participants: Participant[] };
+
+  useEffect(() => {
+    console.log(
+      '[IVS][Client] participants',
+      participants.map((p) => ({
+        id: p.id,
+        videoStreams: p.streams.filter((s) => s.mediaType === 'video').map((s) => s.deviceUrn)
+      }))
+    );
+  }, [participants]);
 
   useEffect(() => {
     // setup the connection listener
@@ -74,8 +77,10 @@ export default function IvsCall({ token, publishOnJoin = true, onLeave }: IvsCal
       // prepare SDK configurations
       await initializeStage();
       
-      // request perms and prep local cam/mic
-      await initializeLocalStreams();
+      // Only publishers need local camera/microphone streams.
+      if (publishOnJoin) {
+        await initializeLocalStreams();
+      }
 
       // connect to the stage using token
       await joinStage(token);
@@ -112,7 +117,13 @@ export default function IvsCall({ token, publishOnJoin = true, onLeave }: IvsCal
   };
 
   const toggleVideo = async () => {
-    console.log("Toggle video triggered");
+    if (!publishOnJoin) {
+      setError('Video controls are disabled for view-only participants.');
+      return;
+    }
+    const willMute = !isVideoMuted;
+    await setCameraMuted(willMute);
+    setIsVideoMuted(willMute);
   };
 
   // not in session yet, show join screen
@@ -134,23 +145,31 @@ export default function IvsCall({ token, publishOnJoin = true, onLeave }: IvsCal
     <View style={styles.container}>
       <ScrollView style={styles.videoContainer}>
         
-        {/* local participant */}
-        <View style={styles.participantWrapper}>
-          <Text style={styles.participantLabel}>You</Text>
-          <ExpoIVSStagePreviewView style={styles.videoFrame} />
-        </View>
+        {publishOnJoin && (
+          <View style={styles.participantWrapper}>
+            <Text style={styles.participantLabel}>You</Text>
+            <ExpoIVSStagePreviewView style={styles.videoFrame} />
+          </View>
+        )}
 
         {/* other participants */}
-        {participants.map((participant) => (
-          <View key={participant.participantId} style={styles.participantWrapper}>
-             <Text style={styles.participantLabel}>{participant.participantId}</Text>
-             {/* Render the remote streams natively */}
-             <ExpoIVSRemoteStreamView 
-               participantId={participant.participantId} 
-               style={styles.videoFrame} 
-             />
-          </View>
-        ))}
+        {participants.map((participant) => {
+          const videoStream = participant.streams.find((stream) => stream.mediaType === 'video');
+          if (!videoStream) {
+            return null;
+          }
+          return (
+            <View key={participant.id} style={styles.participantWrapper}>
+              <Text style={styles.participantLabel}>{participant.id}</Text>
+              <ExpoIVSRemoteStreamView
+                participantId={participant.id}
+                deviceUrn={videoStream.deviceUrn}
+                style={styles.videoFrame}
+                scaleMode="fill"
+              />
+            </View>
+          );
+        })}
 
       </ScrollView>
 
@@ -161,7 +180,11 @@ export default function IvsCall({ token, publishOnJoin = true, onLeave }: IvsCal
           disabled={!publishOnJoin}
         />
         <View style={styles.spacer} />
-        <Button title="Toggle Video" onPress={toggleVideo} />
+        <Button
+          title={isVideoMuted ? 'Start Video' : 'Stop Video'}
+          onPress={toggleVideo}
+          disabled={!publishOnJoin}
+        />
       </View>
       
       <View style={styles.spacer} />
