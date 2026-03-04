@@ -1,0 +1,131 @@
+import { db } from './firebase-service.js';
+
+export type SessionStatus = 'scheduled' | 'live' | 'ended';
+
+export type SessionDocument = {
+  sessionId: string;
+  sessionCode: string;
+  sessionName: string;
+  stageArn: string;
+  instructorUid: string;
+  status: SessionStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  startedAt: Date | null;
+  endedAt: Date | null;
+};
+
+export type CreateSessionInput = {
+  sessionName: string;
+  stageArn: string;
+  instructorUid: string;
+};
+
+const SESSIONS_COLLECTION = 'sessions';
+const SESSION_CODE_LENGTH = 6;
+const SESSION_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const SESSION_CODE_MAX_RETRIES = 20;
+
+function randomSessionCode(length: number) {
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    code += SESSION_CODE_ALPHABET[Math.floor(Math.random() * SESSION_CODE_ALPHABET.length)];
+  }
+  return code;
+}
+
+async function generateUniqueSessionCode(): Promise<string> {
+  for (let i = 0; i < SESSION_CODE_MAX_RETRIES; i++) {
+    const candidate = randomSessionCode(SESSION_CODE_LENGTH);
+    const snapshot = await db.collection(SESSIONS_COLLECTION).where('sessionCode', '==', candidate).limit(1).get();
+    if (snapshot.empty) {
+      return candidate;
+    }
+  }
+  throw new Error('Unable to generate a unique session code.');
+}
+
+function mapSessionDoc(
+  id: string,
+  data: FirebaseFirestore.DocumentData | undefined
+): SessionDocument | null {
+  if (!data) {
+    return null;
+  }
+  return {
+    sessionId: id,
+    sessionCode: data.sessionCode,
+    sessionName: data.sessionName,
+    stageArn: data.stageArn,
+    instructorUid: data.instructorUid,
+    status: data.status,
+    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
+    startedAt: data.startedAt?.toDate ? data.startedAt.toDate() : data.startedAt ?? null,
+    endedAt: data.endedAt?.toDate ? data.endedAt.toDate() : data.endedAt ?? null
+  } as SessionDocument;
+}
+
+export async function createSession(input: CreateSessionInput): Promise<SessionDocument> {
+  const sessionCode = await generateUniqueSessionCode();
+  const now = new Date();
+  const ref = db.collection(SESSIONS_COLLECTION).doc();
+  const payload: Omit<SessionDocument, 'sessionId'> = {
+    sessionCode,
+    sessionName: input.sessionName.trim(),
+    stageArn: input.stageArn.trim(),
+    instructorUid: input.instructorUid.trim(),
+    status: 'scheduled',
+    createdAt: now,
+    updatedAt: now,
+    startedAt: null,
+    endedAt: null
+  };
+
+  await ref.set(payload);
+
+  return {
+    sessionId: ref.id,
+    ...payload
+  };
+}
+
+export async function getSessionById(sessionId: string): Promise<SessionDocument | null> {
+  const snapshot = await db.collection(SESSIONS_COLLECTION).doc(sessionId).get();
+  if (!snapshot.exists) {
+    return null;
+  }
+  return mapSessionDoc(snapshot.id, snapshot.data());
+}
+
+export async function getSessionByCode(sessionCode: string): Promise<SessionDocument | null> {
+  const normalizedCode = sessionCode.trim().toUpperCase();
+  const snapshot = await db
+    .collection(SESSIONS_COLLECTION)
+    .where('sessionCode', '==', normalizedCode)
+    .limit(1)
+    .get();
+  if (snapshot.empty) {
+    return null;
+  }
+  const doc = snapshot.docs[0];
+  if (!doc) {
+    return null;
+  }
+  return mapSessionDoc(doc.id, doc.data());
+}
+
+export async function updateSessionStatus(sessionId: string, status: SessionStatus): Promise<void> {
+  const now = new Date();
+  const payload: Record<string, unknown> = {
+    status,
+    updatedAt: now
+  };
+  if (status === 'live') {
+    payload.startedAt = now;
+  }
+  if (status === 'ended') {
+    payload.endedAt = now;
+  }
+  await db.collection(SESSIONS_COLLECTION).doc(sessionId).update(payload);
+}
