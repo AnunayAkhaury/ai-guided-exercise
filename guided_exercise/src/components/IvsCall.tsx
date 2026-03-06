@@ -49,6 +49,19 @@ export default function IvsCall({ token, publishOnJoin = true, onLeave }: IvsCal
       if (state === 'connected') {
         setIsInStage(true);
         setIsJoining(false);
+        if (publishOnJoin) {
+          // Ensure publish state is applied after the stage is actually connected.
+          void (async () => {
+            try {
+              await setStreamsPublished(true);
+              await setCameraMuted(false);
+              await setMicrophoneMuted(isAudioMuted);
+              setIsVideoMuted(false);
+            } catch (publishError: any) {
+              setError(publishError?.message || 'Failed to start publishing.');
+            }
+          })();
+        }
       } else if (state === 'disconnected') {
         setIsInStage(false);
       }
@@ -84,16 +97,6 @@ export default function IvsCall({ token, publishOnJoin = true, onLeave }: IvsCal
 
       // connect to the stage using token
       await joinStage(token);
-
-      // start broadcasting local streams only when participant has publish capability
-      if (publishOnJoin) {
-        await setStreamsPublished(true);
-      }
-      
-      // Sync initial mute state (only relevant if publishing is enabled)
-      if (publishOnJoin) {
-        await setMicrophoneMuted(isAudioMuted);
-      }
 
     } catch (err: any) {
       setError(err.message || 'Failed to join stage.');
@@ -154,18 +157,19 @@ export default function IvsCall({ token, publishOnJoin = true, onLeave }: IvsCal
 
         {/* other participants */}
         {participants.map((participant) => {
-          const videoStream = participant.streams.find((stream) => stream.mediaType === 'video');
+          const videoStreams = participant.streams.filter((stream) => stream.mediaType === 'video');
+          const videoStream = videoStreams[videoStreams.length - 1];
           if (!videoStream) {
             return null;
           }
           return (
-            <View key={participant.id} style={styles.participantWrapper}>
+            <View key={`${participant.id}:${videoStream.deviceUrn}`} style={styles.participantWrapper}>
               <Text style={styles.participantLabel}>{participant.id}</Text>
               <ExpoIVSRemoteStreamView
                 participantId={participant.id}
                 deviceUrn={videoStream.deviceUrn}
                 style={styles.videoFrame}
-                scaleMode="fill"
+                scaleMode="fit"
               />
             </View>
           );

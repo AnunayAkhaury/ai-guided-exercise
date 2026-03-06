@@ -30,6 +30,13 @@ export default function ClassesScreen() {
     void loadSessions();
   }, [loadSessions]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void loadSessions();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [loadSessions]);
+
   const liveSessions = useMemo(() => sessions.filter((item) => item.status === 'live'), [sessions]);
   const scheduledSessions = useMemo(() => sessions.filter((item) => item.status === 'scheduled'), [sessions]);
 

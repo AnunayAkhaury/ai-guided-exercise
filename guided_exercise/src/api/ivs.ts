@@ -143,3 +143,11 @@ export function listIvsSessions(statuses: Array<'scheduled' | 'live'> = ['live',
   const query = encodeURIComponent(statuses.join(','));
   return getJson<IvsSession[]>(`/api/ivs/sessions?status=${query}`);
 }
+
+export function endIvsSession(sessionId: string): Promise<IvsSession> {
+  return postJson<IvsSession>('/api/ivs/sessions/end', { sessionId });
+}
+
+export function getIvsSessionById(sessionId: string): Promise<IvsSession> {
+  return getJson<IvsSession>(`/api/ivs/sessions/${encodeURIComponent(sessionId)}`);
+}
