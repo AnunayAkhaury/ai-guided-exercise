@@ -34,12 +34,12 @@ export default function RootLayout() {
   }
 
   return (
-    <ZoomVideoSdkProvider
-      config={{
-        domain: 'zoom.us',
-        enableLog: true
-      }}>
+    // <ZoomVideoSdkProvider
+    //   config={{
+    //     domain: 'zoom.us',
+    //     enableLog: true
+    //   }}>
       <Stack screenOptions={{ headerShown: false }} />
-    </ZoomVideoSdkProvider>
+    // </ZoomVideoSdkProvider>
   );
 }
