@@ -1,0 +1,11 @@
+{
+  "name": "quickpose",
+  "version": "0.0.1",
+  "expo": {
+    "autolinking": {
+      "android": {
+        "sourceDir": "android"
+      }
+    }
+  }
+}
