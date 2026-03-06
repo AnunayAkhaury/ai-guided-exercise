@@ -5,6 +5,7 @@ import ClassCard from '@/src/components/classes/ClassCard';
 import Header from '@/src/components/ui/Header';
 import Typography from '@/src/components/ui/Typography';
 import TeacherActiveClassCard from '@/src/components/classes/TeacherActiveClassCard';
+import { useRouter } from 'expo-router';
 
 // Mock data: In a real app, fetch this from your backend or DB
 const ACTIVE_CLASSES_DATA = [
@@ -38,6 +39,8 @@ const CLASSES_DATA = [
 ];
 
 export default function ClassesScreen() {
+  const router = useRouter();
+
   return (
     <View className="bg-white flex-grow">
       <Header title="Classes" />
@@ -51,7 +54,17 @@ export default function ClassesScreen() {
         <FlatList
           data={ACTIVE_CLASSES_DATA}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <TeacherActiveClassCard {...item} />}
+          renderItem={({ item }) => (
+            <TeacherActiveClassCard
+              {...item}
+              onStartPress={() =>
+                router.push({
+                  pathname: '/(tabs)/(teacher)/start-meeting',
+                  params: { sessionName: item.title }
+                })
+              }
+            />
+          )}
         />
 
         <View className="pt-20 pb-6 flex flex-row justify-between items-center">

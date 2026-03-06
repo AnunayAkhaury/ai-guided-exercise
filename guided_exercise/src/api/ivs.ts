@@ -14,7 +14,7 @@ type IvsTokenResponse = {
   expirationTime?: string;
 };
 
-type IvsSession = {
+export type IvsSession = {
   sessionId: string;
   sessionCode: string;
   sessionName: string;
@@ -55,6 +55,25 @@ async function postJson<T>(path: string, body: Record<string, unknown>): Promise
       },
       body: JSON.stringify(body)
     });
+  } catch (_err) {
+    throw new Error(`Network request failed to ${endpoint}. Confirm backend is running and reachable from device.`);
+  }
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Request failed: ${response.status}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+async function getJson<T>(path: string): Promise<T> {
+  const base = getApiBaseUrl();
+  const endpoint = `${base}${path}`;
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint);
   } catch (_err) {
     throw new Error(`Network request failed to ${endpoint}. Confirm backend is running and reachable from device.`);
   }
@@ -118,4 +137,9 @@ export function startIvsSession(sessionId: string): Promise<IvsSession> {
 
 export function joinIvsSessionByCode(sessionCode: string): Promise<IvsSession> {
   return postJson<IvsSession>('/api/ivs/sessions/join', { sessionCode });
+}
+
+export function listIvsSessions(statuses: Array<'scheduled' | 'live'> = ['live', 'scheduled']): Promise<IvsSession[]> {
+  const query = encodeURIComponent(statuses.join(','));
+  return getJson<IvsSession[]>(`/api/ivs/sessions?status=${query}`);
 }

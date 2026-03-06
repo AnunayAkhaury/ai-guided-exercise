@@ -1,18 +1,23 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createIvsSession, getIvsToken, startIvsSession } from '@/src/api/ivs';
+import { useUserStore } from '@/src/store/userStore';
 
 export default function StartMeeting() {
   const router = useRouter();
-  const [sessionName, setSessionName] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  const { sessionName: paramSessionName } = useLocalSearchParams<{ sessionName?: string }>();
+  const username = useUserStore((state) => state.username);
+  const fullname = useUserStore((state) => state.fullname);
+  const fallbackDisplayName = username?.trim() || fullname?.trim() || 'Instructor Test';
+  const [sessionName, setSessionName] = useState((paramSessionName as string) || '');
+  const [displayName, setDisplayName] = useState(fallbackDisplayName);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleStart = async () => {
     const trimmedSession = sessionName.trim();
-    const trimmedName = displayName.trim();
+    const trimmedName = displayName.trim() || fallbackDisplayName;
 
     if (!trimmedSession || !trimmedName) {
       setError('Please enter a session name and display name.');

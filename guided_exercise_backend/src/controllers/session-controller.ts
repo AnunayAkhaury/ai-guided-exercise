@@ -3,8 +3,10 @@ import {
   createSession,
   getSessionByCode,
   getSessionById,
+  listSessions,
   updateSessionStatus
 } from '@/services/Firebase/firebase-session.js';
+import type { SessionStatus } from '@/services/Firebase/firebase-session.js';
 
 type CreateSessionRequest = {
   sessionName?: string;
@@ -19,6 +21,8 @@ type SessionCodeRequest = {
 type SessionIdRequest = {
   sessionId?: string;
 };
+
+const VALID_STATUSES: SessionStatus[] = ['scheduled', 'live', 'ended'];
 
 export async function createSessionController(req: Request, res: Response, next: NextFunction) {
   try {
@@ -86,6 +90,31 @@ export async function getSessionByIdController(req: Request, res: Response, next
   } catch (err: any) {
     next(err);
     return res.status(500).json({ message: err.message || 'Failed to fetch session.' });
+  }
+}
+
+export async function listSessionsController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const rawStatus = Array.isArray(req.query.status) ? req.query.status.join(',') : req.query.status;
+    let statuses: SessionStatus[] | undefined;
+
+    if (typeof rawStatus === 'string' && rawStatus.trim().length > 0) {
+      const parsed = rawStatus
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter((value): value is SessionStatus => VALID_STATUSES.includes(value as SessionStatus));
+
+      if (parsed.length === 0) {
+        return res.status(400).json({ message: 'status must be one or more of: scheduled, live, ended.' });
+      }
+      statuses = Array.from(new Set(parsed));
+    }
+
+    const sessions = await listSessions(statuses);
+    return res.status(200).json(sessions);
+  } catch (err: any) {
+    next(err);
+    return res.status(500).json({ message: err.message || 'Failed to list sessions.' });
   }
 }
 

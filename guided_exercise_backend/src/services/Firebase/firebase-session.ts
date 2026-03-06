@@ -129,3 +129,29 @@ export async function updateSessionStatus(sessionId: string, status: SessionStat
   }
   await db.collection(SESSIONS_COLLECTION).doc(sessionId).update(payload);
 }
+
+export async function listSessions(statuses?: SessionStatus[]): Promise<SessionDocument[]> {
+  let query: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> = db.collection(SESSIONS_COLLECTION);
+
+  if (statuses && statuses.length > 0) {
+    const uniqueStatuses = Array.from(new Set(statuses));
+    if (uniqueStatuses.length === 1) {
+      query = query.where('status', '==', uniqueStatuses[0]);
+    } else {
+      query = query.where('status', 'in', uniqueStatuses);
+    }
+  }
+
+  const snapshot = await query.limit(100).get();
+  const sessions = snapshot.docs
+    .map((doc) => mapSessionDoc(doc.id, doc.data()))
+    .filter((session): session is SessionDocument => Boolean(session));
+
+  sessions.sort((a, b) => {
+    const aTime = (a.startedAt ?? a.createdAt).getTime();
+    const bTime = (b.startedAt ?? b.createdAt).getTime();
+    return bTime - aTime;
+  });
+
+  return sessions;
+}
