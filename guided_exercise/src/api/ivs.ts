@@ -14,14 +14,63 @@ type IvsTokenResponse = {
   expirationTime?: string;
 };
 
+type IvsSession = {
+  sessionId: string;
+  sessionCode: string;
+  sessionName: string;
+  stageArn: string;
+  instructorUid: string;
+  status: 'scheduled' | 'live' | 'ended';
+  createdAt: string;
+  updatedAt: string;
+  startedAt: string | null;
+  endedAt: string | null;
+};
+
+type CreateSessionRequest = {
+  sessionName: string;
+  instructorUid: string;
+  stageArn?: string;
+};
+
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
-export async function getIvsToken(request: IvsTokenRequest): Promise<string> {
+function getApiBaseUrl(): string {
   if (!API_BASE_URL) {
     throw new Error('EXPO_PUBLIC_API_URL is not set.');
   }
+  return API_BASE_URL;
+}
 
-  const endpoint = `${API_BASE_URL}/api/ivs/token`;
+async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  const base = getApiBaseUrl();
+  const endpoint = `${base}${path}`;
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+  } catch (_err) {
+    throw new Error(`Network request failed to ${endpoint}. Confirm backend is running and reachable from device.`);
+  }
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Request failed: ${response.status}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+export async function getIvsToken(request: IvsTokenRequest): Promise<string> {
+  const base = getApiBaseUrl();
+
+  const endpoint = `${base}/api/ivs/token`;
   console.log('[IVS][Client] token request ->', endpoint, {
     userId: request.userId,
     userName: request.userName,
@@ -57,4 +106,16 @@ export async function getIvsToken(request: IvsTokenRequest): Promise<string> {
   }
 
   return data.token;
+}
+
+export function createIvsSession(request: CreateSessionRequest): Promise<IvsSession> {
+  return postJson<IvsSession>('/api/ivs/sessions/create', request);
+}
+
+export function startIvsSession(sessionId: string): Promise<IvsSession> {
+  return postJson<IvsSession>('/api/ivs/sessions/start', { sessionId });
+}
+
+export function joinIvsSessionByCode(sessionCode: string): Promise<IvsSession> {
+  return postJson<IvsSession>('/api/ivs/sessions/join', { sessionCode });
 }

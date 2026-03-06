@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getIvsToken } from '@/src/api/ivs';
+import { createIvsSession, getIvsToken, startIvsSession } from '@/src/api/ivs';
 
 export default function StartMeeting() {
   const router = useRouter();
@@ -22,15 +22,35 @@ export default function StartMeeting() {
     setError('');
     setLoading(true);
     try {
+      const createdSession = await createIvsSession({
+        sessionName: trimmedSession,
+        instructorUid: trimmedName
+      });
+      const liveSession = await startIvsSession(createdSession.sessionId);
+
       const token = await getIvsToken({
+        stageArn: liveSession.stageArn,
         userId: trimmedName,
+        userName: trimmedName,
         publish: true,
         subscribe: true,
-        durationMinutes: 60
+        durationMinutes: 60,
+        attributes: {
+          role: 'instructor',
+          sessionId: liveSession.sessionId,
+          sessionCode: liveSession.sessionCode
+        }
       });
+
       router.push({
         pathname: '/(tabs)/(teacher)/session',
-        params: { sessionName: trimmedSession, userName: trimmedName, token }
+        params: {
+          sessionName: liveSession.sessionName,
+          userName: trimmedName,
+          sessionCode: liveSession.sessionCode,
+          sessionId: liveSession.sessionId,
+          token
+        }
       });
     } catch (err: any) {
       setError(err?.message || 'Failed to start session.');
@@ -50,7 +70,7 @@ export default function StartMeeting() {
         <Text style={styles.label}>Session Name</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. cancer-yoga-01"
+          placeholder="e.g. Tuesday Rehab Mobility"
           value={sessionName}
           onChangeText={setSessionName}
           autoCapitalize="none"

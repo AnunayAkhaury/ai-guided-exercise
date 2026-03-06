@@ -1,35 +1,52 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Alert, StyleSheet, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { getIvsToken } from '@/src/api/ivs';
+import { getIvsToken, joinIvsSessionByCode } from '@/src/api/ivs';
 
 export default function JoinSessionScreen() {
-  const { sessionName: paramSessionName } = useLocalSearchParams(); // Grab param
-  const [sessionName, setSessionName] = useState((paramSessionName as string) || '');
+  const { sessionCode: paramSessionCode } = useLocalSearchParams();
+  const [sessionCode, setSessionCode] = useState((paramSessionCode as string) || '');
   const [displayName, setDisplayName] = useState('');
   const router = useRouter();
 
   const handleJoin = async () => {
     try {
-      const trimmedSession = sessionName.trim();
+      const trimmedCode = sessionCode.trim().toUpperCase();
       const trimmedName = displayName.trim();
-      if (!trimmedSession || !trimmedName) {
-        Alert.alert('Missing info', 'Please enter a session name and your name.');
+      if (!trimmedCode || !trimmedName) {
+        Alert.alert('Missing info', 'Please enter a session code and your name.');
         return;
       }
+
       console.log('[StudentJoin] request start', {
-        sessionName: trimmedSession,
+        sessionCode: trimmedCode,
         displayName: trimmedName
       });
+
+      const joinedSession = await joinIvsSessionByCode(trimmedCode);
+
       const token = await getIvsToken({
+        stageArn: joinedSession.stageArn,
         userId: trimmedName,
+        userName: trimmedName,
         publish: true,
         subscribe: true,
-        durationMinutes: 60
+        durationMinutes: 60,
+        attributes: {
+          role: 'student',
+          sessionId: joinedSession.sessionId,
+          sessionCode: joinedSession.sessionCode
+        }
       });
       router.push({
         pathname: '/(tabs)/(student)/session',
-        params: { sessionName: trimmedSession, userName: trimmedName, token }
+        params: {
+          sessionName: joinedSession.sessionName,
+          sessionCode: joinedSession.sessionCode,
+          sessionId: joinedSession.sessionId,
+          userName: trimmedName,
+          token
+        }
       });
 
     } catch (error: any) {
@@ -40,13 +57,13 @@ export default function JoinSessionScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Session Name</Text>
+      <Text style={styles.label}>Session Code</Text>
       <TextInput 
-        placeholder="Session Name"
-        value={sessionName}
+        placeholder="e.g. FYNHYH"
+        value={sessionCode}
         style={styles.input} 
-        onChangeText={setSessionName}
-        autoCapitalize="none"
+        onChangeText={setSessionCode}
+        autoCapitalize="characters"
         autoCorrect={false}
       />
       <Text style={styles.label}>Your Name</Text>

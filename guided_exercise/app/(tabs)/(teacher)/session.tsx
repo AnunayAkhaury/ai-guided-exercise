@@ -6,11 +6,12 @@ type SessionParams = {
   token?: string;
   sessionName?: string;
   userName?: string;
+  sessionCode?: string;
 };
 
 export default function TeacherSessionScreen() {
   const router = useRouter();
-  const { token, sessionName, userName } = useLocalSearchParams<SessionParams>();
+  const { token, sessionName, userName, sessionCode } = useLocalSearchParams<SessionParams>();
 
   if (!token) {
     return (
@@ -29,6 +30,7 @@ export default function TeacherSessionScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>{sessionName || 'Live Session'}</Text>
         <Text style={styles.subText}>{userName ? `Coach: ${userName}` : 'Instructor view'}</Text>
+        {!!sessionCode && <Text style={styles.subText}>Code: {sessionCode}</Text>}
       </View>
       <IvsCall token={token} publishOnJoin onLeave={() => router.back()} />
     </View>
