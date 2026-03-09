@@ -164,6 +164,30 @@ export async function listSessions(statuses?: SessionStatus[]): Promise<SessionD
   return sessions;
 }
 
+export async function endOtherLiveSessions(currentSessionId: string): Promise<number> {
+  const snapshot = await db
+    .collection(SESSIONS_COLLECTION)
+    .where('status', '==', 'live')
+    .get();
+
+  const now = new Date();
+  const docsToEnd = snapshot.docs.filter((doc) => doc.id !== currentSessionId);
+  if (docsToEnd.length === 0) {
+    return 0;
+  }
+
+  const batch = db.batch();
+  docsToEnd.forEach((doc) => {
+    batch.update(doc.ref, {
+      status: 'ended',
+      endedAt: now,
+      updatedAt: now
+    });
+  });
+  await batch.commit();
+  return docsToEnd.length;
+}
+
 export async function upsertSessionParticipant(
   sessionId: string,
   participantId: string,

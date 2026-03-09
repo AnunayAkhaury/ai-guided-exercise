@@ -33,9 +33,8 @@ export default function StudentSessionScreen() {
         const session = await getIvsSessionById(normalizedSessionId);
         if (active && session.status === 'ended' && !hasHandledEndedSession.current) {
           hasHandledEndedSession.current = true;
-          Alert.alert('Session ended', 'The instructor ended this session.', [
-            { text: 'OK', onPress: () => router.replace('/(tabs)/(student)/classes') }
-          ]);
+          Alert.alert('Session ended', 'The instructor ended this session.');
+          router.replace('/(tabs)/(student)/classes');
         }
       } catch (error) {
         console.log('[StudentSession] polling error', error);

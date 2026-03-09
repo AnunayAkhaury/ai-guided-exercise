@@ -77,6 +77,7 @@ export default function IvsCall({
   const [status, setStatus] = useState('');
   const publishOnJoinRef = useRef(publishOnJoin);
   const isAudioMutedRef = useRef(isAudioMuted);
+  const hasJoinAttemptRef = useRef(false);
 
   const { participants } = useStageParticipants() as { participants: Participant[] };
   const remoteParticipants = useMemo(() => {
@@ -120,6 +121,10 @@ export default function IvsCall({
       setStatus(`State: ${state}`);
       
       if (state === 'connected') {
+        if (!hasJoinAttemptRef.current) {
+          // Ignore stale/shared-stage connection events until user explicitly joins this screen.
+          return;
+        }
         setIsInStage(true);
         setIsJoining(false);
         if (publishOnJoinRef.current) {
@@ -162,8 +167,12 @@ export default function IvsCall({
     setIsJoining(true);
     setStatus('Initializing Stage...');
     setError('');
+    hasJoinAttemptRef.current = true;
 
     try {
+      // Ensure stale connections are cleared before joining a new class on shared stage.
+      await leaveStage();
+
       // prepare SDK configurations
       await initializeStage();
       
@@ -178,10 +187,12 @@ export default function IvsCall({
     } catch (err: any) {
       setError(err.message || 'Failed to join stage.');
       setIsJoining(false);
+      hasJoinAttemptRef.current = false;
     }
   };
 
   const handleLeave = async () => {
+    hasJoinAttemptRef.current = false;
     await leaveStage();
     if (onLeave) onLeave();
   };

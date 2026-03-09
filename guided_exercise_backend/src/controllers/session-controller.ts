@@ -1,6 +1,8 @@
 import type { NextFunction, Request, Response } from 'express';
+import { DisconnectParticipantCommand, IVSRealTimeClient } from '@aws-sdk/client-ivs-realtime';
 import {
   createSession,
+  endOtherLiveSessions,
   getSessionByCode,
   getSessionById,
   listSessionParticipants,
@@ -32,6 +34,30 @@ type UpsertParticipantRequest = {
 };
 
 const VALID_STATUSES: SessionStatus[] = ['scheduled', 'live', 'ended'];
+const DEFAULT_REGION = process.env.AWS_REGION || 'us-west-2';
+
+async function disconnectKnownParticipantsForSession(session: {
+  sessionId: string;
+  stageArn: string;
+}) {
+  const participants = await listSessionParticipants(session.sessionId);
+  if (participants.length === 0) {
+    return;
+  }
+
+  const client = new IVSRealTimeClient({ region: DEFAULT_REGION });
+  await Promise.allSettled(
+    participants.map((participant) =>
+      client.send(
+        new DisconnectParticipantCommand({
+          stageArn: session.stageArn,
+          participantId: participant.participantId,
+          reason: `Session ${session.sessionId} ended`
+        })
+      )
+    )
+  );
+}
 
 export async function createSessionController(req: Request, res: Response, next: NextFunction) {
   try {
@@ -71,6 +97,9 @@ export async function joinSessionByCodeController(req: Request, res: Response, n
     const session = await getSessionByCode(sessionCode);
     if (!session) {
       return res.status(404).json({ message: 'Session not found.' });
+    }
+    if (session.status === 'scheduled') {
+      return res.status(409).json({ message: 'Session is not live yet.' });
     }
     if (session.status === 'ended') {
       return res.status(410).json({ message: 'Session has ended.' });
@@ -142,6 +171,10 @@ export async function startSessionController(req: Request, res: Response, next: 
       return res.status(409).json({ message: 'Cannot start an ended session.' });
     }
 
+    const currentlyLiveSessions = await listSessions(['live']);
+    const otherLiveSessions = currentlyLiveSessions.filter((session) => session.sessionId !== sessionId);
+    await Promise.allSettled(otherLiveSessions.map((session) => disconnectKnownParticipantsForSession(session)));
+    await endOtherLiveSessions(sessionId);
     await updateSessionStatus(sessionId, 'live');
     const updated = await getSessionById(sessionId);
     return res.status(200).json(updated);
@@ -166,6 +199,7 @@ export async function endSessionController(req: Request, res: Response, next: Ne
       return res.status(200).json(existing);
     }
 
+    await disconnectKnownParticipantsForSession(existing);
     await updateSessionStatus(sessionId, 'ended');
     const updated = await getSessionById(sessionId);
     return res.status(200).json(updated);
