@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Button, StyleSheet, Text, View, ScrollView } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import {
   initializeStage,
   initializeLocalStreams,
@@ -19,17 +20,40 @@ type IvsCallProps = {
   token?: string;
   publishOnJoin?: boolean;
   onLeave?: () => void;
+  onInStageChange?: (inStage: boolean) => void;
 };
 
-export default function IvsCall({ token, publishOnJoin = true, onLeave }: IvsCallProps) {
+export default function IvsCall({ token, publishOnJoin = true, onLeave, onInStageChange }: IvsCallProps) {
   const [isInStage, setIsInStage] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
+  const publishOnJoinRef = useRef(publishOnJoin);
+  const isAudioMutedRef = useRef(isAudioMuted);
 
   const { participants } = useStageParticipants() as { participants: Participant[] };
+  const remoteParticipants = useMemo(() => {
+    return participants
+      .map((participant) => {
+        const videoStreams = participant.streams.filter((stream) => stream.mediaType === 'video');
+        const videoStream = videoStreams[videoStreams.length - 1];
+        if (!videoStream) {
+          return null;
+        }
+        return { participantId: participant.id, deviceUrn: videoStream.deviceUrn };
+      })
+      .filter((value): value is { participantId: string; deviceUrn: string } => Boolean(value));
+  }, [participants]);
+
+  useEffect(() => {
+    publishOnJoinRef.current = publishOnJoin;
+  }, [publishOnJoin]);
+
+  useEffect(() => {
+    isAudioMutedRef.current = isAudioMuted;
+  }, [isAudioMuted]);
 
   useEffect(() => {
     console.log(
@@ -49,13 +73,13 @@ export default function IvsCall({ token, publishOnJoin = true, onLeave }: IvsCal
       if (state === 'connected') {
         setIsInStage(true);
         setIsJoining(false);
-        if (publishOnJoin) {
+        if (publishOnJoinRef.current) {
           // Ensure publish state is applied after the stage is actually connected.
           void (async () => {
             try {
               await setStreamsPublished(true);
               await setCameraMuted(false);
-              await setMicrophoneMuted(isAudioMuted);
+              await setMicrophoneMuted(isAudioMutedRef.current);
               setIsVideoMuted(false);
             } catch (publishError: any) {
               setError(publishError?.message || 'Failed to start publishing.');
@@ -75,6 +99,10 @@ export default function IvsCall({ token, publishOnJoin = true, onLeave }: IvsCal
       leaveStage();
     };
   }, []);
+
+  useEffect(() => {
+    onInStageChange?.(isInStage);
+  }, [isInStage, onInStageChange]);
 
   const join = async () => {
     if (!token) {
@@ -132,13 +160,16 @@ export default function IvsCall({ token, publishOnJoin = true, onLeave }: IvsCal
   // not in session yet, show join screen
   if (!isInStage) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.heading}>Welcome to Class</Text>
-        <Text style={styles.heading}>Click Join Session When Ready</Text>
-        <View style={styles.spacer} />
-        {!!status && <Text style={styles.status}>{status}</Text>}
-        {!!error && <Text style={styles.error}>{error}</Text>}
-        <Button title={isJoining ? 'Joining...' : 'Join Session'} onPress={join} disabled={isJoining} />
+      <View style={styles.preJoinContainer}>
+        <View style={styles.joinCard}>
+          <Text style={styles.joinTitle}>Welcome to Class</Text>
+          <Text style={styles.joinSubtitle}>Join when you are ready.</Text>
+          {!!status && <Text style={styles.status}>{status}</Text>}
+          {!!error && <Text style={styles.error}>{error}</Text>}
+          <Pressable style={[styles.primaryButton, isJoining && styles.disabledButton]} onPress={join} disabled={isJoining}>
+            <Text style={styles.primaryButtonText}>{isJoining ? 'Joining...' : 'Join Session'}</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -146,66 +177,205 @@ export default function IvsCall({ token, publishOnJoin = true, onLeave }: IvsCal
   // show stage view with other participants
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.videoContainer}>
-        
+      <ScrollView style={styles.videoContainer} contentContainerStyle={styles.videoContent}>
         {publishOnJoin && (
           <View style={styles.participantWrapper}>
-            <Text style={styles.participantLabel}>You</Text>
+            <View style={styles.participantLabelPill}>
+              <Text style={styles.participantLabel}>You</Text>
+            </View>
             <ExpoIVSStagePreviewView style={styles.videoFrame} />
           </View>
         )}
 
-        {/* other participants */}
-        {participants.map((participant) => {
-          const videoStreams = participant.streams.filter((stream) => stream.mediaType === 'video');
-          const videoStream = videoStreams[videoStreams.length - 1];
-          if (!videoStream) {
-            return null;
-          }
-          return (
-            <View key={`${participant.id}:${videoStream.deviceUrn}`} style={styles.participantWrapper}>
-              <Text style={styles.participantLabel}>{participant.id}</Text>
-              <ExpoIVSRemoteStreamView
-                participantId={participant.id}
-                deviceUrn={videoStream.deviceUrn}
-                style={styles.videoFrame}
-                scaleMode="fit"
-              />
+        {remoteParticipants.map((participant) => (
+          <View key={`${participant.participantId}:${participant.deviceUrn}`} style={styles.participantWrapper}>
+            <View style={styles.participantLabelPill}>
+              <Text style={styles.participantLabel}>{participant.participantId}</Text>
             </View>
-          );
-        })}
+            <ExpoIVSRemoteStreamView
+              participantId={participant.participantId}
+              deviceUrn={participant.deviceUrn}
+              style={styles.videoFrame}
+              scaleMode="fit"
+            />
+          </View>
+        ))}
 
+        {remoteParticipants.length === 0 && (
+          <View style={styles.emptyState}>
+            <MaterialIcons name="groups-2" size={28} color="#6155F5" />
+            <Text style={styles.emptyStateTitle}>Waiting for others</Text>
+            <Text style={styles.emptyStateText}>Other participants will appear here once they join.</Text>
+          </View>
+        )}
       </ScrollView>
 
-      <View style={styles.buttonHolder}>
-        <Button
-          title={isAudioMuted ? 'Unmute Audio' : 'Mute Audio'}
-          onPress={toggleAudio}
-          disabled={!publishOnJoin}
-        />
-        <View style={styles.spacer} />
-        <Button
-          title={isVideoMuted ? 'Start Video' : 'Stop Video'}
-          onPress={toggleVideo}
-          disabled={!publishOnJoin}
-        />
+      {!!status && <Text style={styles.statusInline}>{status}</Text>}
+      {!!error && <Text style={styles.errorInline}>{error}</Text>}
+
+      <View style={styles.controlBar}>
+        <Pressable style={[styles.controlButton, !publishOnJoin && styles.disabledButton]} onPress={toggleAudio} disabled={!publishOnJoin}>
+          <Ionicons name={isAudioMuted ? 'mic-off' : 'mic'} size={18} color="#fff" />
+          <Text style={styles.controlButtonText}>{isAudioMuted ? 'Unmute' : 'Mute'}</Text>
+        </Pressable>
+        <Pressable style={[styles.controlButton, !publishOnJoin && styles.disabledButton]} onPress={toggleVideo} disabled={!publishOnJoin}>
+          <Ionicons name={isVideoMuted ? 'videocam-off' : 'videocam'} size={18} color="#fff" />
+          <Text style={styles.controlButtonText}>{isVideoMuted ? 'Start Cam' : 'Stop Cam'}</Text>
+        </Pressable>
+        <Pressable style={styles.endCallButton} onPress={handleLeave}>
+          <Ionicons name="call" size={18} color="#fff" />
+          <Text style={styles.controlButtonText}>Leave</Text>
+        </Pressable>
       </View>
-      
-      <View style={styles.spacer} />
-      <Button title="Leave Session" color="#f01040" onPress={handleLeave} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, width: '100%', alignSelf: 'center', justifyContent: 'center', paddingVertical: 24 },
-  videoContainer: { flex: 1, width: '100%', paddingHorizontal: 16 },
-  participantWrapper: { marginBottom: 16, borderRadius: 8, overflow: 'hidden', backgroundColor: '#000' },
-  participantLabel: { position: 'absolute', top: 8, left: 8, zIndex: 10, color: '#fff', backgroundColor: 'rgba(0,0,0,0.5)', padding: 4 },
-  videoFrame: { width: '100%', height: 250 },
-  heading: { fontSize: 24, fontWeight: 'bold', textAlign: 'center' },
-  status: { color: 'gray', textAlign: 'center', marginBottom: 8 },
-  error: { color: 'red', textAlign: 'center', marginBottom: 8 },
-  buttonHolder: { flexDirection: 'row', justifyContent: 'center', width: '100%', marginTop: 16 },
-  spacer: { height: 16, width: 16 }
+  container: {
+    flex: 1,
+    width: '100%',
+    alignSelf: 'center',
+    paddingTop: 12,
+    paddingBottom: 14
+  },
+  preJoinContainer: {
+    flex: 1,
+    width: '100%',
+    alignSelf: 'center',
+    justifyContent: 'center',
+    paddingBottom: '16%'
+  },
+  joinCard: {
+    marginHorizontal: 18,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingVertical: 26,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: '#E3E2FF',
+    shadowColor: '#4C40D9',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 18,
+    elevation: 6
+  },
+  joinTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1D1C2B',
+    textAlign: 'center'
+  },
+  joinSubtitle: {
+    marginTop: 6,
+    textAlign: 'center',
+    color: '#5D5A7A'
+  },
+  primaryButton: {
+    backgroundColor: '#6155F5',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginTop: 14
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15
+  },
+  videoContainer: { flex: 1, width: '100%' },
+  videoContent: {
+    paddingHorizontal: 14,
+    paddingBottom: 10
+  },
+  participantWrapper: {
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#101015',
+    borderWidth: 2,
+    borderColor: '#E5E3FF'
+  },
+  participantLabelPill: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    zIndex: 10,
+    backgroundColor: 'rgba(97, 85, 245, 0.85)',
+    borderRadius: 14,
+    paddingHorizontal: 9,
+    paddingVertical: 4
+  },
+  participantLabel: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 12
+  },
+  videoFrame: { width: '100%', height: 220 },
+  emptyState: {
+    borderWidth: 1,
+    borderColor: '#D8D5FF',
+    backgroundColor: '#F7F6FF',
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center'
+  },
+  emptyStateTitle: {
+    marginTop: 8,
+    fontWeight: '700',
+    color: '#302E47'
+  },
+  emptyStateText: {
+    marginTop: 4,
+    color: '#5D5A7A',
+    textAlign: 'center'
+  },
+  status: { color: '#5A5678', textAlign: 'center', marginTop: 10 },
+  error: { color: '#7A3FF2', textAlign: 'center', marginTop: 8 },
+  statusInline: {
+    color: '#4E4A75',
+    textAlign: 'center',
+    marginTop: 2,
+    marginBottom: 6
+  },
+  errorInline: {
+    color: '#7A3FF2',
+    textAlign: 'center',
+    marginBottom: 6
+  },
+  controlBar: {
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    gap: 8
+  },
+  controlButton: {
+    flex: 1,
+    backgroundColor: '#6155F5',
+    borderRadius: 12,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6
+  },
+  endCallButton: {
+    flex: 1,
+    backgroundColor: '#A980FE',
+    borderRadius: 12,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6
+  },
+  controlButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13
+  },
+  disabledButton: {
+    opacity: 0.5
+  }
 });

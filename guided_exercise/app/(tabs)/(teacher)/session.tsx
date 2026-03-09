@@ -16,15 +16,21 @@ export default function TeacherSessionScreen() {
   const router = useRouter();
   const { token, sessionName, userName, sessionCode, sessionId } = useLocalSearchParams<SessionParams>();
   const [ending, setEnding] = useState(false);
+  const [isInStage, setIsInStage] = useState(false);
+  const normalizedSessionId = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+  const normalizedSessionName = Array.isArray(sessionName) ? sessionName[0] : sessionName;
+  const normalizedUserName = Array.isArray(userName) ? userName[0] : userName;
+  const normalizedSessionCode = Array.isArray(sessionCode) ? sessionCode[0] : sessionCode;
+  const normalizedToken = Array.isArray(token) ? token[0] : token;
 
   const handleEndSession = async () => {
-    if (!sessionId) {
+    if (!normalizedSessionId) {
       Alert.alert('Missing session', 'No session id was provided for ending this class.');
       return;
     }
     try {
       setEnding(true);
-      await endIvsSession(sessionId);
+      await endIvsSession(normalizedSessionId);
       router.replace('/(tabs)/(teacher)/classes');
     } catch (err: any) {
       Alert.alert('Failed to end session', err?.message || 'Please try again.');
@@ -33,7 +39,7 @@ export default function TeacherSessionScreen() {
     }
   };
 
-  if (!token) {
+  if (!normalizedToken) {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Unable to join session</Text>
@@ -47,15 +53,19 @@ export default function TeacherSessionScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{sessionName || 'Live Session'}</Text>
-        <Text style={styles.subText}>{userName ? `Coach: ${userName}` : 'Instructor view'}</Text>
-        {!!sessionCode && <Text style={styles.subText}>Code: {sessionCode}</Text>}
-        <Pressable onPress={handleEndSession} style={styles.endButton} disabled={ending}>
-          <Text style={styles.endButtonText}>{ending ? 'Ending...' : 'End Session'}</Text>
-        </Pressable>
-      </View>
-      <IvsCall token={token} publishOnJoin onLeave={() => router.back()} />
+      {isInStage && (
+        <View style={styles.header}>
+          <View style={styles.headerTextBlock}>
+            <Text style={styles.title}>{normalizedSessionName || 'Live Session'}</Text>
+            <Text style={styles.subText}>{normalizedUserName ? `Coach: ${normalizedUserName}` : 'Instructor view'}</Text>
+            {!!normalizedSessionCode && <Text style={styles.subText}>Code: {normalizedSessionCode}</Text>}
+          </View>
+          <Pressable onPress={handleEndSession} style={styles.endButton} disabled={ending}>
+            <Text style={styles.endButtonText}>{ending ? 'Ending...' : 'End Session'}</Text>
+          </Pressable>
+        </View>
+      )}
+      <IvsCall token={normalizedToken} publishOnJoin onLeave={() => router.back()} onInStageChange={setIsInStage} />
     </View>
   );
 }
@@ -63,24 +73,31 @@ export default function TeacherSessionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#C3F5FF'
+    backgroundColor: '#F5F2FF'
   },
   header: {
     paddingTop: 56,
     paddingHorizontal: 16,
-    paddingBottom: 8
+    paddingBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12
+  },
+  headerTextBlock: {
+    flex: 1
   },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700'
   },
   subText: {
-    marginTop: 4,
-    color: '#27434a'
+    marginTop: 2,
+    color: '#4E4680'
   },
   backButton: {
     marginTop: 14,
-    backgroundColor: '#00C8B3',
+    backgroundColor: '#6155F5',
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 14,
@@ -91,12 +108,10 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   endButton: {
-    marginTop: 10,
-    backgroundColor: '#b00020',
+    backgroundColor: '#A980FE',
     borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    alignSelf: 'flex-start'
+    paddingVertical: 9,
+    paddingHorizontal: 12
   },
   endButtonText: {
     color: '#fff',

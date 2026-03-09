@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
-    backgroundColor: '#C3F5FF',
+    backgroundColor: '#F5F2FF',
     gap: 16
   },
   backButton: {
@@ -116,34 +116,40 @@ const styles = StyleSheet.create({
     left: 20,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#6155F5',
     borderRadius: 16
   },
   backText: {
     fontSize: 14,
-    fontWeight: '600'
+    fontWeight: '600',
+    color: '#fff'
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    textAlign: 'center'
+    textAlign: 'center',
+    color: '#302E47'
   },
   inputGroup: {
     gap: 8
   },
   label: {
     fontSize: 14,
-    fontWeight: '600'
+    fontWeight: '600',
+    color: '#4E4680'
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 16
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#D8D5FF',
+    color: '#1D1C2B'
   },
   button: {
-    backgroundColor: '#00C8B3',
+    backgroundColor: '#6155F5',
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center'
@@ -154,7 +160,7 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   error: {
-    color: '#B00020',
+    color: '#7A3FF2',
     textAlign: 'center'
   }
 });

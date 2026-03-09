@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import IvsCall from '@/src/components/IvsCall';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getIvsSessionById } from '@/src/api/ivs';
 
 type SessionParams = {
@@ -17,6 +17,7 @@ export default function StudentSessionScreen() {
   const { token, sessionName, userName, sessionCode, sessionId } = useLocalSearchParams<SessionParams>();
   const hasHandledEndedSession = useRef(false);
   const normalizedSessionId = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+  const [isInStage, setIsInStage] = useState(false);
 
   useEffect(() => {
     if (!normalizedSessionId) return;
@@ -60,12 +61,14 @@ export default function StudentSessionScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{sessionName || 'Live Session'}</Text>
-        <Text style={styles.subText}>{userName ? `Participant: ${userName}` : 'Student view'}</Text>
-        {!!sessionCode && <Text style={styles.subText}>Code: {sessionCode}</Text>}
-      </View>
-      <IvsCall token={token} publishOnJoin onLeave={() => router.back()} />
+      {isInStage && (
+        <View style={styles.header}>
+          <Text style={styles.title}>{sessionName || 'Live Session'}</Text>
+          <Text style={styles.subText}>{userName ? `Participant: ${userName}` : 'Student view'}</Text>
+          {!!sessionCode && <Text style={styles.subText}>Code: {sessionCode}</Text>}
+        </View>
+      )}
+      <IvsCall token={token} publishOnJoin onLeave={() => router.back()} onInStageChange={setIsInStage} />
     </View>
   );
 }
@@ -73,7 +76,7 @@ export default function StudentSessionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#C3F5FF'
+    backgroundColor: '#F5F2FF'
   },
   header: {
     paddingTop: 56,
@@ -81,16 +84,16 @@ const styles = StyleSheet.create({
     paddingBottom: 8
   },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700'
   },
   subText: {
-    marginTop: 4,
-    color: '#27434a'
+    marginTop: 2,
+    color: '#4E4680'
   },
   backButton: {
     marginTop: 14,
-    backgroundColor: '#00C8B3',
+    backgroundColor: '#6155F5',
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 14,
