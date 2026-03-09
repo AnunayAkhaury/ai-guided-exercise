@@ -4097,6 +4097,18 @@ expo-haptics@~15.0.8:
   resolved "https://registry.npmjs.org/expo-haptics/-/expo-haptics-15.0.8.tgz"
   integrity sha512-lftutojy8Qs8zaDzzjwM3gKHFZ8bOOEZDCkmh2Ddpe95Ra6kt2izeOfOfKuP/QEh0MZ1j9TfqippyHdRd1ZM9g==
 
+expo-image-loader@~55.0.0:
+  version "55.0.0"
+  resolved "https://registry.npmjs.org/expo-image-loader/-/expo-image-loader-55.0.0.tgz"
+  integrity sha512-NOjp56wDrfuA5aiNAybBIjqIn1IxKeGJ8CECWZncQ/GzjZfyTYAHTCyeApYkdKkMBLHINzI4BbTGSlbCa0fXXQ==
+
+expo-image-picker@^55.0.11:
+  version "55.0.11"
+  resolved "https://registry.npmjs.org/expo-image-picker/-/expo-image-picker-55.0.11.tgz"
+  integrity sha512-geJklIGdAR2N16iSk86oyJe7QgX5RpqDX1FjKpxO53fF4D0eBmg5Irm6gRwT0b+DHP1kJevZgzzbVJsRAV362g==
+  dependencies:
+    expo-image-loader "~55.0.0"
+
 expo-image@~3.0.11:
   version "3.0.11"
   resolved "https://registry.npmjs.org/expo-image/-/expo-image-3.0.11.tgz"
@@ -4126,7 +4138,7 @@ expo-modules-autolinking@3.0.24:
     require-from-string "^2.0.2"
     resolve-from "^5.0.0"
 
-expo-modules-core@3.0.29:
+expo-modules-core@*, expo-modules-core@3.0.29:
   version "3.0.29"
   resolved "https://registry.npmjs.org/expo-modules-core/-/expo-modules-core-3.0.29.tgz"
   integrity sha512-LzipcjGqk8gvkrOUf7O2mejNWugPkf3lmd9GkqL9WuNyeN2fRwU0Dn77e3ZUKI3k6sI+DNwjkq4Nu9fNN9WS7Q==
@@ -6505,6 +6517,10 @@ queue@6.0.2:
   integrity sha512-iHZWu+q3IdFZFX36ro/lKBkSvfkztY5Y7HMiPlOUjhupPcG2JMfst2KKEpu5XndviX/3UhFbRngUPNKtgvtZiA==
   dependencies:
     inherits "~2.0.3"
+
+"quickpose-post-processor@file:./modules/quickpose-post-processor":
+  version "1.0.0"
+  resolved "file:modules/quickpose-post-processor"
 
 range-parser@~1.2.1:
   version "1.2.1"

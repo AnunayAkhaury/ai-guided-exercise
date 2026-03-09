@@ -12,7 +12,7 @@
         "NSCameraUsageDescription": "This app uses the camera to share your video",
         "NSMicrophoneUsageDescription": "This app uses the microphone to share your audio",
         "NSBluetoothPeripheralUsageDescription": "This app uses Bluetooth for audio devices",
-        "NSPhotoLibraryUsageDescription": "This app uses the photo library for screen sharing"
+        "NSPhotoLibraryUsageDescription": "This app accesses your photo library to select exercise videos for on-device analysis"
       },
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.guided-exercise"
@@ -37,6 +37,13 @@
       "output": "static"
     },
     "plugins": [
+      "./plugins/withQuickPose",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "$(PRODUCT_NAME) needs access to your photo library to select exercise videos for on-device analysis."
+        }
+      ],
       [
         "expo-camera",
         {

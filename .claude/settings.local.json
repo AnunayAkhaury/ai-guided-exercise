@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:docs.quickpose.ai)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:quickpose.ai)",
+      "Bash(ls \"c:/Repos/School/ai-guided-exercise/guided_exercise/app/\\(tabs\\)/\\(teacher\\)/\")",
+      "Bash(npm install expo-image-picker)",
+      "Bash(npm install)"
+    ]
+  }
+}

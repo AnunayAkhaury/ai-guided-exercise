@@ -1,0 +1,10 @@
+{
+  "name": "quickpose-post-processor",
+  "version": "1.0.0",
+  "description": "Expo native module for QuickPose video post-processing on iOS",
+  "main": "index.ts",
+  "private": true,
+  "peerDependencies": {
+    "expo-modules-core": "*"
+  }
+}

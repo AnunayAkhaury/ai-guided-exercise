@@ -121,6 +121,13 @@ export default function TabLayout() {
           headerShown: false,
         }}
       />
+      <Tabs.Screen
+        name="(teacher)/video-analysis"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
 
       {/* Common tabs */}
       <Tabs.Screen
