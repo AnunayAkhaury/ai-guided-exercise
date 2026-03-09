@@ -13,8 +13,10 @@ import {
   endSessionController,
   getSessionByIdController,
   joinSessionByCodeController,
+  listSessionParticipantsController,
   listSessionsController,
-  startSessionController
+  startSessionController,
+  upsertSessionParticipantController
 } from '@/controllers/session-controller.js';
 
 const router = Router();
@@ -30,6 +32,8 @@ router.post('/api/ivs/sessions/start', startSessionController);
 router.post('/api/ivs/sessions/end', endSessionController);
 router.get('/api/ivs/sessions', listSessionsController);
 router.get('/api/ivs/sessions/:sessionId', getSessionByIdController);
+router.post('/api/ivs/sessions/participants/upsert', upsertSessionParticipantController);
+router.get('/api/ivs/sessions/:sessionId/participants', listSessionParticipantsController);
 router.post('/api/aws/uploadVideo', uploadVideoController);
 router.post('/api/aws/getVideo', getVideoUrlController);
 

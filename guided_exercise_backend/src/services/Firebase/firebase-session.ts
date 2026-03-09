@@ -15,6 +15,13 @@ export type SessionDocument = {
   endedAt: Date | null;
 };
 
+export type SessionParticipantDocument = {
+  participantId: string;
+  displayName: string;
+  role: string | null;
+  updatedAt: Date;
+};
+
 export type CreateSessionInput = {
   sessionName: string;
   stageArn: string;
@@ -22,6 +29,7 @@ export type CreateSessionInput = {
 };
 
 const SESSIONS_COLLECTION = 'sessions';
+const PARTICIPANTS_SUBCOLLECTION = 'participants';
 const SESSION_CODE_LENGTH = 6;
 const SESSION_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const SESSION_CODE_MAX_RETRIES = 20;
@@ -154,4 +162,56 @@ export async function listSessions(statuses?: SessionStatus[]): Promise<SessionD
   });
 
   return sessions;
+}
+
+export async function upsertSessionParticipant(
+  sessionId: string,
+  participantId: string,
+  displayName: string,
+  role?: string
+): Promise<SessionParticipantDocument> {
+  const now = new Date();
+  const normalizedParticipantId = participantId.trim();
+  const normalizedDisplayName = displayName.trim();
+  const participantRef = db
+    .collection(SESSIONS_COLLECTION)
+    .doc(sessionId)
+    .collection(PARTICIPANTS_SUBCOLLECTION)
+    .doc(normalizedParticipantId);
+
+  await participantRef.set(
+    {
+      participantId: normalizedParticipantId,
+      displayName: normalizedDisplayName,
+      role: role?.trim() || null,
+      updatedAt: now
+    },
+    { merge: true }
+  );
+
+  return {
+    participantId: normalizedParticipantId,
+    displayName: normalizedDisplayName,
+    role: role?.trim() || null,
+    updatedAt: now
+  };
+}
+
+export async function listSessionParticipants(sessionId: string): Promise<SessionParticipantDocument[]> {
+  const snapshot = await db
+    .collection(SESSIONS_COLLECTION)
+    .doc(sessionId)
+    .collection(PARTICIPANTS_SUBCOLLECTION)
+    .limit(200)
+    .get();
+
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      participantId: data.participantId,
+      displayName: data.displayName,
+      role: data.role ?? null,
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt
+    } as SessionParticipantDocument;
+  });
 }

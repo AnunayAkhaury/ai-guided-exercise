@@ -6,7 +6,13 @@ import ClassCard from '@/src/components/classes/ClassCard';
 import Header from '@/src/components/ui/Header';
 import ActiveClassCard from '@/src/components/classes/ActiveClassCard';
 import Typography from '@/src/components/ui/Typography';
-import { getIvsToken, joinIvsSessionByCode, listIvsSessions, type IvsSession } from '@/src/api/ivs';
+import {
+  getIvsToken,
+  joinIvsSessionByCode,
+  listIvsSessions,
+  type IvsSession,
+  upsertIvsSessionParticipant
+} from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
 
 export default function ClassesScreen() {
@@ -45,7 +51,7 @@ export default function ClassesScreen() {
       setJoiningSessionId(sessionId);
       const joinedSession = await joinIvsSessionByCode(sessionCode);
       const displayName = fallbackDisplayName;
-      const token = await getIvsToken({
+      const tokenResult = await getIvsToken({
         stageArn: joinedSession.stageArn,
         userId: displayName,
         userName: displayName,
@@ -58,6 +64,12 @@ export default function ClassesScreen() {
           sessionCode: joinedSession.sessionCode
         }
       });
+      await upsertIvsSessionParticipant({
+        sessionId: joinedSession.sessionId,
+        participantId: tokenResult.participantId,
+        displayName,
+        role: 'student'
+      });
 
       router.push({
         pathname: '/(tabs)/(student)/session',
@@ -66,7 +78,7 @@ export default function ClassesScreen() {
           sessionCode: joinedSession.sessionCode,
           sessionId: joinedSession.sessionId,
           userName: displayName,
-          token
+          token: tokenResult.token
         }
       });
     } catch (error: any) {

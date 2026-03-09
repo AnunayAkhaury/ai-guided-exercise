@@ -7,12 +7,12 @@ import { useUserStore } from '@/src/store/userStore';
 export default function Login() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const role = useUserStore((state) => state.role);
 
   const handleLogin = async () => {
     try {
       await login(email, password);
-      if (role === 'student') {
+      const latestRole = useUserStore.getState().role;
+      if (latestRole === 'student') {
         router.replace('/(tabs)/(student)/classes');
       } else {
         router.replace('/(tabs)/(teacher)/classes');

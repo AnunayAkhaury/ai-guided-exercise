@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { createIvsSession, getIvsToken, startIvsSession } from '@/src/api/ivs';
+import { createIvsSession, getIvsToken, startIvsSession, upsertIvsSessionParticipant } from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
 
 export default function StartMeeting() {
@@ -33,7 +33,7 @@ export default function StartMeeting() {
       });
       const liveSession = await startIvsSession(createdSession.sessionId);
 
-      const token = await getIvsToken({
+      const tokenResult = await getIvsToken({
         stageArn: liveSession.stageArn,
         userId: trimmedName,
         userName: trimmedName,
@@ -46,6 +46,12 @@ export default function StartMeeting() {
           sessionCode: liveSession.sessionCode
         }
       });
+      await upsertIvsSessionParticipant({
+        sessionId: liveSession.sessionId,
+        participantId: tokenResult.participantId,
+        displayName: trimmedName,
+        role: 'instructor'
+      });
 
       router.push({
         pathname: '/(tabs)/(teacher)/session',
@@ -54,7 +60,7 @@ export default function StartMeeting() {
           userName: trimmedName,
           sessionCode: liveSession.sessionCode,
           sessionId: liveSession.sessionId,
-          token
+          token: tokenResult.token
         }
       });
     } catch (err: any) {

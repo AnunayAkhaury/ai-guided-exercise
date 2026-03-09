@@ -3,7 +3,9 @@ import {
   createSession,
   getSessionByCode,
   getSessionById,
+  listSessionParticipants,
   listSessions,
+  upsertSessionParticipant,
   updateSessionStatus
 } from '@/services/Firebase/firebase-session.js';
 import type { SessionStatus } from '@/services/Firebase/firebase-session.js';
@@ -20,6 +22,13 @@ type SessionCodeRequest = {
 
 type SessionIdRequest = {
   sessionId?: string;
+};
+
+type UpsertParticipantRequest = {
+  sessionId?: string;
+  participantId?: string;
+  displayName?: string;
+  role?: string;
 };
 
 const VALID_STATUSES: SessionStatus[] = ['scheduled', 'live', 'ended'];
@@ -163,5 +172,51 @@ export async function endSessionController(req: Request, res: Response, next: Ne
   } catch (err: any) {
     next(err);
     return res.status(500).json({ message: err.message || 'Failed to end session.' });
+  }
+}
+
+export async function upsertSessionParticipantController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { sessionId, participantId, displayName, role } = req.body as UpsertParticipantRequest;
+    if (!sessionId?.trim()) {
+      return res.status(400).json({ message: 'sessionId is required.' });
+    }
+    if (!participantId?.trim()) {
+      return res.status(400).json({ message: 'participantId is required.' });
+    }
+    if (!displayName?.trim()) {
+      return res.status(400).json({ message: 'displayName is required.' });
+    }
+
+    const existing = await getSessionById(sessionId);
+    if (!existing) {
+      return res.status(404).json({ message: 'Session not found.' });
+    }
+
+    const participant = await upsertSessionParticipant(sessionId, participantId, displayName, role);
+    return res.status(200).json(participant);
+  } catch (err: any) {
+    next(err);
+    return res.status(500).json({ message: err.message || 'Failed to upsert session participant.' });
+  }
+}
+
+export async function listSessionParticipantsController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const sessionId = Array.isArray(req.params.sessionId) ? req.params.sessionId[0] : req.params.sessionId;
+    if (!sessionId?.trim()) {
+      return res.status(400).json({ message: 'sessionId is required.' });
+    }
+
+    const existing = await getSessionById(sessionId);
+    if (!existing) {
+      return res.status(404).json({ message: 'Session not found.' });
+    }
+
+    const participants = await listSessionParticipants(sessionId);
+    return res.status(200).json(participants);
+  } catch (err: any) {
+    next(err);
+    return res.status(500).json({ message: err.message || 'Failed to list session participants.' });
   }
 }

@@ -21,9 +21,54 @@ type IvsCallProps = {
   publishOnJoin?: boolean;
   onLeave?: () => void;
   onInStageChange?: (inStage: boolean) => void;
+  localParticipantLabel?: string;
+  participantNamesById?: Record<string, string>;
 };
 
-export default function IvsCall({ token, publishOnJoin = true, onLeave, onInStageChange }: IvsCallProps) {
+function firstNonEmptyString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function getParticipantDisplayName(participant: Participant): string {
+  const candidate = participant as any;
+  const attributes =
+    candidate?.attributes ??
+    candidate?.info?.attributes ??
+    candidate?.userInfo?.attributes ??
+    candidate?.participantInfo?.attributes;
+
+  return (
+    firstNonEmptyString(
+      attributes?.username,
+      attributes?.userName,
+      attributes?.displayName,
+      candidate?.userName,
+      candidate?.userId,
+      candidate?.displayName,
+      candidate?.info?.userName,
+      candidate?.info?.userId,
+      candidate?.info?.displayName,
+      candidate?.userInfo?.userName,
+      candidate?.userInfo?.userId,
+      candidate?.participantInfo?.userName,
+      candidate?.participantInfo?.userId
+    ) ?? participant.id
+  );
+}
+
+export default function IvsCall({
+  token,
+  publishOnJoin = true,
+  onLeave,
+  onInStageChange,
+  localParticipantLabel,
+  participantNamesById
+}: IvsCallProps) {
   const [isInStage, setIsInStage] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
@@ -42,9 +87,13 @@ export default function IvsCall({ token, publishOnJoin = true, onLeave, onInStag
         if (!videoStream) {
           return null;
         }
-        return { participantId: participant.id, deviceUrn: videoStream.deviceUrn };
+        return {
+          participantId: participant.id,
+          displayName: getParticipantDisplayName(participant),
+          deviceUrn: videoStream.deviceUrn
+        };
       })
-      .filter((value): value is { participantId: string; deviceUrn: string } => Boolean(value));
+      .filter((value): value is { participantId: string; displayName: string; deviceUrn: string } => Boolean(value));
   }, [participants]);
 
   useEffect(() => {
@@ -181,7 +230,7 @@ export default function IvsCall({ token, publishOnJoin = true, onLeave, onInStag
         {publishOnJoin && (
           <View style={styles.participantWrapper}>
             <View style={styles.participantLabelPill}>
-              <Text style={styles.participantLabel}>You</Text>
+              <Text style={styles.participantLabel}>{localParticipantLabel?.trim() || 'You'}</Text>
             </View>
             <ExpoIVSStagePreviewView style={styles.videoFrame} />
           </View>
@@ -190,7 +239,9 @@ export default function IvsCall({ token, publishOnJoin = true, onLeave, onInStag
         {remoteParticipants.map((participant) => (
           <View key={`${participant.participantId}:${participant.deviceUrn}`} style={styles.participantWrapper}>
             <View style={styles.participantLabelPill}>
-              <Text style={styles.participantLabel}>{participant.participantId}</Text>
+              <Text style={styles.participantLabel}>
+                {participantNamesById?.[participant.participantId] || participant.displayName}
+              </Text>
             </View>
             <ExpoIVSRemoteStreamView
               participantId={participant.participantId}

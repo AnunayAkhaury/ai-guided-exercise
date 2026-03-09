@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import IvsCall from '@/src/components/IvsCall';
-import { endIvsSession } from '@/src/api/ivs';
+import { endIvsSession, listIvsSessionParticipants } from '@/src/api/ivs';
 
 type SessionParams = {
   token?: string;
@@ -17,11 +17,44 @@ export default function TeacherSessionScreen() {
   const { token, sessionName, userName, sessionCode, sessionId } = useLocalSearchParams<SessionParams>();
   const [ending, setEnding] = useState(false);
   const [isInStage, setIsInStage] = useState(false);
+  const [participantNameById, setParticipantNameById] = useState<Record<string, string>>({});
   const normalizedSessionId = Array.isArray(sessionId) ? sessionId[0] : sessionId;
   const normalizedSessionName = Array.isArray(sessionName) ? sessionName[0] : sessionName;
   const normalizedUserName = Array.isArray(userName) ? userName[0] : userName;
   const normalizedSessionCode = Array.isArray(sessionCode) ? sessionCode[0] : sessionCode;
   const normalizedToken = Array.isArray(token) ? token[0] : token;
+  const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Instructor', [normalizedUserName]);
+
+  useEffect(() => {
+    if (!normalizedSessionId) return;
+    let active = true;
+
+    const loadParticipants = async () => {
+      try {
+        const participants = await listIvsSessionParticipants(normalizedSessionId);
+        if (!active) return;
+        const nextMap = participants.reduce<Record<string, string>>((acc, participant) => {
+          if (participant.participantId && participant.displayName) {
+            acc[participant.participantId] = participant.displayName;
+          }
+          return acc;
+        }, {});
+        setParticipantNameById(nextMap);
+      } catch (error) {
+        console.log('[TeacherSession] participant list error', error);
+      }
+    };
+
+    void loadParticipants();
+    const interval = setInterval(() => {
+      void loadParticipants();
+    }, 3000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [normalizedSessionId]);
 
   const handleEndSession = async () => {
     if (!normalizedSessionId) {
@@ -65,7 +98,14 @@ export default function TeacherSessionScreen() {
           </Pressable>
         </View>
       )}
-      <IvsCall token={normalizedToken} publishOnJoin onLeave={() => router.back()} onInStageChange={setIsInStage} />
+      <IvsCall
+        token={normalizedToken}
+        publishOnJoin
+        onLeave={() => router.back()}
+        onInStageChange={setIsInStage}
+        localParticipantLabel={normalizedLocalLabel}
+        participantNamesById={participantNameById}
+      />
     </View>
   );
 }

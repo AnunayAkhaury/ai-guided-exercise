@@ -14,6 +14,12 @@ type IvsTokenResponse = {
   expirationTime?: string;
 };
 
+export type IvsTokenResult = {
+  token: string;
+  participantId: string;
+  expirationTime?: string;
+};
+
 export type IvsSession = {
   sessionId: string;
   sessionCode: string;
@@ -25,6 +31,13 @@ export type IvsSession = {
   updatedAt: string;
   startedAt: string | null;
   endedAt: string | null;
+};
+
+export type IvsSessionParticipant = {
+  participantId: string;
+  displayName: string;
+  role?: string | null;
+  updatedAt?: string;
 };
 
 type CreateSessionRequest = {
@@ -55,7 +68,7 @@ async function postJson<T>(path: string, body: Record<string, unknown>): Promise
       },
       body: JSON.stringify(body)
     });
-  } catch (_err) {
+  } catch {
     throw new Error(`Network request failed to ${endpoint}. Confirm backend is running and reachable from device.`);
   }
 
@@ -74,7 +87,7 @@ async function getJson<T>(path: string): Promise<T> {
   let response: Response;
   try {
     response = await fetch(endpoint);
-  } catch (_err) {
+  } catch {
     throw new Error(`Network request failed to ${endpoint}. Confirm backend is running and reachable from device.`);
   }
 
@@ -86,7 +99,7 @@ async function getJson<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function getIvsToken(request: IvsTokenRequest): Promise<string> {
+export async function getIvsToken(request: IvsTokenRequest): Promise<IvsTokenResult> {
   const base = getApiBaseUrl();
 
   const endpoint = `${base}/api/ivs/token`;
@@ -123,8 +136,15 @@ export async function getIvsToken(request: IvsTokenRequest): Promise<string> {
   if (!data.token) {
     throw new Error('IVS token missing from response.');
   }
+  if (!data.participantId) {
+    throw new Error('IVS participantId missing from response.');
+  }
 
-  return data.token;
+  return {
+    token: data.token,
+    participantId: data.participantId,
+    expirationTime: data.expirationTime
+  };
 }
 
 export function createIvsSession(request: CreateSessionRequest): Promise<IvsSession> {
@@ -139,7 +159,7 @@ export function joinIvsSessionByCode(sessionCode: string): Promise<IvsSession> {
   return postJson<IvsSession>('/api/ivs/sessions/join', { sessionCode });
 }
 
-export function listIvsSessions(statuses: Array<'scheduled' | 'live'> = ['live', 'scheduled']): Promise<IvsSession[]> {
+export function listIvsSessions(statuses: ('scheduled' | 'live')[] = ['live', 'scheduled']): Promise<IvsSession[]> {
   const query = encodeURIComponent(statuses.join(','));
   return getJson<IvsSession[]>(`/api/ivs/sessions?status=${query}`);
 }
@@ -150,4 +170,17 @@ export function endIvsSession(sessionId: string): Promise<IvsSession> {
 
 export function getIvsSessionById(sessionId: string): Promise<IvsSession> {
   return getJson<IvsSession>(`/api/ivs/sessions/${encodeURIComponent(sessionId)}`);
+}
+
+export function upsertIvsSessionParticipant(request: {
+  sessionId: string;
+  participantId: string;
+  displayName: string;
+  role?: 'student' | 'instructor';
+}): Promise<IvsSessionParticipant> {
+  return postJson<IvsSessionParticipant>('/api/ivs/sessions/participants/upsert', request);
+}
+
+export function listIvsSessionParticipants(sessionId: string): Promise<IvsSessionParticipant[]> {
+  return getJson<IvsSessionParticipant[]>(`/api/ivs/sessions/${encodeURIComponent(sessionId)}/participants`);
 }

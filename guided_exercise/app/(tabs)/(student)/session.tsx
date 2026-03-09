@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import IvsCall from '@/src/components/IvsCall';
-import { useEffect, useRef, useState } from 'react';
-import { getIvsSessionById } from '@/src/api/ivs';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { getIvsSessionById, listIvsSessionParticipants } from '@/src/api/ivs';
 
 type SessionParams = {
   token?: string;
@@ -17,7 +17,13 @@ export default function StudentSessionScreen() {
   const { token, sessionName, userName, sessionCode, sessionId } = useLocalSearchParams<SessionParams>();
   const hasHandledEndedSession = useRef(false);
   const normalizedSessionId = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+  const normalizedSessionName = Array.isArray(sessionName) ? sessionName[0] : sessionName;
+  const normalizedUserName = Array.isArray(userName) ? userName[0] : userName;
+  const normalizedSessionCode = Array.isArray(sessionCode) ? sessionCode[0] : sessionCode;
+  const normalizedToken = Array.isArray(token) ? token[0] : token;
   const [isInStage, setIsInStage] = useState(false);
+  const [participantNameById, setParticipantNameById] = useState<Record<string, string>>({});
+  const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Student', [normalizedUserName]);
 
   useEffect(() => {
     if (!normalizedSessionId) return;
@@ -47,7 +53,38 @@ export default function StudentSessionScreen() {
     };
   }, [normalizedSessionId, router]);
 
-  if (!token) {
+  useEffect(() => {
+    if (!normalizedSessionId) return;
+    let active = true;
+
+    const loadParticipants = async () => {
+      try {
+        const participants = await listIvsSessionParticipants(normalizedSessionId);
+        if (!active) return;
+        const nextMap = participants.reduce<Record<string, string>>((acc, participant) => {
+          if (participant.participantId && participant.displayName) {
+            acc[participant.participantId] = participant.displayName;
+          }
+          return acc;
+        }, {});
+        setParticipantNameById(nextMap);
+      } catch (error) {
+        console.log('[StudentSession] participant list error', error);
+      }
+    };
+
+    void loadParticipants();
+    const interval = setInterval(() => {
+      void loadParticipants();
+    }, 3000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [normalizedSessionId]);
+
+  if (!normalizedToken) {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Unable to join session</Text>
@@ -63,12 +100,19 @@ export default function StudentSessionScreen() {
     <View style={styles.container}>
       {isInStage && (
         <View style={styles.header}>
-          <Text style={styles.title}>{sessionName || 'Live Session'}</Text>
-          <Text style={styles.subText}>{userName ? `Participant: ${userName}` : 'Student view'}</Text>
-          {!!sessionCode && <Text style={styles.subText}>Code: {sessionCode}</Text>}
+          <Text style={styles.title}>{normalizedSessionName || 'Live Session'}</Text>
+          <Text style={styles.subText}>{normalizedUserName ? `Participant: ${normalizedUserName}` : 'Student view'}</Text>
+          {!!normalizedSessionCode && <Text style={styles.subText}>Code: {normalizedSessionCode}</Text>}
         </View>
       )}
-      <IvsCall token={token} publishOnJoin onLeave={() => router.back()} onInStageChange={setIsInStage} />
+      <IvsCall
+        token={normalizedToken}
+        publishOnJoin
+        onLeave={() => router.back()}
+        onInStageChange={setIsInStage}
+        localParticipantLabel={normalizedLocalLabel}
+        participantNamesById={participantNameById}
+      />
     </View>
   );
 }
