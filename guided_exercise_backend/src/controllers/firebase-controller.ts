@@ -10,8 +10,8 @@ export function helloWorldController(req: Request, res: Response) {
 export async function createProfileController(req: Request, res: Response, next: NextFunction) {
   const { uid, role, username, fullname } = req.body;
   try {
-    await createProfile(uid, role, username, fullname);
-    res.status(200).json({ uid });
+    const profile = await createProfile(uid, role, username, fullname);
+    res.status(200).json({ uid, ...profile });
   } catch (err: any) {
     next(err);
     res.status(500).json({ message: err.message || 'Internal Server Error' });
@@ -23,9 +23,9 @@ export async function getProfileController(req: Request, res: Response, next: Ne
   try {
     const user = await getProfile(uid);
     if (!user) {
-      res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'User not found' });
     }
-    res.status(200).json({ ...user });
+    return res.status(200).json({ ...user });
   } catch (err: any) {
     next(err);
     res.status(500).json({ message: err.message || 'Internal Server Error' });
