@@ -135,6 +135,7 @@ export default function IvsCall({
               await setCameraMuted(false);
               await setMicrophoneMuted(isAudioMutedRef.current);
               setIsVideoMuted(false);
+              setIsAudioMuted(isAudioMutedRef.current);
             } catch (publishError: any) {
               setError(publishError?.message || 'Failed to start publishing.');
             }

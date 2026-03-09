@@ -72,7 +72,7 @@ export default function StartMeeting() {
 
   return (
     <View style={styles.container}>
-      <Pressable style={styles.backButton} onPress={() => router.back()}>
+      <Pressable style={styles.backButton} onPress={() => router.replace('/(tabs)/(teacher)/classes')}>
         <Text style={styles.backText}>Back</Text>
       </Pressable>
       <Text style={styles.title}>Start a Session</Text>
