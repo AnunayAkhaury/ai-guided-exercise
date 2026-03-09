@@ -8,12 +8,18 @@ export default function ActiveClassCard({
   end,
   title,
   desc,
+  onJoinPress,
+  joinLabel,
+  joinDisabled,
 } : {
   start: Date,
   end: Date,
   title: string,
   desc: string,
   active: boolean,
+  onJoinPress?: () => void,
+  joinLabel?: string,
+  joinDisabled?: boolean,
 }) {
     const startTime = start.toLocaleString('en-US', { 
       hour: 'numeric',
@@ -52,8 +58,8 @@ export default function ActiveClassCard({
             </View>
             <Typography font='istokWeb' className="w-full text-start text-wrap pb-2">{desc}</Typography>
 
-            <TouchableOpacity>
-                <Typography font='inter-bold' className="text-base px-9 py-2 text-white bg-[#A980FE] rounded-xl">Join Meeting</Typography>
+            <TouchableOpacity onPress={onJoinPress} disabled={joinDisabled}>
+                <Typography font='inter-bold' className="text-base px-9 py-2 text-white bg-[#A980FE] rounded-xl">{joinLabel ?? 'Join Meeting'}</Typography>
             </TouchableOpacity>
         </View>
       </View>

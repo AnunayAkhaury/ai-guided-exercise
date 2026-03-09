@@ -1,19 +1,21 @@
 import { Image, TouchableOpacity, View } from "react-native";
 import Typography from "../ui/Typography";
 import ActiveClassBg from '@/src/assets/images/ActiveClassBg.jpg'; 
-import { AntDesign, MaterialCommunityIcons } from "@expo/vector-icons";
+import { AntDesign } from "@expo/vector-icons";
 
 export default function TeacherActiveClassCard({
   start,
   end,
   title,
   desc,
+  onStartPress,
 } : {
   start: Date,
   end: Date,
   title: string,
   desc: string,
   active: boolean,
+  onStartPress?: () => void,
 }) {
     const startTime = start.toLocaleString('en-US', { 
       hour: 'numeric',
@@ -48,7 +50,7 @@ export default function TeacherActiveClassCard({
             <Typography font='istokWeb' className="w-full text-start text-wrap pb-2">{desc}</Typography>
             
             <View className="flex flex-row items-center gap-3">
-              <TouchableOpacity>
+              <TouchableOpacity onPress={onStartPress}>
                 <Typography font='inter-bold' className="text-base px-9 py-2 text-white bg-[#A980FE] rounded-xl">Start Meeting</Typography>
               </TouchableOpacity>
               <TouchableOpacity>

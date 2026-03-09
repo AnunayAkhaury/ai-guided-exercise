@@ -36,17 +36,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="(student)/join-meeting"
-        options={{
-          title: "Join Meeting",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="screenshot-monitor" color={color} size={size} />
-          ),
-          href: role === 'student' || skipAuth ? "/(tabs)/(student)/join-meeting" : null,
-          headerShown: false,
-        }}
-      />
-      <Tabs.Screen
         name="(student)/recordings"
         options={{
           title: "Recordings",
@@ -113,11 +102,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(teacher)/session"
         options={{
-          title: "Session",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="screenshot-monitor" color={color} size={size} />
-          ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/session" : null,
+          href: null,
           headerShown: false,
         }}
       />

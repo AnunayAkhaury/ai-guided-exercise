@@ -1,18 +1,23 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { getZoomToken } from '@/src/api/zoom';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { createIvsSession, getIvsToken, startIvsSession, upsertIvsSessionParticipant } from '@/src/api/ivs';
+import { useUserStore } from '@/src/store/userStore';
 
 export default function StartMeeting() {
   const router = useRouter();
-  const [sessionName, setSessionName] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  const { sessionName: paramSessionName } = useLocalSearchParams<{ sessionName?: string }>();
+  const username = useUserStore((state) => state.username);
+  const fullname = useUserStore((state) => state.fullname);
+  const fallbackDisplayName = username?.trim() || fullname?.trim() || 'Instructor Test';
+  const [sessionName, setSessionName] = useState((paramSessionName as string) || '');
+  const [displayName, setDisplayName] = useState(fallbackDisplayName);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleStart = async () => {
     const trimmedSession = sessionName.trim();
-    const trimmedName = displayName.trim();
+    const trimmedName = displayName.trim() || fallbackDisplayName;
 
     if (!trimmedSession || !trimmedName) {
       setError('Please enter a session name and display name.');
@@ -22,14 +27,41 @@ export default function StartMeeting() {
     setError('');
     setLoading(true);
     try {
-      const token = await getZoomToken({
+      const createdSession = await createIvsSession({
         sessionName: trimmedSession,
-        userName: trimmedName
+        instructorUid: trimmedName
+      });
+      const liveSession = await startIvsSession(createdSession.sessionId);
+
+      const tokenResult = await getIvsToken({
+        stageArn: liveSession.stageArn,
+        userId: trimmedName,
+        userName: trimmedName,
+        publish: true,
+        subscribe: true,
+        durationMinutes: 60,
+        attributes: {
+          role: 'instructor',
+          sessionId: liveSession.sessionId,
+          sessionCode: liveSession.sessionCode
+        }
+      });
+      await upsertIvsSessionParticipant({
+        sessionId: liveSession.sessionId,
+        participantId: tokenResult.participantId,
+        displayName: trimmedName,
+        role: 'instructor'
       });
 
       router.push({
         pathname: '/(tabs)/(teacher)/session',
-        params: { sessionName: trimmedSession, userName: trimmedName, token }
+        params: {
+          sessionName: liveSession.sessionName,
+          userName: trimmedName,
+          sessionCode: liveSession.sessionCode,
+          sessionId: liveSession.sessionId,
+          token: tokenResult.token
+        }
       });
     } catch (err: any) {
       setError(err?.message || 'Failed to start session.');
@@ -40,7 +72,7 @@ export default function StartMeeting() {
 
   return (
     <View style={styles.container}>
-      <Pressable style={styles.backButton} onPress={() => router.back()}>
+      <Pressable style={styles.backButton} onPress={() => router.replace('/(tabs)/(teacher)/classes')}>
         <Text style={styles.backText}>Back</Text>
       </Pressable>
       <Text style={styles.title}>Start a Session</Text>
@@ -49,7 +81,7 @@ export default function StartMeeting() {
         <Text style={styles.label}>Session Name</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. cancer-yoga-01"
+          placeholder="e.g. Tuesday Rehab Mobility"
           value={sessionName}
           onChangeText={setSessionName}
           autoCapitalize="none"
@@ -81,7 +113,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
-    backgroundColor: '#C3F5FF',
+    backgroundColor: '#F5F2FF',
     gap: 16
   },
   backButton: {
@@ -90,34 +122,40 @@ const styles = StyleSheet.create({
     left: 20,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#6155F5',
     borderRadius: 16
   },
   backText: {
     fontSize: 14,
-    fontWeight: '600'
+    fontWeight: '600',
+    color: '#fff'
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    textAlign: 'center'
+    textAlign: 'center',
+    color: '#302E47'
   },
   inputGroup: {
     gap: 8
   },
   label: {
     fontSize: 14,
-    fontWeight: '600'
+    fontWeight: '600',
+    color: '#4E4680'
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 16
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#D8D5FF',
+    color: '#1D1C2B'
   },
   button: {
-    backgroundColor: '#00C8B3',
+    backgroundColor: '#6155F5',
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center'
@@ -128,7 +166,7 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   error: {
-    color: '#B00020',
+    color: '#7A3FF2',
     textAlign: 'center'
   }
 });

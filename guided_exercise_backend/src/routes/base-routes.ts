@@ -6,8 +6,18 @@ import {
   getUserRecordingsController
 } from '@/controllers/firebase-controller.js';
 import { addRecordingController } from '@/controllers/firebase-controller.js';
-import { zoomTokenController } from '@/controllers/zoom-controller.js';
 import { uploadVideoController, getVideoUrlController } from '@/controllers/aws-controller.js';
+import { createIvsTokenController } from '@/controllers/ivs-controller.js';
+import {
+  createSessionController,
+  endSessionController,
+  getSessionByIdController,
+  joinSessionByCodeController,
+  listSessionParticipantsController,
+  listSessionsController,
+  startSessionController,
+  upsertSessionParticipantController
+} from '@/controllers/session-controller.js';
 
 const router = Router();
 router.get('/', helloWorldController);
@@ -15,7 +25,15 @@ router.post('/api/firebase/createProfile', createProfileController);
 router.post('/api/firebase/getProfile', getProfileController);
 router.post('/api/firebase/addRecording', addRecordingController);
 router.post('/api/firebase/getUserRecordings', getUserRecordingsController);
-router.post('/api/zoom/token', zoomTokenController);
+router.post('/api/ivs/token', createIvsTokenController);
+router.post('/api/ivs/sessions/create', createSessionController);
+router.post('/api/ivs/sessions/join', joinSessionByCodeController);
+router.post('/api/ivs/sessions/start', startSessionController);
+router.post('/api/ivs/sessions/end', endSessionController);
+router.get('/api/ivs/sessions', listSessionsController);
+router.get('/api/ivs/sessions/:sessionId', getSessionByIdController);
+router.post('/api/ivs/sessions/participants/upsert', upsertSessionParticipantController);
+router.get('/api/ivs/sessions/:sessionId/participants', listSessionParticipantsController);
 router.post('/api/aws/uploadVideo', uploadVideoController);
 router.post('/api/aws/getVideo', getVideoUrlController);
 
