@@ -22,11 +22,11 @@ export default function Signup() {
     <View style={styles.container}>
       <Text style={styles.title}>Sign Up</Text>
       <View style={styles.inputContainer}>
-        <Text>Email</Text>
+        <Text style={styles.label}>Email</Text>
         <TextInput style={styles.input} onChangeText={(email) => setEmail(email)} value={email} />
       </View>
       <View style={styles.inputContainer}>
-        <Text>Password</Text>
+        <Text style={styles.label}>Password</Text>
         <TextInput
           secureTextEntry={true}
           style={styles.input}
@@ -35,7 +35,7 @@ export default function Signup() {
         />
       </View>
       <View style={styles.inputContainer}>
-        <Text>Retype Password</Text>
+        <Text style={styles.label}>Retype Password</Text>
         <TextInput
           secureTextEntry={true}
           style={styles.input}
@@ -60,32 +60,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 15,
-    backgroundColor: '#C3F5FF'
+    backgroundColor: '#F5F2FF'
   },
   title: {
     fontSize: 30,
-    marginBottom: 12
+    marginBottom: 12,
+    color: '#302E47',
+    fontWeight: '700'
   },
   inputContainer: {
     width: '70%',
     alignItems: 'flex-start'
   },
+  label: {
+    color: '#4E4680',
+    fontWeight: '600'
+  },
   input: {
-    backgroundColor: 'white',
-    borderRadius: 5,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
     height: 40,
     width: '100%',
-    color: 'black',
+    color: '#1D1C2B',
     paddingHorizontal: 10,
     textAlignVertical: 'center',
     includeFontPadding: false,
+    borderWidth: 1,
+    borderColor: '#D8D5FF'
   },
   button: {
     marginTop: 15,
-    backgroundColor: '#00C8B3',
+    backgroundColor: '#6155F5',
     paddingHorizontal: 30,
-    paddingVertical: 5,
-    borderRadius: 6
+    paddingVertical: 8,
+    borderRadius: 8
   },
   buttonText: {
     color: 'white',
@@ -94,6 +102,6 @@ const styles = StyleSheet.create({
   },
   linkText: {
     textDecorationLine: 'underline',
-    color: 'blue'
+    color: '#6155F5'
   }
 });
