@@ -55,6 +55,22 @@ function getApiBaseUrl(): string {
   return API_BASE_URL;
 }
 
+async function buildApiError(response: Response, fallback: string): Promise<Error> {
+  const requestIdHeader = response.headers.get('x-request-id');
+
+  try {
+    const payload = (await response.json()) as { message?: string; requestId?: string };
+    const requestId = payload?.requestId || requestIdHeader || 'unknown';
+    const message = payload?.message || fallback;
+    return new Error(`${message} (requestId: ${requestId})`);
+  } catch {
+    const text = await response.text();
+    const requestId = requestIdHeader || 'unknown';
+    const message = text || fallback;
+    return new Error(`${message} (requestId: ${requestId})`);
+  }
+}
+
 async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const base = getApiBaseUrl();
   const endpoint = `${base}${path}`;
@@ -73,8 +89,7 @@ async function postJson<T>(path: string, body: Record<string, unknown>): Promise
   }
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed: ${response.status}`);
+    throw await buildApiError(response, `Request failed: ${response.status}`);
   }
 
   return (await response.json()) as T;
@@ -92,8 +107,7 @@ async function getJson<T>(path: string): Promise<T> {
   }
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed: ${response.status}`);
+    throw await buildApiError(response, `Request failed: ${response.status}`);
   }
 
   return (await response.json()) as T;
@@ -127,9 +141,9 @@ export async function getIvsToken(request: IvsTokenRequest): Promise<IvsTokenRes
   }
 
   if (!response.ok) {
-    const message = await response.text();
+    const message = await buildApiError(response, 'Failed to fetch IVS token.');
     console.log('[IVS][Client] token request failed', response.status, message);
-    throw new Error(message || 'Failed to fetch IVS token.');
+    throw message;
   }
 
   const data = (await response.json()) as IvsTokenResponse;

@@ -21,6 +21,7 @@ import {
 
 const router = Router();
 router.get('/', helloWorldController);
+router.get('/health', helloWorldController);
 router.post('/api/firebase/createProfile', createProfileController);
 router.post('/api/firebase/getProfile', getProfileController);
 router.post('/api/firebase/addRecording', addRecordingController);

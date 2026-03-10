@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { DisconnectParticipantCommand, IVSRealTimeClient } from '@aws-sdk/client-ivs-realtime';
 import {
   createSession,
@@ -11,6 +11,7 @@ import {
   updateSessionStatus
 } from '@/services/Firebase/firebase-session.js';
 import type { SessionStatus } from '@/services/Firebase/firebase-session.js';
+import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
 type CreateSessionRequest = {
   sessionName?: string;
@@ -59,19 +60,19 @@ async function disconnectKnownParticipantsForSession(session: {
   );
 }
 
-export async function createSessionController(req: Request, res: Response, next: NextFunction) {
+export async function createSessionController(req: Request, res: Response) {
   try {
     const { sessionName, instructorUid, stageArn } = req.body as CreateSessionRequest;
     const effectiveStageArn = stageArn ?? process.env.IVS_STAGE_ARN;
 
     if (!sessionName?.trim()) {
-      return res.status(400).json({ message: 'sessionName is required.' });
+      return sendErrorResponse(req, res, 400, 'sessionName is required.');
     }
     if (!instructorUid?.trim()) {
-      return res.status(400).json({ message: 'instructorUid is required.' });
+      return sendErrorResponse(req, res, 400, 'instructorUid is required.');
     }
     if (!effectiveStageArn?.trim()) {
-      return res.status(400).json({ message: 'stageArn is required (or set IVS_STAGE_ARN).' });
+      return sendErrorResponse(req, res, 400, 'stageArn is required (or set IVS_STAGE_ARN).');
     }
 
     const session = await createSession({
@@ -82,56 +83,56 @@ export async function createSessionController(req: Request, res: Response, next:
 
     return res.status(200).json(session);
   } catch (err: any) {
-    next(err);
-    return res.status(500).json({ message: err.message || 'Failed to create session.' });
+    logControllerError(req, err, 'createSessionController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to create session.');
   }
 }
 
-export async function joinSessionByCodeController(req: Request, res: Response, next: NextFunction) {
+export async function joinSessionByCodeController(req: Request, res: Response) {
   try {
     const { sessionCode } = req.body as SessionCodeRequest;
     if (!sessionCode?.trim()) {
-      return res.status(400).json({ message: 'sessionCode is required.' });
+      return sendErrorResponse(req, res, 400, 'sessionCode is required.');
     }
 
     const session = await getSessionByCode(sessionCode);
     if (!session) {
-      return res.status(404).json({ message: 'Session not found.' });
+      return sendErrorResponse(req, res, 404, 'Session not found.');
     }
     if (session.status === 'scheduled') {
-      return res.status(409).json({ message: 'Session is not live yet.' });
+      return sendErrorResponse(req, res, 409, 'Session is not live yet.');
     }
     if (session.status === 'ended') {
-      return res.status(410).json({ message: 'Session has ended.' });
+      return sendErrorResponse(req, res, 410, 'Session has ended.');
     }
 
     return res.status(200).json(session);
   } catch (err: any) {
-    next(err);
-    return res.status(500).json({ message: err.message || 'Failed to join session.' });
+    logControllerError(req, err, 'joinSessionByCodeController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to join session.');
   }
 }
 
-export async function getSessionByIdController(req: Request, res: Response, next: NextFunction) {
+export async function getSessionByIdController(req: Request, res: Response) {
   try {
     const sessionId = Array.isArray(req.params.sessionId) ? req.params.sessionId[0] : req.params.sessionId;
     if (!sessionId?.trim()) {
-      return res.status(400).json({ message: 'sessionId is required.' });
+      return sendErrorResponse(req, res, 400, 'sessionId is required.');
     }
 
     const session = await getSessionById(sessionId);
     if (!session) {
-      return res.status(404).json({ message: 'Session not found.' });
+      return sendErrorResponse(req, res, 404, 'Session not found.');
     }
 
     return res.status(200).json(session);
   } catch (err: any) {
-    next(err);
-    return res.status(500).json({ message: err.message || 'Failed to fetch session.' });
+    logControllerError(req, err, 'getSessionByIdController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to fetch session.');
   }
 }
 
-export async function listSessionsController(req: Request, res: Response, next: NextFunction) {
+export async function listSessionsController(req: Request, res: Response) {
   try {
     const rawStatus = Array.isArray(req.query.status) ? req.query.status.join(',') : req.query.status;
     let statuses: SessionStatus[] | undefined;
@@ -143,7 +144,7 @@ export async function listSessionsController(req: Request, res: Response, next: 
         .filter((value): value is SessionStatus => VALID_STATUSES.includes(value as SessionStatus));
 
       if (parsed.length === 0) {
-        return res.status(400).json({ message: 'status must be one or more of: scheduled, live, ended.' });
+        return sendErrorResponse(req, res, 400, 'status must be one or more of: scheduled, live, ended.');
       }
       statuses = Array.from(new Set(parsed));
     }
@@ -151,24 +152,24 @@ export async function listSessionsController(req: Request, res: Response, next: 
     const sessions = await listSessions(statuses);
     return res.status(200).json(sessions);
   } catch (err: any) {
-    next(err);
-    return res.status(500).json({ message: err.message || 'Failed to list sessions.' });
+    logControllerError(req, err, 'listSessionsController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to list sessions.');
   }
 }
 
-export async function startSessionController(req: Request, res: Response, next: NextFunction) {
+export async function startSessionController(req: Request, res: Response) {
   try {
     const { sessionId } = req.body as SessionIdRequest;
     if (!sessionId?.trim()) {
-      return res.status(400).json({ message: 'sessionId is required.' });
+      return sendErrorResponse(req, res, 400, 'sessionId is required.');
     }
 
     const existing = await getSessionById(sessionId);
     if (!existing) {
-      return res.status(404).json({ message: 'Session not found.' });
+      return sendErrorResponse(req, res, 404, 'Session not found.');
     }
     if (existing.status === 'ended') {
-      return res.status(409).json({ message: 'Cannot start an ended session.' });
+      return sendErrorResponse(req, res, 409, 'Cannot start an ended session.');
     }
 
     const currentlyLiveSessions = await listSessions(['live']);
@@ -179,21 +180,21 @@ export async function startSessionController(req: Request, res: Response, next: 
     const updated = await getSessionById(sessionId);
     return res.status(200).json(updated);
   } catch (err: any) {
-    next(err);
-    return res.status(500).json({ message: err.message || 'Failed to start session.' });
+    logControllerError(req, err, 'startSessionController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to start session.');
   }
 }
 
-export async function endSessionController(req: Request, res: Response, next: NextFunction) {
+export async function endSessionController(req: Request, res: Response) {
   try {
     const { sessionId } = req.body as SessionIdRequest;
     if (!sessionId?.trim()) {
-      return res.status(400).json({ message: 'sessionId is required.' });
+      return sendErrorResponse(req, res, 400, 'sessionId is required.');
     }
 
     const existing = await getSessionById(sessionId);
     if (!existing) {
-      return res.status(404).json({ message: 'Session not found.' });
+      return sendErrorResponse(req, res, 404, 'Session not found.');
     }
     if (existing.status === 'ended') {
       return res.status(200).json(existing);
@@ -204,53 +205,53 @@ export async function endSessionController(req: Request, res: Response, next: Ne
     const updated = await getSessionById(sessionId);
     return res.status(200).json(updated);
   } catch (err: any) {
-    next(err);
-    return res.status(500).json({ message: err.message || 'Failed to end session.' });
+    logControllerError(req, err, 'endSessionController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to end session.');
   }
 }
 
-export async function upsertSessionParticipantController(req: Request, res: Response, next: NextFunction) {
+export async function upsertSessionParticipantController(req: Request, res: Response) {
   try {
     const { sessionId, participantId, displayName, role } = req.body as UpsertParticipantRequest;
     if (!sessionId?.trim()) {
-      return res.status(400).json({ message: 'sessionId is required.' });
+      return sendErrorResponse(req, res, 400, 'sessionId is required.');
     }
     if (!participantId?.trim()) {
-      return res.status(400).json({ message: 'participantId is required.' });
+      return sendErrorResponse(req, res, 400, 'participantId is required.');
     }
     if (!displayName?.trim()) {
-      return res.status(400).json({ message: 'displayName is required.' });
+      return sendErrorResponse(req, res, 400, 'displayName is required.');
     }
 
     const existing = await getSessionById(sessionId);
     if (!existing) {
-      return res.status(404).json({ message: 'Session not found.' });
+      return sendErrorResponse(req, res, 404, 'Session not found.');
     }
 
     const participant = await upsertSessionParticipant(sessionId, participantId, displayName, role);
     return res.status(200).json(participant);
   } catch (err: any) {
-    next(err);
-    return res.status(500).json({ message: err.message || 'Failed to upsert session participant.' });
+    logControllerError(req, err, 'upsertSessionParticipantController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to upsert session participant.');
   }
 }
 
-export async function listSessionParticipantsController(req: Request, res: Response, next: NextFunction) {
+export async function listSessionParticipantsController(req: Request, res: Response) {
   try {
     const sessionId = Array.isArray(req.params.sessionId) ? req.params.sessionId[0] : req.params.sessionId;
     if (!sessionId?.trim()) {
-      return res.status(400).json({ message: 'sessionId is required.' });
+      return sendErrorResponse(req, res, 400, 'sessionId is required.');
     }
 
     const existing = await getSessionById(sessionId);
     if (!existing) {
-      return res.status(404).json({ message: 'Session not found.' });
+      return sendErrorResponse(req, res, 404, 'Session not found.');
     }
 
     const participants = await listSessionParticipants(sessionId);
     return res.status(200).json(participants);
   } catch (err: any) {
-    next(err);
-    return res.status(500).json({ message: err.message || 'Failed to list session participants.' });
+    logControllerError(req, err, 'listSessionParticipantsController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to list session participants.');
   }
 }

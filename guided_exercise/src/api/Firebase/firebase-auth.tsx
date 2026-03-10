@@ -11,6 +11,20 @@ function getErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+async function parseApiError(response: Response, fallback: string): Promise<string> {
+  const requestIdHeader = response.headers.get('x-request-id');
+  try {
+    const payload = (await response.json()) as { message?: string; requestId?: string };
+    const requestId = payload?.requestId || requestIdHeader || 'unknown';
+    const message = payload?.message || fallback;
+    return `${message} (requestId: ${requestId})`;
+  } catch {
+    const text = await response.text();
+    const requestId = requestIdHeader || 'unknown';
+    return `${text || fallback} (requestId: ${requestId})`;
+  }
+}
+
 export async function createAccount(email: string, password: string) {
   try {
     const userCredential: UserCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -33,7 +47,7 @@ export async function createProfile(uid: string, role: string, username: string,
     });
 
     if (!response.ok) {
-      const message = await response.text();
+      const message = await parseApiError(response, `Failed to create profile: ${response.status}`);
       throw new Error(message || `Failed to create profile: ${response.status}`);
     }
 
@@ -66,7 +80,7 @@ export async function login(email: string, password: string) {
     });
 
     if (!response.ok) {
-      const message = await response.text();
+      const message = await parseApiError(response, `Failed to login: ${response.status}`);
       throw new Error(message || `Failed to login: ${response.status}`);
     }
 
