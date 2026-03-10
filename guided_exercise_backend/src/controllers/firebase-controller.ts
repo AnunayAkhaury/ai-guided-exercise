@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { createProfile, getProfile } from '@/services/Firebase/firebase-auth.js';
+import { createProfile, getAllProfiles, getProfile } from '@/services/Firebase/firebase-auth.js';
 import type { NextFunction } from 'express';
 import { addRecording, getUserRecordings } from '@/services/Firebase/firebase-recording.js';
 
@@ -26,6 +26,16 @@ export async function getProfileController(req: Request, res: Response, next: Ne
       res.status(404).json({ message: 'User not found' });
     }
     res.status(200).json({ ...user });
+  } catch (err: any) {
+    next(err);
+    res.status(500).json({ message: err.message || 'Internal Server Error' });
+  }
+}
+
+export async function getAllProfilesController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const profiles = await getAllProfiles();
+    res.status(200).json(profiles);
   } catch (err: any) {
     next(err);
     res.status(500).json({ message: err.message || 'Internal Server Error' });

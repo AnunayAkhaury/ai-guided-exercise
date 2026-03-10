@@ -31,3 +31,19 @@ export async function getProfile(uid: string) {
     throw error;
   }
 }
+
+export async function getAllProfiles() {
+  try {
+    const snapshot = await db.collection('users').get();
+
+    // Add id to user profile data and return
+    const users = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    return users;
+  } catch (error) {
+    throw error;
+  }
+}

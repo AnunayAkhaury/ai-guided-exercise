@@ -1,5 +1,4 @@
-import type { Request, Response } from 'express';
-import type { NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { uploadVideoToS3, getVideoFromS3 } from '@/services/AWS/s3.js';
 
 export async function uploadVideoController(req: Request, res: Response, next: NextFunction) {
