@@ -55,14 +55,14 @@ export default function Signup() {
     try {
       setIsSubmitting(true);
       const uid = await createAccount(trimmedEmail, password);
-      await createProfile(uid, role, normalizedName, defaultFullName);
+      await createProfile(uid, role, normalizedName, defaultFullName, trimmedEmail);
       routeByRole();
     } catch (err: any) {
       const message = String(err?.message || '');
       if (message.includes('auth/email-already-in-use')) {
         try {
           const credential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
-          await createProfile(credential.user.uid, role, normalizedName, defaultFullName);
+          await createProfile(credential.user.uid, role, normalizedName, defaultFullName, trimmedEmail);
           routeByRole();
           return;
         } catch {

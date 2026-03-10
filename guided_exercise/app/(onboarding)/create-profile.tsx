@@ -11,13 +11,14 @@ export default function CreateProfile() {
 
   const user = getAuth().currentUser;
   const uid = user?.uid;
+  const email = user?.email ?? undefined;
 
   if (!uid) {
     router.replace('/login');
   }
 
   const handleCreateProfile = async () => {
-    await createProfile(uid!, role, username, fullname);
+    await createProfile(uid!, role, username, fullname, email);
     if (role === 'student') {
       router.replace('/(tabs)/(student)/classes');
     } else {

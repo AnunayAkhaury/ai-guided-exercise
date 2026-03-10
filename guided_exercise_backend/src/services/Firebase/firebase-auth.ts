@@ -4,11 +4,12 @@ type UserProfile = {
   role: string;
   username: string;
   fullname: string;
+  email: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
 
-export async function createProfile(uid: string, role: string, username: string, fullname: string) {
+export async function createProfile(uid: string, role: string, username: string, fullname: string, email?: string) {
   try {
     const userRef = db.collection('users').doc(uid);
     const existingSnapshot = await userRef.get();
@@ -19,6 +20,7 @@ export async function createProfile(uid: string, role: string, username: string,
     const effectiveRole = existingData?.role ?? role;
     const effectiveUsername = existingData?.username ?? username;
     const effectiveFullname = existingData?.fullname ?? fullname;
+    const effectiveEmail = existingData?.email ?? email ?? null;
     const effectiveCreatedAt = existingData?.createdAt?.toDate
       ? existingData.createdAt.toDate()
       : existingData?.createdAt ?? now;
@@ -30,6 +32,7 @@ export async function createProfile(uid: string, role: string, username: string,
         role: effectiveRole,
         username: effectiveUsername,
         fullname: effectiveFullname,
+        email: effectiveEmail,
         createdAt: effectiveCreatedAt,
         updatedAt: now
       },
@@ -40,6 +43,7 @@ export async function createProfile(uid: string, role: string, username: string,
       role: effectiveRole,
       username: effectiveUsername,
       fullname: effectiveFullname,
+      email: effectiveEmail,
       createdAt: effectiveCreatedAt,
       updatedAt: now
     } as UserProfile;
@@ -60,6 +64,7 @@ export async function getProfile(uid: string) {
       role: user?.role,
       username: user?.username,
       fullname: user?.fullname,
+      email: user?.email ?? null,
       createdAt: user?.createdAt?.toDate ? user.createdAt.toDate() : user?.createdAt ?? null,
       updatedAt: user?.updatedAt?.toDate ? user.updatedAt.toDate() : user?.updatedAt ?? null
     };

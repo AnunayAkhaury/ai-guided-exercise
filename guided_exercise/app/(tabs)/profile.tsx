@@ -1,10 +1,12 @@
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Image, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import BgImage from '@/src/assets/images/profile-background.png'; 
 import ProfileImage from '@/src/assets/images/default-profile.jpg';
 import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useUserStore } from "@/src/store/userStore";
 import Typography from "@/src/components/ui/Typography";
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
+import { logout } from "@/src/api/Firebase/firebase-auth";
+import { router } from "expo-router";
 
 function Button({ icon, title }: { icon: ReactNode, title: string, }) {
     return (
@@ -20,6 +22,29 @@ function Button({ icon, title }: { icon: ReactNode, title: string, }) {
 
 export default function Profile() {
     const username = useUserStore((state) => state.username);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const handleLogout = () => {
+        if (isLoggingOut) return;
+        Alert.alert('Log out', 'Are you sure you want to log out?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Log out',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        setIsLoggingOut(true);
+                        await logout();
+                        router.replace('/(onboarding)/login');
+                    } catch (err: any) {
+                        Alert.alert('Logout failed', err?.message || 'Unable to log out.');
+                    } finally {
+                        setIsLoggingOut(false);
+                    }
+                }
+            }
+        ]);
+    };
     
     return (
         <View className="relative flex-grow">
@@ -51,8 +76,12 @@ export default function Profile() {
                     <Button icon={<Ionicons name="heart" size={17} color="black" />} title="Donate Page" />
                 </View>
 
-                <TouchableOpacity className="mt-24">
-                    <Typography font='inter-bold' className="text-[#FF0000] text-lg">Logout</Typography>
+                <TouchableOpacity className="mt-24 min-h-8 justify-center" onPress={handleLogout} disabled={isLoggingOut}>
+                    {isLoggingOut ? (
+                        <ActivityIndicator color="#FF0000" />
+                    ) : (
+                        <Typography font='inter-bold' className="text-[#FF0000] text-lg">Logout</Typography>
+                    )}
                 </TouchableOpacity>
             </View>
             

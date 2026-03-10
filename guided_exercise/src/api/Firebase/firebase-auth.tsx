@@ -1,7 +1,7 @@
 import { useUserStore } from '@/src/store/userStore';
 import { auth } from './firebase-config';
 
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import type { UserCredential } from 'firebase/auth';
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -21,7 +21,7 @@ export async function createAccount(email: string, password: string) {
   }
 }
 
-export async function createProfile(uid: string, role: string, username: string, fullname: string) {
+export async function createProfile(uid: string, role: string, username: string, fullname: string, email?: string) {
   try {
     // Create user profile in Firestore
     const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/firebase/createProfile`, {
@@ -29,7 +29,7 @@ export async function createProfile(uid: string, role: string, username: string,
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ uid, role, username, fullname })
+      body: JSON.stringify({ uid, role, username, fullname, email })
     });
 
     if (!response.ok) {
@@ -43,7 +43,8 @@ export async function createProfile(uid: string, role: string, username: string,
       uid: uid,
       role: data?.role ?? role,
       fullname: data?.fullname ?? fullname,
-      username: data?.username ?? username
+      username: data?.username ?? username,
+      email: data?.email ?? email ?? null
     });
     return data;
   } catch (err) {
@@ -71,9 +72,26 @@ export async function login(email: string, password: string) {
 
     const data = await response.json();
 
-    useUserStore.setState({ uid: userCredential.user.uid, role: data.role, fullname: data.fullname, username: data.username });
+    useUserStore.setState({
+      uid: userCredential.user.uid,
+      role: data.role,
+      fullname: data.fullname,
+      username: data.username,
+      email: data.email ?? userCredential.user.email ?? null
+    });
   } catch (err) {
     console.log(err);
     throw new Error(getErrorMessage(err, 'Failed to login.'));
+  }
+}
+
+export async function logout() {
+  try {
+    await signOut(auth);
+  } catch (err) {
+    console.log(err);
+    throw new Error(getErrorMessage(err, 'Failed to logout.'));
+  } finally {
+    useUserStore.getState().reset();
   }
 }

@@ -8,9 +8,9 @@ export function helloWorldController(req: Request, res: Response) {
 }
 
 export async function createProfileController(req: Request, res: Response, next: NextFunction) {
-  const { uid, role, username, fullname } = req.body;
+  const { uid, role, username, fullname, email } = req.body;
   try {
-    const profile = await createProfile(uid, role, username, fullname);
+    const profile = await createProfile(uid, role, username, fullname, email);
     res.status(200).json({ uid, ...profile });
   } catch (err: any) {
     next(err);
