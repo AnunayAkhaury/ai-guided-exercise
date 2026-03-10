@@ -61,6 +61,17 @@ function getParticipantDisplayName(participant: Participant): string {
   );
 }
 
+function selectPreferredVideoStream(streams: ({ mediaType: string; deviceUrn: string } & Record<string, any>)[]) {
+  if (!streams.length) return null;
+  const activeStream = streams.find((stream) => {
+    const muted = stream?.isMuted ?? stream?.muted ?? false;
+    const disabled = stream?.isDisabled ?? false;
+    return !muted && !disabled;
+  });
+  // Fallback to latest stream if SDK does not expose active/muted metadata.
+  return activeStream ?? streams[streams.length - 1];
+}
+
 export default function IvsCall({
   token,
   publishOnJoin = true,
@@ -83,8 +94,11 @@ export default function IvsCall({
   const remoteParticipants = useMemo(() => {
     return participants
       .map((participant) => {
-        const videoStreams = participant.streams.filter((stream) => stream.mediaType === 'video');
-        const videoStream = videoStreams[videoStreams.length - 1];
+        const videoStreams = participant.streams.filter((stream) => stream.mediaType === 'video') as ({
+          mediaType: string;
+          deviceUrn: string;
+        } & Record<string, any>)[];
+        const videoStream = selectPreferredVideoStream(videoStreams);
         if (!videoStream) {
           return null;
         }
@@ -94,8 +108,10 @@ export default function IvsCall({
           deviceUrn: videoStream.deviceUrn
         };
       })
-      .filter((value): value is { participantId: string; displayName: string; deviceUrn: string } => Boolean(value));
+      .filter((value): value is { participantId: string; displayName: string; deviceUrn: string } => Boolean(value))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [participants]);
+  const useGridForRemotes = remoteParticipants.length > 1;
 
   useEffect(() => {
     publishOnJoinRef.current = publishOnJoin;
@@ -240,16 +256,19 @@ export default function IvsCall({
     <View style={styles.container}>
       <ScrollView style={styles.videoContainer} contentContainerStyle={styles.videoContent}>
         {publishOnJoin && (
-          <View style={styles.participantWrapper}>
+          <View style={[styles.participantWrapper, styles.localParticipantWrapper]}>
             <View style={styles.participantLabelPill}>
               <Text style={styles.participantLabel}>{localParticipantLabel?.trim() || 'You'}</Text>
             </View>
-            <ExpoIVSStagePreviewView style={styles.videoFrame} />
+            <ExpoIVSStagePreviewView style={styles.localVideoFrame} />
           </View>
         )}
 
         {remoteParticipants.map((participant) => (
-          <View key={`${participant.participantId}:${participant.deviceUrn}`} style={styles.participantWrapper}>
+          <View
+            key={`${participant.participantId}:${participant.deviceUrn}`}
+            style={[styles.participantWrapper, useGridForRemotes && styles.gridParticipantWrapper]}
+          >
             <View style={styles.participantLabelPill}>
               <Text style={styles.participantLabel}>
                 {participantNamesById?.[participant.participantId] || participant.displayName}
@@ -258,7 +277,7 @@ export default function IvsCall({
             <ExpoIVSRemoteStreamView
               participantId={participant.participantId}
               deviceUrn={participant.deviceUrn}
-              style={styles.videoFrame}
+              style={useGridForRemotes ? styles.gridVideoFrame : styles.remoteVideoFrame}
               scaleMode="fit"
             />
           </View>
@@ -273,7 +292,6 @@ export default function IvsCall({
         )}
       </ScrollView>
 
-      {!!status && <Text style={styles.statusInline}>{status}</Text>}
       {!!error && <Text style={styles.errorInline}>{error}</Text>}
 
       <View style={styles.controlBar}>
@@ -349,16 +367,27 @@ const styles = StyleSheet.create({
   },
   videoContainer: { flex: 1, width: '100%' },
   videoContent: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
     paddingHorizontal: 14,
     paddingBottom: 10
   },
   participantWrapper: {
+    width: '100%',
     marginBottom: 12,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#101015',
     borderWidth: 2,
     borderColor: '#E5E3FF'
+  },
+  localParticipantWrapper: {
+    marginBottom: 14
+  },
+  gridParticipantWrapper: {
+    width: '48%',
+    marginHorizontal: '1%'
   },
   participantLabelPill: {
     position: 'absolute',
@@ -375,7 +404,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12
   },
-  videoFrame: { width: '100%', height: 220 },
+  localVideoFrame: { width: '100%', height: 220 },
+  remoteVideoFrame: { width: '100%', height: 200 },
+  gridVideoFrame: { width: '100%', height: 165 },
   emptyState: {
     borderWidth: 1,
     borderColor: '#D8D5FF',
@@ -397,12 +428,6 @@ const styles = StyleSheet.create({
   },
   status: { color: '#5A5678', textAlign: 'center', marginTop: 10 },
   error: { color: '#7A3FF2', textAlign: 'center', marginTop: 8 },
-  statusInline: {
-    color: '#4E4A75',
-    textAlign: 'center',
-    marginTop: 2,
-    marginBottom: 6
-  },
   errorInline: {
     color: '#7A3FF2',
     textAlign: 'center',
