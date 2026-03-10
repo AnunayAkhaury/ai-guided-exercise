@@ -13,10 +13,12 @@
     "@aws-sdk/s3-request-presigner": "^3.991.0",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
+    "expo-file-system": "^55.0.10",
     "express": "^5.2.1",
     "firebase-admin": "^13.6.1",
     "jsonwebtoken": "^9.0.2",
-    "morgan": "^1.10.1"
+    "morgan": "^1.10.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@tsconfig/node22": "^22.0.5",

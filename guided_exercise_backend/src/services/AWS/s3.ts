@@ -2,32 +2,37 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import fs from 'fs';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { v4 as uuidv4 } from 'uuid';
 
 // Upload video to S3 (filePath is currently hard coded)
-export async function uploadVideoToS3(bucketName: string, key: string, filePath: string) {
+export async function uploadVideoToS3(bucketName: string, filePath: string) {
   try {
-    if (!bucketName || !key || !filePath) {
+    if (!bucketName || !filePath) {
       throw new Error('Missing parameters (bucketName, key, filePath)');
     }
     // TODO: Using a hard coded video path rn, will update to video from zoom
     const fileStream = fs.createReadStream(
-      'C:/Users/grace/All Programming/ai-guided-exercise/guided_exercise_backend/src/services/AWS/testvideo30sec.mp4'
+      'C:/Users/grace/All Programming/ai-guided-exercise/guided_exercise_backend/src/services/AWS/test-video.mp4'
     );
 
     if (!fileStream) {
       throw new Error('Unable to get zoom link.');
     }
 
+    const key = uuidv4();
+
     const upload = new Upload({
       client: new S3Client({}),
       params: {
         Bucket: bucketName,
         Key: key,
-        Body: fileStream
+        Body: fileStream,
+        ContentType: 'video/mp4'
       }
     });
 
     await upload.done();
+    return key;
   } catch (err) {
     throw err;
   }

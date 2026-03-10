@@ -4,8 +4,9 @@ import { uploadVideoToS3, getVideoFromS3 } from '@/services/AWS/s3.js';
 
 export async function uploadVideoController(req: Request, res: Response, next: NextFunction) {
   try {
-    await uploadVideoToS3('ai-guided-exercise-recordings', 'test-video.mp4', 'unused-param');
-    res.status(200);
+    // TODO: file path is hard coded
+    const key = await uploadVideoToS3('ai-guided-exercise-recordings', 'test-video.mp4');
+    res.status(200).json({ videoKey: key });
   } catch (err: any) {
     next(err);
     res.status(500).json({ message: err.message || 'Internal Server Error' });
@@ -14,7 +15,8 @@ export async function uploadVideoController(req: Request, res: Response, next: N
 
 export async function getVideoUrlController(req: Request, res: Response, next: NextFunction) {
   try {
-    const recordingUrl = await getVideoFromS3('ai-guided-exercise-recordings', 'test-video.mp4');
+    const { videoKey } = req.body;
+    const recordingUrl = await getVideoFromS3('ai-guided-exercise-recordings', videoKey);
     res.status(200).json({ recordingUrl });
   } catch (err: any) {
     next(err);
