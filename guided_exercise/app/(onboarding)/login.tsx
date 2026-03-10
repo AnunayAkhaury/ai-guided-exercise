@@ -1,4 +1,4 @@
-import { Text, TextInput, Button, StyleSheet, View, Pressable } from 'react-native';
+import { Text, TextInput, StyleSheet, View, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Link, router } from 'expo-router';
 import React, { useState } from 'react';
 import { login } from '@/src/api/Firebase/firebase-auth';
@@ -7,10 +7,19 @@ import { useUserStore } from '@/src/store/userStore';
 export default function Login() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleLogin = async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      Alert.alert('Missing info', 'Please enter your email and password.');
+      return;
+    }
+    if (isSubmitting) return;
+
     try {
-      await login(email, password);
+      setIsSubmitting(true);
+      await login(trimmedEmail, password);
       const latestRole = useUserStore.getState().role;
       if (latestRole === 'student') {
         router.replace('/(tabs)/(student)/classes');
@@ -19,6 +28,9 @@ export default function Login() {
       }
     } catch (error) {
       console.error('Login failed:', error);
+      Alert.alert('Login failed', 'Please check your email/password and try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -38,13 +50,12 @@ export default function Login() {
           value={password}
         />
       </View>
-      <Pressable style={styles.button} onPress={async () => await handleLogin()}>
-        <Text style={styles.buttonText}>Submit</Text>
+      <Pressable style={[styles.button, isSubmitting && styles.buttonDisabled]} onPress={handleLogin} disabled={isSubmitting}>
+        {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Log In</Text>}
       </Pressable>
       <Link href="/signup" push>
         <Text style={styles.linkText}>Signup Instead</Text>
       </Link>
-      <Button title="Skip Auth (For Development)" onPress={() => router.replace('/')} />
     </View>
   );
 }
@@ -86,9 +97,19 @@ const styles = StyleSheet.create({
   button: {
     marginTop: 15,
     backgroundColor: '#6155F5',
-    paddingHorizontal: 30,
-    paddingVertical: 8,
-    borderRadius: 8
+    paddingHorizontal: 34,
+    paddingVertical: 11,
+    borderRadius: 10,
+    minWidth: 200,
+    alignItems: 'center',
+    shadowColor: '#2D2288',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 10,
+    elevation: 3
+  },
+  buttonDisabled: {
+    opacity: 0.7
   },
   buttonText: {
     color: 'white',
