@@ -11,6 +11,7 @@ export default function ActiveClassCard({
   onJoinPress,
   joinLabel,
   joinDisabled,
+  subtitle,
 } : {
   start: Date,
   end: Date,
@@ -20,6 +21,7 @@ export default function ActiveClassCard({
   onJoinPress?: () => void,
   joinLabel?: string,
   joinDisabled?: boolean,
+  subtitle?: string,
 }) {
     const startTime = start.toLocaleString('en-US', { 
       hour: 'numeric',
@@ -49,7 +51,7 @@ export default function ActiveClassCard({
                     <MaterialCommunityIcons name="signal-variant" size={10} color="white" />
                 </View>
             </View>
-            <Typography font='istokWeb' className="w-full text-start">with Instructor John</Typography>
+            <Typography font='istokWeb' className="w-full text-start">{subtitle ?? 'Live class'}</Typography>
             <View className="w-full flex flex-row justify-start items-center gap-1">
                 <AntDesign name="field-time" size={17} color="black" />
                 <Typography font='istokWeb' className=" text-wrap text-base">

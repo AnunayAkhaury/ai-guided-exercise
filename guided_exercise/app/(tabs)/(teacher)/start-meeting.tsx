@@ -6,7 +6,10 @@ import { useUserStore } from '@/src/store/userStore';
 
 export default function StartMeeting() {
   const router = useRouter();
-  const { sessionName: paramSessionName } = useLocalSearchParams<{ sessionName?: string }>();
+  const { sessionName: paramSessionName, sessionId: paramSessionId } = useLocalSearchParams<{
+    sessionName?: string;
+    sessionId?: string;
+  }>();
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
   const fallbackDisplayName = username?.trim() || fullname?.trim() || 'Instructor Test';
@@ -14,6 +17,7 @@ export default function StartMeeting() {
   const [displayName, setDisplayName] = useState(fallbackDisplayName);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const normalizedSessionId = Array.isArray(paramSessionId) ? paramSessionId[0] : paramSessionId;
 
   const handleStart = async () => {
     const trimmedSession = sessionName.trim();
@@ -27,11 +31,15 @@ export default function StartMeeting() {
     setError('');
     setLoading(true);
     try {
-      const createdSession = await createIvsSession({
-        sessionName: trimmedSession,
-        instructorUid: trimmedName
-      });
-      const liveSession = await startIvsSession(createdSession.sessionId);
+      const liveSession = normalizedSessionId
+        ? await startIvsSession(normalizedSessionId)
+        : await (async () => {
+            const createdSession = await createIvsSession({
+              sessionName: trimmedSession,
+              instructorUid: trimmedName
+            });
+            return startIvsSession(createdSession.sessionId);
+          })();
 
       const tokenResult = await getIvsToken({
         stageArn: liveSession.stageArn,
@@ -76,6 +84,7 @@ export default function StartMeeting() {
         <Text style={styles.backText}>Back</Text>
       </Pressable>
       <Text style={styles.title}>Start a Session</Text>
+      {!!normalizedSessionId && <Text style={styles.subtitle}>Launching scheduled class</Text>}
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Session Name</Text>
@@ -135,6 +144,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     color: '#302E47'
+  },
+  subtitle: {
+    textAlign: 'center',
+    color: '#5F5893',
+    marginTop: -8,
+    marginBottom: 2
   },
   inputGroup: {
     gap: 8

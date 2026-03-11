@@ -46,6 +46,12 @@ export default function ClassesScreen() {
   const liveSessions = useMemo(() => sessions.filter((item) => item.status === 'live'), [sessions]);
   const scheduledSessions = useMemo(() => sessions.filter((item) => item.status === 'scheduled'), [sessions]);
 
+  const getSessionWindow = (item: IvsSession) => {
+    const start = item.scheduledStartAt ? new Date(item.scheduledStartAt) : new Date(item.createdAt);
+    const end = item.scheduledEndAt ? new Date(item.scheduledEndAt) : new Date(start.getTime() + 60 * 60 * 1000);
+    return { start, end };
+  };
+
   const handleJoinSession = async (sessionCode: string, sessionId: string) => {
     try {
       setJoiningSessionId(sessionId);
@@ -103,8 +109,7 @@ export default function ClassesScreen() {
           keyExtractor={(item) => item.sessionId}
           ListEmptyComponent={<Typography className="text-[#7a7a7a]">No live sessions right now.</Typography>}
           renderItem={({ item }) => {
-            const start = item.startedAt ? new Date(item.startedAt) : new Date(item.createdAt);
-            const end = new Date(start.getTime() + 60 * 60 * 1000);
+            const { start, end } = getSessionWindow(item);
             return (
               <ActiveClassCard
                 start={start}
@@ -112,6 +117,7 @@ export default function ClassesScreen() {
                 title={item.sessionName}
                 desc={`Code: ${item.sessionCode}`}
                 active
+                subtitle={`Coach: ${item.instructorUid}`}
                 joinLabel={joiningSessionId === item.sessionId ? 'Joining...' : 'Join Meeting'}
                 joinDisabled={Boolean(joiningSessionId)}
                 onJoinPress={() => handleJoinSession(item.sessionCode, item.sessionId)}
@@ -130,8 +136,7 @@ export default function ClassesScreen() {
           keyExtractor={(item) => item.sessionId}
           ListEmptyComponent={<Typography className="text-[#7a7a7a]">No upcoming sessions.</Typography>}
           renderItem={({ item }) => {
-            const start = new Date(item.createdAt);
-            const end = new Date(start.getTime() + 60 * 60 * 1000);
+            const { start, end } = getSessionWindow(item);
             return (
               <ClassCard
                 start={start}

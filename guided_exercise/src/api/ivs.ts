@@ -27,10 +27,13 @@ export type IvsSession = {
   stageArn: string;
   instructorUid: string;
   status: 'scheduled' | 'live' | 'ended';
+  scheduledStartAt: string | null;
+  scheduledEndAt: string | null;
   createdAt: string;
   updatedAt: string;
   startedAt: string | null;
   endedAt: string | null;
+  deleted?: boolean;
 };
 
 export type IvsSessionParticipant = {
@@ -44,6 +47,8 @@ type CreateSessionRequest = {
   sessionName: string;
   instructorUid: string;
   stageArn?: string;
+  scheduledStartAt?: string;
+  scheduledEndAt?: string;
 };
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;

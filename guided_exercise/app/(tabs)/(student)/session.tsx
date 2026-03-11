@@ -37,6 +37,13 @@ export default function StudentSessionScreen() {
           router.replace('/(tabs)/(student)/classes');
         }
       } catch (error) {
+        const message = String((error as any)?.message || '');
+        if (active && !hasHandledEndedSession.current && (message.includes('Session not found') || message.includes('404'))) {
+          hasHandledEndedSession.current = true;
+          Alert.alert('Session ended', 'The instructor ended this session.');
+          router.replace('/(tabs)/(student)/classes');
+          return;
+        }
         console.log('[StudentSession] polling error', error);
       }
     };
