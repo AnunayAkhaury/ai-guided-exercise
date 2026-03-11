@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { DisconnectParticipantCommand, IVSRealTimeClient } from '@aws-sdk/client-ivs-realtime';
 import {
   createSession,
+  deleteSessionById,
   endOtherLiveSessions,
   getSessionByCode,
   getSessionById,
@@ -17,6 +18,8 @@ type CreateSessionRequest = {
   sessionName?: string;
   instructorUid?: string;
   stageArn?: string;
+  scheduledStartAt?: string;
+  scheduledEndAt?: string;
 };
 
 type SessionCodeRequest = {
@@ -36,6 +39,7 @@ type UpsertParticipantRequest = {
 
 const VALID_STATUSES: SessionStatus[] = ['scheduled', 'live', 'ended'];
 const DEFAULT_REGION = process.env.AWS_REGION || 'us-west-2';
+const START_WINDOW_MINUTES = 5;
 
 async function disconnectKnownParticipantsForSession(session: {
   sessionId: string;
@@ -62,7 +66,7 @@ async function disconnectKnownParticipantsForSession(session: {
 
 export async function createSessionController(req: Request, res: Response) {
   try {
-    const { sessionName, instructorUid, stageArn } = req.body as CreateSessionRequest;
+    const { sessionName, instructorUid, stageArn, scheduledStartAt, scheduledEndAt } = req.body as CreateSessionRequest;
     const effectiveStageArn = stageArn ?? process.env.IVS_STAGE_ARN;
 
     if (!sessionName?.trim()) {
@@ -75,10 +79,32 @@ export async function createSessionController(req: Request, res: Response) {
       return sendErrorResponse(req, res, 400, 'stageArn is required (or set IVS_STAGE_ARN).');
     }
 
+    let parsedScheduledStartAt: Date | undefined;
+    let parsedScheduledEndAt: Date | undefined;
+    if (scheduledStartAt) {
+      const value = new Date(scheduledStartAt);
+      if (Number.isNaN(value.getTime())) {
+        return sendErrorResponse(req, res, 400, 'scheduledStartAt must be a valid ISO date string.');
+      }
+      parsedScheduledStartAt = value;
+    }
+    if (scheduledEndAt) {
+      const value = new Date(scheduledEndAt);
+      if (Number.isNaN(value.getTime())) {
+        return sendErrorResponse(req, res, 400, 'scheduledEndAt must be a valid ISO date string.');
+      }
+      parsedScheduledEndAt = value;
+    }
+    if (parsedScheduledStartAt && parsedScheduledEndAt && parsedScheduledEndAt <= parsedScheduledStartAt) {
+      return sendErrorResponse(req, res, 400, 'scheduledEndAt must be after scheduledStartAt.');
+    }
+
     const session = await createSession({
       sessionName,
       instructorUid,
-      stageArn: effectiveStageArn
+      stageArn: effectiveStageArn,
+      ...(parsedScheduledStartAt ? { scheduledStartAt: parsedScheduledStartAt } : {}),
+      ...(parsedScheduledEndAt ? { scheduledEndAt: parsedScheduledEndAt } : {})
     });
 
     return res.status(200).json(session);
@@ -171,6 +197,17 @@ export async function startSessionController(req: Request, res: Response) {
     if (existing.status === 'ended') {
       return sendErrorResponse(req, res, 409, 'Cannot start an ended session.');
     }
+    if (existing.scheduledStartAt) {
+      const earliestStart = existing.scheduledStartAt.getTime() - START_WINDOW_MINUTES * 60 * 1000;
+      if (Date.now() < earliestStart) {
+        return sendErrorResponse(
+          req,
+          res,
+          409,
+          `This class can only be started ${START_WINDOW_MINUTES} minutes before the scheduled time.`
+        );
+      }
+    }
 
     const currentlyLiveSessions = await listSessions(['live']);
     const otherLiveSessions = currentlyLiveSessions.filter((session) => session.sessionId !== sessionId);
@@ -196,14 +233,11 @@ export async function endSessionController(req: Request, res: Response) {
     if (!existing) {
       return sendErrorResponse(req, res, 404, 'Session not found.');
     }
-    if (existing.status === 'ended') {
-      return res.status(200).json(existing);
+    if (existing.status === 'live') {
+      await disconnectKnownParticipantsForSession(existing);
     }
-
-    await disconnectKnownParticipantsForSession(existing);
-    await updateSessionStatus(sessionId, 'ended');
-    const updated = await getSessionById(sessionId);
-    return res.status(200).json(updated);
+    await deleteSessionById(sessionId);
+    return res.status(200).json({ ...existing, status: 'ended', deleted: true });
   } catch (err: any) {
     logControllerError(req, err, 'endSessionController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to end session.');
