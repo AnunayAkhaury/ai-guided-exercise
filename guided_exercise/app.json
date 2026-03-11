@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "guidedexercise",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to share your video",
@@ -72,6 +72,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c03fc618-d597-4720-87be-c60bf0712b7e"
+      }
     }
   }
 }
