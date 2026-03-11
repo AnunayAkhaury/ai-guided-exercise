@@ -8,6 +8,7 @@ export type SessionDocument = {
   sessionName: string;
   stageArn: string;
   instructorUid: string;
+  coachName: string;
   status: SessionStatus;
   scheduledStartAt: Date | null;
   scheduledEndAt: Date | null;
@@ -28,6 +29,7 @@ export type CreateSessionInput = {
   sessionName: string;
   stageArn: string;
   instructorUid: string;
+  coachName?: string;
   scheduledStartAt?: Date;
   scheduledEndAt?: Date;
 };
@@ -70,6 +72,7 @@ function mapSessionDoc(
     sessionName: data.sessionName,
     stageArn: data.stageArn,
     instructorUid: data.instructorUid,
+    coachName: data.coachName ?? data.instructorUid ?? 'Coach',
     status: data.status,
     scheduledStartAt: data.scheduledStartAt?.toDate ? data.scheduledStartAt.toDate() : data.scheduledStartAt ?? null,
     scheduledEndAt: data.scheduledEndAt?.toDate ? data.scheduledEndAt.toDate() : data.scheduledEndAt ?? null,
@@ -89,6 +92,7 @@ export async function createSession(input: CreateSessionInput): Promise<SessionD
     sessionName: input.sessionName.trim(),
     stageArn: input.stageArn.trim(),
     instructorUid: input.instructorUid.trim(),
+    coachName: input.coachName?.trim() || input.instructorUid.trim(),
     status: 'scheduled',
     scheduledStartAt: input.scheduledStartAt ?? null,
     scheduledEndAt: input.scheduledEndAt ?? null,

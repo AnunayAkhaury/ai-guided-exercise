@@ -21,6 +21,7 @@ export default function ScheduleScreen() {
     () => username?.trim() || fullname?.trim() || `instructor-${Date.now()}`,
     [fullname, username]
   );
+  const coachName = useMemo(() => fullname?.trim() || username?.trim() || 'Coach', [fullname, username]);
 
   const [sessionName, setSessionName] = useState('');
   const [startAt, setStartAt] = useState(() => withRoundedHour(new Date()));
@@ -84,6 +85,7 @@ export default function ScheduleScreen() {
       const created = await createIvsSession({
         sessionName: trimmedSessionName,
         instructorUid: instructorId,
+        coachName,
         scheduledStartAt: startAt.toISOString(),
         scheduledEndAt: endAt.toISOString()
       });

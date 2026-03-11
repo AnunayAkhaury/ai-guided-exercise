@@ -26,6 +26,7 @@ export type IvsSession = {
   sessionName: string;
   stageArn: string;
   instructorUid: string;
+  coachName: string;
   status: 'scheduled' | 'live' | 'ended';
   scheduledStartAt: string | null;
   scheduledEndAt: string | null;
@@ -46,6 +47,7 @@ export type IvsSessionParticipant = {
 type CreateSessionRequest = {
   sessionName: string;
   instructorUid: string;
+  coachName?: string;
   stageArn?: string;
   scheduledStartAt?: string;
   scheduledEndAt?: string;

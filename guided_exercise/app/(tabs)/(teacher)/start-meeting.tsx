@@ -36,7 +36,8 @@ export default function StartMeeting() {
         : await (async () => {
             const createdSession = await createIvsSession({
               sessionName: trimmedSession,
-              instructorUid: trimmedName
+              instructorUid: trimmedName,
+              coachName: trimmedName
             });
             return startIvsSession(createdSession.sessionId);
           })();

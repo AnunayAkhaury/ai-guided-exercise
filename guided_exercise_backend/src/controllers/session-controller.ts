@@ -17,6 +17,7 @@ import { logControllerError, sendErrorResponse } from '@/utils/request-logging.j
 type CreateSessionRequest = {
   sessionName?: string;
   instructorUid?: string;
+  coachName?: string;
   stageArn?: string;
   scheduledStartAt?: string;
   scheduledEndAt?: string;
@@ -66,7 +67,7 @@ async function disconnectKnownParticipantsForSession(session: {
 
 export async function createSessionController(req: Request, res: Response) {
   try {
-    const { sessionName, instructorUid, stageArn, scheduledStartAt, scheduledEndAt } = req.body as CreateSessionRequest;
+    const { sessionName, instructorUid, coachName, stageArn, scheduledStartAt, scheduledEndAt } = req.body as CreateSessionRequest;
     const effectiveStageArn = stageArn ?? process.env.IVS_STAGE_ARN;
 
     if (!sessionName?.trim()) {
@@ -102,6 +103,7 @@ export async function createSessionController(req: Request, res: Response) {
     const session = await createSession({
       sessionName,
       instructorUid,
+      ...(coachName?.trim() ? { coachName } : {}),
       stageArn: effectiveStageArn,
       ...(parsedScheduledStartAt ? { scheduledStartAt: parsedScheduledStartAt } : {}),
       ...(parsedScheduledEndAt ? { scheduledEndAt: parsedScheduledEndAt } : {})

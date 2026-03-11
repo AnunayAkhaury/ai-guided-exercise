@@ -112,7 +112,7 @@ export default function ClassesScreen() {
                 title={item.sessionName}
                 desc={`${isLive ? 'Live' : 'Ready'} • Code: ${item.sessionCode}`}
                 active={isLive}
-                subtitle={isLive ? 'Session is live' : 'Ready to start'}
+                subtitle={`Coach: ${item.coachName || item.instructorUid}`}
                 startLabel={isLive ? 'Open Live' : 'Start Meeting'}
                 cancelLabel={cancelingSessionId === item.sessionId ? 'Canceling...' : 'Cancel'}
                 actionsDisabled={Boolean(cancelingSessionId)}
@@ -146,7 +146,7 @@ export default function ClassesScreen() {
                 title={item.sessionName}
                 desc={`Code: ${item.sessionCode}`}
                 active={false}
-                subtitle="Upcoming scheduled class"
+                subtitle={`Coach: ${item.coachName || item.instructorUid}`}
                 startLabel="Available 5 min before"
                 cancelLabel={cancelingSessionId === item.sessionId ? 'Canceling...' : 'Cancel'}
                 actionsDisabled

@@ -14,6 +14,7 @@ export default function TeacherActiveClassCard({
   startLabel,
   actionsDisabled,
   subtitle,
+  showSecondaryAction = true,
 } : {
   start: Date,
   end: Date,
@@ -26,6 +27,7 @@ export default function TeacherActiveClassCard({
   startLabel?: string,
   actionsDisabled?: boolean,
   subtitle?: string,
+  showSecondaryAction?: boolean,
 }) {
     const startTime = start.toLocaleString('en-US', { 
       hour: 'numeric',
@@ -65,11 +67,13 @@ export default function TeacherActiveClassCard({
                   {startLabel ?? 'Start Meeting'}
                 </Typography>
               </TouchableOpacity>
-              <TouchableOpacity onPress={onCancelPress} disabled={actionsDisabled || !onCancelPress}>
-                <Typography font='inter-bold' className="text-sm px-3 py-2 text-white bg-[#FF0000] rounded-xl">
-                  {cancelLabel ?? 'Cancel'}
-                </Typography>
-              </TouchableOpacity>
+              {showSecondaryAction && (
+                <TouchableOpacity onPress={onCancelPress} disabled={actionsDisabled || !onCancelPress}>
+                  <Typography font='inter-bold' className="text-sm px-3 py-2 text-white bg-[#FF0000] rounded-xl">
+                    {cancelLabel ?? 'Cancel'}
+                  </Typography>
+                </TouchableOpacity>
+              )}
             </View>
         </View>
       </View>
