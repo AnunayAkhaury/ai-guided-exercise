@@ -4,11 +4,26 @@ import { auth } from './firebase-config';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import type { UserCredential } from 'firebase/auth';
 
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string') {
     return (err as any).message;
   }
   return fallback;
+}
+
+function getApiBaseUrl(): string {
+  if (!API_BASE_URL) {
+    throw new Error(
+      'Backend URL is not configured. EXPO_PUBLIC_API_URL is missing in this app build.'
+    );
+  }
+  return API_BASE_URL;
+}
+
+function toBackendUnavailableMessage(endpoint: string): string {
+  return `Backend unavailable: could not reach ${endpoint}. Check EXPO_PUBLIC_API_URL and confirm backend is running.`;
 }
 
 async function parseApiError(response: Response, fallback: string): Promise<string> {
@@ -25,6 +40,31 @@ async function parseApiError(response: Response, fallback: string): Promise<stri
   }
 }
 
+async function postBackendJson<T>(path: string, body: Record<string, unknown>, fallback: string): Promise<T> {
+  const base = getApiBaseUrl();
+  const endpoint = `${base}${path}`;
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+  } catch {
+    throw new Error(toBackendUnavailableMessage(endpoint));
+  }
+
+  if (!response.ok) {
+    const message = await parseApiError(response, fallback);
+    throw new Error(message || fallback);
+  }
+
+  return (await response.json()) as T;
+}
+
 export async function createAccount(email: string, password: string) {
   try {
     const userCredential: UserCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -37,21 +77,16 @@ export async function createAccount(email: string, password: string) {
 
 export async function createProfile(uid: string, role: string, username: string, fullname: string, email?: string) {
   try {
-    // Create user profile in Firestore
-    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/firebase/createProfile`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ uid, role, username, fullname, email })
-    });
-
-    if (!response.ok) {
-      const message = await parseApiError(response, `Failed to create profile: ${response.status}`);
-      throw new Error(message || `Failed to create profile: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await postBackendJson<{
+      role?: string;
+      fullname?: string;
+      username?: string;
+      email?: string | null;
+    }>(
+      '/api/firebase/createProfile',
+      { uid, role, username, fullname, email },
+      'Failed to create profile.'
+    );
 
     useUserStore.setState({
       uid: uid,
@@ -71,20 +106,16 @@ export async function login(email: string, password: string) {
   try {
     const userCredential: UserCredential = await signInWithEmailAndPassword(auth, email, password);
 
-    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/firebase/getProfile`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ uid: userCredential.user.uid })
-    });
-
-    if (!response.ok) {
-      const message = await parseApiError(response, `Failed to login: ${response.status}`);
-      throw new Error(message || `Failed to login: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await postBackendJson<{
+      role: string;
+      fullname: string;
+      username: string;
+      email?: string | null;
+    }>(
+      '/api/firebase/getProfile',
+      { uid: userCredential.user.uid },
+      'Failed to load profile from backend.'
+    );
 
     useUserStore.setState({
       uid: userCredential.user.uid,
