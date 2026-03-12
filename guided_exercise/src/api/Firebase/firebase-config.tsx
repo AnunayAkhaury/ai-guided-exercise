@@ -11,7 +11,7 @@ const firebaseConfig = {
   projectId: 'ai-guided-exercise-feedback',
   storageBucket: 'ai-guided-exercise-feedback.firebasestorage.app',
   messagingSenderId: '396997576150',
-  appId: '1:396997576150:web:951882abe0ac424de35077'
+  appId: '1:396997576150:web:751cdf7ad7849f36e35077'
 };
 
 // Initialize Firebase

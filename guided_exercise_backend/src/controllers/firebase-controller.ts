@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { createProfile, getProfile } from '@/services/Firebase/firebase-auth.js';
 import type { NextFunction } from 'express';
 import { addRecording, getUserRecordings } from '@/services/Firebase/firebase-recording.js';
+import { getAchievements } from '@/services/Firebase/firebase-user.js';
 
 export function helloWorldController(req: Request, res: Response) {
   res.status(500).json({ message: 'OK' });
@@ -48,6 +49,17 @@ export async function getUserRecordingsController(req: Request, res: Response, n
   try {
     const recordingList = await getUserRecordings(uid);
     res.status(200).json(recordingList);
+  } catch (err: any) {
+    next(err);
+    res.status(500).json({ message: err.message || 'Internal Server Error' });
+  }
+}
+
+export async function getUserAchievementsController(req: Request, res: Response, next: NextFunction) {
+  const { uid } = req.body;
+  try {
+    const achievementsList = await getAchievements(uid);
+    res.status(200).json(achievementsList);
   } catch (err: any) {
     next(err);
     res.status(500).json({ message: err.message || 'Internal Server Error' });

@@ -3,7 +3,8 @@ import {
   helloWorldController,
   createProfileController,
   getProfileController,
-  getUserRecordingsController
+  getUserRecordingsController,
+  getUserAchievementsController
 } from '@/controllers/firebase-controller.js';
 import { addRecordingController } from '@/controllers/firebase-controller.js';
 import { uploadVideoController, getVideoUrlController } from '@/controllers/aws-controller.js';
@@ -36,5 +37,6 @@ router.post('/api/ivs/sessions/participants/upsert', upsertSessionParticipantCon
 router.get('/api/ivs/sessions/:sessionId/participants', listSessionParticipantsController);
 router.post('/api/aws/uploadVideo', uploadVideoController);
 router.post('/api/aws/getVideo', getVideoUrlController);
+router.post('/api/firebase/getAchievements', getUserAchievementsController);
 
 export default router;

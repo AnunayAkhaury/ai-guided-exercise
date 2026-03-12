@@ -109,12 +109,20 @@ export default function TabLayout() {
 
       {/* Common tabs */}
       <Tabs.Screen
-        name="profile"
+        name="profile/profile"
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size }) => (
             <Octicons name="person" color={color} size={size} />
           ),
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="profile/achievements"
+        options={{
+          title: "Achievements",
+          href: null,
           headerShown: false,
         }}
       />
