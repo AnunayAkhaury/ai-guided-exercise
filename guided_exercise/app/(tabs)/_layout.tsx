@@ -2,13 +2,26 @@ import { Tabs } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useUserStore } from "@/src/store/userStore";
 import { AntDesign, Entypo, Ionicons, Octicons } from "@expo/vector-icons";
+import { Alert } from "react-native";
+import { useCallStore } from "@/src/store/callStore";
 
 export default function TabLayout() {
   const role = useUserStore((state) => state.role);
+  const inCall = useCallStore((state) => state.inCall);
   const skipAuth = __DEV__ && role == null;
 
   return (
     <Tabs
+      screenListeners={{
+        tabPress: (event) => {
+          if (!inCall) return;
+          event.preventDefault();
+          Alert.alert(
+            "Call in progress",
+            "Leave or end the current session before switching tabs."
+          );
+        },
+      }}
       screenOptions={{
         tabBarStyle: {
           backgroundColor: "#A980FE",

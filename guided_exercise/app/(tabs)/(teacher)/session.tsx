@@ -3,6 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useEffect, useMemo, useState } from 'react';
 import IvsCall from '@/src/components/IvsCall';
 import { endIvsSession, listIvsSessionParticipants } from '@/src/api/ivs';
+import { useCallStore } from '@/src/store/callStore';
 
 type SessionParams = {
   token?: string;
@@ -14,6 +15,7 @@ type SessionParams = {
 
 export default function TeacherSessionScreen() {
   const router = useRouter();
+  const setInCall = useCallStore((state) => state.setInCall);
   const { token, sessionName, userName, sessionCode, sessionId } = useLocalSearchParams<SessionParams>();
   const [ending, setEnding] = useState(false);
   const [isInStage, setIsInStage] = useState(false);
@@ -24,6 +26,11 @@ export default function TeacherSessionScreen() {
   const normalizedSessionCode = Array.isArray(sessionCode) ? sessionCode[0] : sessionCode;
   const normalizedToken = Array.isArray(token) ? token[0] : token;
   const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Instructor', [normalizedUserName]);
+
+  useEffect(() => {
+    setInCall(isInStage);
+    return () => setInCall(false);
+  }, [isInStage, setInCall]);
 
   useEffect(() => {
     if (!normalizedSessionId) return;

@@ -1,4 +1,15 @@
-import { Text, TextInput, StyleSheet, View, Pressable, Alert, ActivityIndicator } from 'react-native';
+import {
+  Text,
+  TextInput,
+  StyleSheet,
+  View,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView
+} from 'react-native';
 import { Link, router } from 'expo-router';
 import React, { useState } from 'react';
 import { createAccount, createProfile } from '@/src/api/Firebase/firebase-auth';
@@ -80,86 +91,108 @@ export default function Signup() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Sign Up</Text>
-      <View style={styles.roleRow}>
-        <Pressable
-          style={[styles.roleButton, role === 'student' && styles.roleButtonActive]}
-          onPress={() => setRole('student')}
-        >
-          <Text style={[styles.roleButtonText, role === 'student' && styles.roleButtonTextActive]}>Student</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.roleButton, role === 'instructor' && styles.roleButtonActive]}
-          onPress={() => setRole('instructor')}
-        >
-          <Text style={[styles.roleButtonText, role === 'instructor' && styles.roleButtonTextActive]}>Instructor</Text>
-        </Pressable>
-      </View>
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Email</Text>
-        <TextInput style={styles.input} onChangeText={(email) => setEmail(email)} value={email} />
-      </View>
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Username</Text>
-        <TextInput style={styles.input} onChangeText={(value) => setUsername(value)} value={username} />
-      </View>
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Password</Text>
-        <TextInput
-          secureTextEntry={true}
-          style={styles.input}
-          onChangeText={(password) => setPassword(password)}
-          value={password}
-        />
-      </View>
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Retype Password</Text>
-        <TextInput
-          secureTextEntry={true}
-          style={styles.input}
-          onChangeText={(retypePassword) => setRetypePassword(retypePassword)}
-          value={retypePassword}
-        />
-      </View>
-      {role === 'instructor' && (
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Instructor Code</Text>
-          <TextInput
-            style={styles.input}
-            onChangeText={(value) => setInstructorCode(value)}
-            value={instructorCode}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.formCard}>
+          <Text style={styles.title}>Sign Up</Text>
+          <View style={styles.roleRow}>
+            <Pressable
+              style={[styles.roleButton, role === 'student' && styles.roleButtonActive]}
+              onPress={() => setRole('student')}
+            >
+              <Text style={[styles.roleButtonText, role === 'student' && styles.roleButtonTextActive]}>Student</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.roleButton, role === 'instructor' && styles.roleButtonActive]}
+              onPress={() => setRole('instructor')}
+            >
+              <Text style={[styles.roleButtonText, role === 'instructor' && styles.roleButtonTextActive]}>Instructor</Text>
+            </Pressable>
+          </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput style={styles.input} onChangeText={(email) => setEmail(email)} value={email} />
+          </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Username</Text>
+            <TextInput style={styles.input} onChangeText={(value) => setUsername(value)} value={username} />
+          </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              secureTextEntry={true}
+              style={styles.input}
+              onChangeText={(password) => setPassword(password)}
+              value={password}
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Retype Password</Text>
+            <TextInput
+              secureTextEntry={true}
+              style={styles.input}
+              onChangeText={(retypePassword) => setRetypePassword(retypePassword)}
+              value={retypePassword}
+            />
+          </View>
+          {role === 'instructor' && (
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Instructor Code</Text>
+              <TextInput
+                style={styles.input}
+                onChangeText={(value) => setInstructorCode(value)}
+                value={instructorCode}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          )}
+          <Pressable
+            style={[styles.button, isSubmitting && styles.buttonDisabled]}
+            onPress={handleSignUp}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Create Account</Text>}
+          </Pressable>
+          <Link href="/login" push>
+            <Text style={styles.linkText}>Login Instead</Text>
+          </Link>
         </View>
-      )}
-      <Pressable style={[styles.button, isSubmitting && styles.buttonDisabled]} onPress={handleSignUp} disabled={isSubmitting}>
-        {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Create Account</Text>}
-      </Pressable>
-      <Link href="/login" push>
-        <Text style={styles.linkText}>Login Instead</Text>
-      </Link>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F5F2FF'
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 24
+  },
+  formCard: {
+    width: '88%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 22,
     gap: 15,
-    backgroundColor: '#F5F2FF'
+    borderWidth: 1,
+    borderColor: '#E3E1FF'
   },
   title: {
     fontSize: 30,
-    marginBottom: 12,
+    marginBottom: 8,
     color: '#302E47',
-    fontWeight: '700'
+    fontWeight: '700',
+    textAlign: 'center'
   },
   inputContainer: {
-    width: '70%',
+    width: '100%',
     alignItems: 'flex-start'
   },
   roleRow: {
@@ -202,7 +235,7 @@ const styles = StyleSheet.create({
     borderColor: '#D8D5FF'
   },
   button: {
-    marginTop: 15,
+    marginTop: 8,
     backgroundColor: '#6155F5',
     paddingHorizontal: 34,
     paddingVertical: 11,
@@ -225,6 +258,7 @@ const styles = StyleSheet.create({
   },
   linkText: {
     textDecorationLine: 'underline',
-    color: '#6155F5'
+    color: '#6155F5',
+    textAlign: 'center'
   }
 });

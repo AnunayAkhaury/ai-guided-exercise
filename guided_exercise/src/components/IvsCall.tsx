@@ -69,8 +69,20 @@ function selectPreferredVideoStream(streams: ({ mediaType: string; deviceUrn: st
     const disabled = stream?.isDisabled ?? false;
     return !muted && !disabled;
   });
-  // Fallback to latest stream if SDK does not expose active/muted metadata.
-  return activeStream ?? streams[streams.length - 1];
+  // Fallback only when muted/disabled flags are not exposed by the SDK object.
+  const streamWithoutFlags = streams.find((stream) => stream?.isMuted == null && stream?.isDisabled == null);
+  return activeStream ?? streamWithoutFlags ?? null;
+}
+
+function isLocalParticipant(participant: Participant): boolean {
+  const candidate = participant as any;
+  return Boolean(
+    candidate?.isLocal ??
+      candidate?.local ??
+      candidate?.info?.isLocal ??
+      candidate?.userInfo?.isLocal ??
+      candidate?.participantInfo?.isLocal
+  );
 }
 
 export default function IvsCall({
@@ -95,21 +107,25 @@ export default function IvsCall({
   const remoteParticipants = useMemo(() => {
     return participants
       .map((participant) => {
+        if (isLocalParticipant(participant)) {
+          return null;
+        }
         const videoStreams = participant.streams.filter((stream) => stream.mediaType === 'video') as ({
           mediaType: string;
           deviceUrn: string;
         } & Record<string, any>)[];
         const videoStream = selectPreferredVideoStream(videoStreams);
-        if (!videoStream) {
-          return null;
-        }
         return {
           participantId: participant.id,
           displayName: getParticipantDisplayName(participant),
-          deviceUrn: videoStream.deviceUrn
+          deviceUrn: videoStream?.deviceUrn ?? null,
+          hasVideo: Boolean(videoStream)
         };
       })
-      .filter((value): value is { participantId: string; displayName: string; deviceUrn: string } => Boolean(value))
+      .filter(
+        (value): value is { participantId: string; displayName: string; deviceUrn: string | null; hasVideo: boolean } =>
+          Boolean(value)
+      )
       .sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [participants]);
   const useGridForRemotes = remoteParticipants.length > 1;
@@ -261,7 +277,15 @@ export default function IvsCall({
             <View style={styles.participantLabelPill}>
               <Text style={styles.participantLabel}>{localParticipantLabel?.trim() || 'You'}</Text>
             </View>
-            <ExpoIVSStagePreviewView style={styles.localVideoFrame} />
+            <View style={styles.localVideoFrame}>
+              <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} />
+              {isVideoMuted && (
+                <View style={styles.cameraOffOverlay}>
+                  <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
+                  <Text style={styles.cameraOffText}>Camera Off</Text>
+                </View>
+              )}
+            </View>
           </View>
         )}
 
@@ -275,12 +299,21 @@ export default function IvsCall({
                 {participantNamesById?.[participant.participantId] || participant.displayName}
               </Text>
             </View>
-            <ExpoIVSRemoteStreamView
-              participantId={participant.participantId}
-              deviceUrn={participant.deviceUrn}
-              style={useGridForRemotes ? styles.gridVideoFrame : styles.remoteVideoFrame}
-              scaleMode="fit"
-            />
+            {participant.hasVideo && participant.deviceUrn ? (
+              <ExpoIVSRemoteStreamView
+                participantId={participant.participantId}
+                deviceUrn={participant.deviceUrn}
+                style={useGridForRemotes ? styles.gridVideoFrame : styles.remoteVideoFrame}
+                scaleMode="fit"
+              />
+            ) : (
+              <View style={useGridForRemotes ? styles.gridVideoFrame : styles.remoteVideoFrame}>
+                <View style={styles.cameraOffOverlay}>
+                  <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
+                  <Text style={styles.cameraOffText}>Camera Off</Text>
+                </View>
+              </View>
+            )}
           </View>
         ))}
 
@@ -296,11 +329,19 @@ export default function IvsCall({
       {!!error && <Text style={styles.errorInline}>{error}</Text>}
 
       <View style={styles.controlBar}>
-        <Pressable style={[styles.controlButton, !publishOnJoin && styles.disabledButton]} onPress={toggleAudio} disabled={!publishOnJoin}>
+        <Pressable
+          style={[styles.controlButton, isAudioMuted && styles.controlButtonMuted, !publishOnJoin && styles.disabledButton]}
+          onPress={toggleAudio}
+          disabled={!publishOnJoin}
+        >
           <Ionicons name={isAudioMuted ? 'mic-off' : 'mic'} size={18} color="#fff" />
           <Text style={styles.controlButtonText}>{isAudioMuted ? 'Unmute' : 'Mute'}</Text>
         </Pressable>
-        <Pressable style={[styles.controlButton, !publishOnJoin && styles.disabledButton]} onPress={toggleVideo} disabled={!publishOnJoin}>
+        <Pressable
+          style={[styles.controlButton, isVideoMuted && styles.controlButtonMuted, !publishOnJoin && styles.disabledButton]}
+          onPress={toggleVideo}
+          disabled={!publishOnJoin}
+        >
           <Ionicons name={isVideoMuted ? 'videocam-off' : 'videocam'} size={18} color="#fff" />
           <Text style={styles.controlButtonText}>{isVideoMuted ? 'Start Cam' : 'Stop Cam'}</Text>
         </Pressable>
@@ -408,6 +449,18 @@ const styles = StyleSheet.create({
   localVideoFrame: { width: '100%', height: 220 },
   remoteVideoFrame: { width: '100%', height: 200 },
   gridVideoFrame: { width: '100%', height: 165 },
+  cameraOffOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8
+  },
+  cameraOffText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13
+  },
   emptyState: {
     borderWidth: 1,
     borderColor: '#D8D5FF',
@@ -448,6 +501,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6
+  },
+  controlButtonMuted: {
+    backgroundColor: '#D64562'
   },
   endCallButton: {
     flex: 1,
