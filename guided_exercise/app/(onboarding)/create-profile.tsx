@@ -2,14 +2,14 @@ import { Text, TextInput, StyleSheet, View, Pressable } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { createProfile } from '@/src/api/Firebase/firebase-auth';
-import { getAuth } from 'firebase/auth';
+import { auth } from '@/src/api/Firebase/firebase-config';
 
 export default function CreateProfile() {
   const { role } = useLocalSearchParams<{ role: string }>();
   const [username, setUsername] = useState<string>('');
   const [fullname, setFullname] = useState<string>('');
 
-  const user = getAuth().currentUser;
+  const user = auth.currentUser;
   const uid = user?.uid;
   const email = user?.email ?? undefined;
 

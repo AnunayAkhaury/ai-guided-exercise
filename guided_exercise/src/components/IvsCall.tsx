@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Camera } from 'expo-camera';
 import {
   initializeStage,
   initializeLocalStreams,
@@ -149,7 +150,6 @@ export default function IvsCall({
             try {
               await setStreamsPublished(true);
               await setCameraMuted(false);
-              await setMicrophoneMuted(isAudioMutedRef.current);
               setIsVideoMuted(false);
               setIsAudioMuted(isAudioMutedRef.current);
             } catch (publishError: any) {
@@ -167,7 +167,6 @@ export default function IvsCall({
     // cleanup when component unmounts
     return () => {
       connectionListener.remove();
-      leaveStage();
     };
   }, []);
 
@@ -187,14 +186,16 @@ export default function IvsCall({
     hasJoinAttemptRef.current = true;
 
     try {
-      // Ensure stale connections are cleared before joining a new class on shared stage.
-      await leaveStage();
-
       // prepare SDK configurations
       await initializeStage();
       
       // Only publishers need local camera/microphone streams.
       if (publishOnJoin) {
+        const cameraPermission = await Camera.requestCameraPermissionsAsync();
+        const microphonePermission = await Camera.requestMicrophonePermissionsAsync();
+        if (cameraPermission.status !== 'granted' || microphonePermission.status !== 'granted') {
+          throw new Error('Camera and microphone permissions are required to join the call.');
+        }
         await initializeLocalStreams();
       }
 
