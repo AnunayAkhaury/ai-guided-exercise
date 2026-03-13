@@ -45,6 +45,7 @@ export default function StudentSessionScreen() {
         if (active && session.status === 'ended' && !hasHandledEndedSession.current) {
           hasHandledEndedSession.current = true;
           Alert.alert('Session ended', 'The instructor ended this session.');
+          setInCall(false);
           router.replace('/(tabs)/(student)/classes');
         }
       } catch (error) {
@@ -52,6 +53,7 @@ export default function StudentSessionScreen() {
         if (active && !hasHandledEndedSession.current && (message.includes('Session not found') || message.includes('404'))) {
           hasHandledEndedSession.current = true;
           Alert.alert('Session ended', 'The instructor ended this session.');
+          setInCall(false);
           router.replace('/(tabs)/(student)/classes');
           return;
         }
@@ -68,7 +70,7 @@ export default function StudentSessionScreen() {
       active = false;
       clearInterval(interval);
     };
-  }, [normalizedSessionId, router]);
+  }, [normalizedSessionId, router, setInCall]);
 
   useEffect(() => {
     if (!normalizedSessionId) return;
@@ -106,7 +108,13 @@ export default function StudentSessionScreen() {
       <View style={styles.container}>
         <Text style={styles.title}>Unable to join session</Text>
         <Text style={styles.subText}>Missing IVS token. Please join the session again.</Text>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable
+          onPress={() => {
+            setInCall(false);
+            router.back();
+          }}
+          style={styles.backButton}
+        >
           <Text style={styles.backButtonText}>Go back</Text>
         </Pressable>
       </View>
@@ -137,7 +145,10 @@ export default function StudentSessionScreen() {
       <IvsCall
         token={normalizedToken}
         publishOnJoin
-        onLeave={() => router.back()}
+        onLeave={() => {
+          setInCall(false);
+          router.back();
+        }}
         onInStageChange={setIsInStage}
         localParticipantLabel={normalizedLocalLabel}
         participantNamesById={participantNameById}

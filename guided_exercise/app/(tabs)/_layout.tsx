@@ -1,14 +1,26 @@
-import { Tabs } from "expo-router";
+import { Tabs, usePathname } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useUserStore } from "@/src/store/userStore";
 import { AntDesign, Entypo, Ionicons, Octicons } from "@expo/vector-icons";
 import { Alert } from "react-native";
 import { useCallStore } from "@/src/store/callStore";
+import { useEffect } from "react";
 
 export default function TabLayout() {
   const role = useUserStore((state) => state.role);
   const inCall = useCallStore((state) => state.inCall);
+  const setInCall = useCallStore((state) => state.setInCall);
+  const pathname = usePathname();
   const skipAuth = __DEV__ && role == null;
+  const isSessionRoute =
+    pathname === "/(tabs)/(teacher)/session" ||
+    pathname === "/(tabs)/(student)/session";
+
+  useEffect(() => {
+    if (!isSessionRoute && inCall) {
+      setInCall(false);
+    }
+  }, [inCall, isSessionRoute, setInCall]);
 
   return (
     <Tabs

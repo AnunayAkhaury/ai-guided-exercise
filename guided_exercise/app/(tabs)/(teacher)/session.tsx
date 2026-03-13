@@ -75,6 +75,7 @@ export default function TeacherSessionScreen() {
     try {
       setEnding(true);
       await endIvsSession(normalizedSessionId);
+      setInCall(false);
       router.replace('/(tabs)/(teacher)/classes');
     } catch (err: any) {
       Alert.alert('Failed to end session', err?.message || 'Please try again.');
@@ -88,7 +89,13 @@ export default function TeacherSessionScreen() {
       <View style={styles.container}>
         <Text style={styles.title}>Unable to join session</Text>
         <Text style={styles.subText}>Missing IVS token. Please start the session again.</Text>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable
+          onPress={() => {
+            setInCall(false);
+            router.back();
+          }}
+          style={styles.backButton}
+        >
           <Text style={styles.backButtonText}>Go back</Text>
         </Pressable>
       </View>
@@ -124,7 +131,10 @@ export default function TeacherSessionScreen() {
       <IvsCall
         token={normalizedToken}
         publishOnJoin
-        onLeave={() => router.back()}
+        onLeave={() => {
+          setInCall(false);
+          router.back();
+        }}
         onInStageChange={setIsInStage}
         localParticipantLabel={normalizedLocalLabel}
         participantNamesById={participantNameById}
