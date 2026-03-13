@@ -21,21 +21,19 @@ export default function StartMeeting() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isSmallPhone = width < 380 || height < 760;
-  const { sessionName: paramSessionName, sessionId: paramSessionId, coachName: paramCoachName } = useLocalSearchParams<{
+  const { sessionName: paramSessionName, sessionId: paramSessionId } = useLocalSearchParams<{
     sessionName?: string;
     sessionId?: string;
-    coachName?: string;
   }>();
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
-  const fallbackDisplayName = useMemo(
-    () => username?.trim() || fullname?.trim() || 'Instructor Test',
+  const uid = useUserStore((state) => state.uid);
+  const instructorDisplayName = useMemo(
+    () => fullname?.trim() || username?.trim() || 'Instructor',
     [fullname, username]
   );
   const normalizedParamSessionName = Array.isArray(paramSessionName) ? paramSessionName[0] : paramSessionName;
-  const normalizedParamCoachName = Array.isArray(paramCoachName) ? paramCoachName[0] : paramCoachName;
   const [sessionName, setSessionName] = useState(normalizedParamSessionName || '');
-  const [displayName, setDisplayName] = useState(normalizedParamCoachName || fallbackDisplayName);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const normalizedSessionId = Array.isArray(paramSessionId) ? paramSessionId[0] : paramSessionId;
@@ -44,21 +42,15 @@ export default function StartMeeting() {
     if (normalizedParamSessionName) {
       setSessionName(normalizedParamSessionName);
     }
-    if (normalizedParamCoachName) {
-      setDisplayName(normalizedParamCoachName);
-      return;
-    }
-    if (!normalizedSessionId) {
-      setDisplayName(fallbackDisplayName);
-    }
-  }, [fallbackDisplayName, normalizedParamCoachName, normalizedParamSessionName, normalizedSessionId]);
+  }, [normalizedParamSessionName]);
 
   const handleStart = async () => {
     const trimmedSession = sessionName.trim();
-    const trimmedName = displayName.trim() || fallbackDisplayName;
+    const trimmedName = instructorDisplayName;
+    const effectiveUid = uid?.trim();
 
-    if (!trimmedSession || !trimmedName) {
-      setError('Please enter a session name and display name.');
+    if (!trimmedSession || !trimmedName || !effectiveUid) {
+      setError('Missing required profile data. Please re-login and try again.');
       return;
     }
 
@@ -70,7 +62,7 @@ export default function StartMeeting() {
         : await (async () => {
             const createdSession = await createIvsSession({
               sessionName: trimmedSession,
-              instructorUid: trimmedName,
+              instructorUid: effectiveUid,
               coachName: trimmedName
             });
             return startIvsSession(createdSession.sessionId);
@@ -78,12 +70,14 @@ export default function StartMeeting() {
 
       const tokenResult = await getIvsToken({
         stageArn: liveSession.stageArn,
-        userId: trimmedName,
+        userId: effectiveUid,
         userName: trimmedName,
         publish: true,
         subscribe: true,
         durationMinutes: 60,
         attributes: {
+          displayName: trimmedName,
+          userId: effectiveUid,
           role: 'instructor',
           sessionId: liveSession.sessionId,
           sessionCode: liveSession.sessionCode
@@ -92,6 +86,7 @@ export default function StartMeeting() {
       await upsertIvsSessionParticipant({
         sessionId: liveSession.sessionId,
         participantId: tokenResult.participantId,
+        userId: effectiveUid,
         displayName: trimmedName,
         role: 'instructor'
       });
@@ -147,13 +142,10 @@ export default function StartMeeting() {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Display Name</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Coach Maya"
-            value={displayName}
-            onChangeText={setDisplayName}
-          />
+          <Text style={styles.label}>Coach Name</Text>
+          <View style={styles.readOnlyInput}>
+            <Text style={styles.readOnlyText}>{instructorDisplayName}</Text>
+          </View>
         </View>
 
         {!!error && <Text style={styles.error}>{error}</Text>}
@@ -221,6 +213,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D8D5FF',
     color: '#1D1C2B'
+  },
+  readOnlyInput: {
+    backgroundColor: '#F0EEFF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#D8D5FF'
+  },
+  readOnlyText: {
+    fontSize: 16,
+    color: '#3C366B',
+    fontWeight: '600'
   },
   button: {
     backgroundColor: '#6155F5',

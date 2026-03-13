@@ -23,6 +23,7 @@ export default function ClassesScreen() {
   const upcomingTopPadding = isSmallPhone ? 28 : 80;
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
+  const uid = useUserStore((state) => state.uid);
   const [sessions, setSessions] = useState<IvsSession[]>([]);
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
   const fallbackDisplayName = username?.trim() || fullname?.trim() || 'Student Test';
@@ -78,14 +79,20 @@ export default function ClassesScreen() {
       setJoiningSessionId(sessionId);
       const joinedSession = await joinIvsSessionByCode(sessionCode);
       const displayName = fallbackDisplayName;
+      const effectiveUid = uid?.trim();
+      if (!effectiveUid) {
+        throw new Error('Missing profile uid. Please log out and log in again.');
+      }
       const tokenResult = await getIvsToken({
         stageArn: joinedSession.stageArn,
-        userId: displayName,
+        userId: effectiveUid,
         userName: displayName,
         publish: true,
         subscribe: true,
         durationMinutes: 60,
         attributes: {
+          displayName,
+          userId: effectiveUid,
           role: 'student',
           sessionId: joinedSession.sessionId,
           sessionCode: joinedSession.sessionCode
@@ -94,6 +101,7 @@ export default function ClassesScreen() {
       await upsertIvsSessionParticipant({
         sessionId: joinedSession.sessionId,
         participantId: tokenResult.participantId,
+        userId: effectiveUid,
         displayName,
         role: 'student'
       });

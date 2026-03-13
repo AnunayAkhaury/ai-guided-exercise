@@ -81,8 +81,13 @@ export default function StudentSessionScreen() {
         const participants = await listIvsSessionParticipants(normalizedSessionId);
         if (!active) return;
         const nextMap = participants.reduce<Record<string, string>>((acc, participant) => {
-          if (participant.participantId && participant.displayName) {
-            acc[participant.participantId] = participant.displayName;
+          if (participant.displayName) {
+            if (participant.participantId) {
+              acc[participant.participantId] = participant.displayName;
+            }
+            if (participant.userId) {
+              acc[participant.userId] = participant.displayName;
+            }
           }
           return acc;
         }, {});

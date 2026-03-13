@@ -119,6 +119,14 @@ export default function IvsCall({
         if (isLocalParticipant(participant)) {
           return null;
         }
+        const candidate = participant as any;
+        const lookupKeys = [
+          participant.id,
+          candidate?.userId,
+          candidate?.info?.userId,
+          candidate?.participantId,
+          candidate?.info?.participantId
+        ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
         const videoStreams = participant.streams.filter((stream) => stream.mediaType === 'video') as ({
           mediaType: string;
           deviceUrn: string;
@@ -126,13 +134,22 @@ export default function IvsCall({
         const videoStream = selectPreferredVideoStream(videoStreams);
         return {
           participantId: participant.id,
+          lookupKeys,
           displayName: getParticipantDisplayName(participant),
           deviceUrn: videoStream?.deviceUrn ?? null,
           hasVideo: Boolean(videoStream)
         };
       })
       .filter(
-        (value): value is { participantId: string; displayName: string; deviceUrn: string | null; hasVideo: boolean } =>
+        (
+          value
+        ): value is {
+          participantId: string;
+          lookupKeys: string[];
+          displayName: string;
+          deviceUrn: string | null;
+          hasVideo: boolean;
+        } =>
           Boolean(value)
       )
       .sort((a, b) => a.displayName.localeCompare(b.displayName));
@@ -310,7 +327,7 @@ export default function IvsCall({
           >
             <View style={styles.participantLabelPill}>
               <Text style={styles.participantLabel}>
-                {participantNamesById?.[participant.participantId] || participant.displayName}
+                {participant.lookupKeys.map((key) => participantNamesById?.[key]).find(Boolean) || participant.displayName}
               </Text>
             </View>
             {participant.hasVideo && participant.deviceUrn ? (
