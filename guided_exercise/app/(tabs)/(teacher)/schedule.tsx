@@ -1,5 +1,17 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions
+} from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useRouter } from 'expo-router';
 import Header from '@/src/components/ui/Header';
@@ -15,6 +27,8 @@ function withRoundedHour(date: Date) {
 
 export default function ScheduleScreen() {
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const isSmallPhone = width < 380 || height < 760;
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
   const instructorId = useMemo(
@@ -107,10 +121,24 @@ export default function ScheduleScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+    >
       <Header title="Schedule Class" />
-      <View style={styles.content}>
-        <Text style={styles.sectionTitle}>New Scheduled Session</Text>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingHorizontal: isSmallPhone ? 14 : 20,
+            paddingTop: isSmallPhone ? 12 : 18
+          }
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={[styles.sectionTitle, isSmallPhone && styles.sectionTitleCompact]}>New Scheduled Session</Text>
         <Text style={styles.helperText}>Set date and time with a picker. No manual typing needed.</Text>
 
         <View style={styles.inputGroup}>
@@ -167,7 +195,7 @@ export default function ScheduleScreen() {
         >
           {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Create Scheduled Class</Text>}
         </Pressable>
-      </View>
+      </ScrollView>
 
       <DateTimePickerModal
         isVisible={isDatePickerVisible}
@@ -188,7 +216,7 @@ export default function ScheduleScreen() {
         onConfirm={handleConfirmTime}
         onCancel={() => setIsTimePickerVisible(false)}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -198,14 +226,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F2FF'
   },
   content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 18
+    flexGrow: 1,
+    paddingBottom: 18
   },
   sectionTitle: {
     fontSize: 24,
     fontWeight: '700',
     color: '#2F2856'
+  },
+  sectionTitleCompact: {
+    fontSize: 21
   },
   helperText: {
     marginTop: 4,

@@ -1,4 +1,4 @@
-import { Alert, Image, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import { Alert, Image, TouchableOpacity, View, ActivityIndicator, ScrollView, useWindowDimensions } from "react-native";
 import BgImage from '@/src/assets/images/profile-background.png'; 
 import ProfileImage from '@/src/assets/images/default-profile.jpg';
 import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
@@ -21,6 +21,14 @@ function Button({ icon, title }: { icon: ReactNode, title: string, }) {
 }
 
 export default function Profile() {
+    const { width, height } = useWindowDimensions();
+    const isSmallPhone = width < 380 || height < 760;
+    const topBannerHeight = isSmallPhone ? 180 : 208;
+    const cardTopMargin = isSmallPhone ? 112 : 144;
+    const avatarSize = isSmallPhone ? 110 : 126;
+    const avatarTopOffset = Math.round(avatarSize * 0.55);
+    const horizontalPadding = isSmallPhone ? 20 : 32;
+
     const username = useUserStore((state) => state.username);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -47,20 +55,34 @@ export default function Profile() {
     };
     
     return (
-        <View className="relative flex-grow">
+        <View className="relative flex-1">
             <Image
                 source={BgImage}
                 resizeMode="cover"
-                className="absolute inset-0 w-full h-52"
+                className="absolute inset-0 w-full"
+                style={{ height: topBannerHeight }}
             />
-            <View className="relative rounded-3xl mt-36 w-full flex-grow flex flex-col items-center bg-white px-12">
+            <ScrollView
+                contentContainerStyle={{ flexGrow: 1 }}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+            >
+            <View
+                className="relative rounded-3xl w-full flex-grow flex flex-col items-center bg-white"
+                style={{ marginTop: cardTopMargin, paddingHorizontal: horizontalPadding }}
+            >
                 <Image
                     source={ProfileImage}
                     resizeMode="cover"
-                    className="absolute w-[126px] h-[126px] top-[-69px] rounded-full shadow-lg "
+                    className="absolute rounded-full shadow-lg"
+                    style={{
+                        width: avatarSize,
+                        height: avatarSize,
+                        top: -avatarTopOffset
+                    }}
                 />
 
-                <Typography font='inter-medium' className="mt-20 text-4xl">
+                <Typography font='inter-medium' className={isSmallPhone ? "mt-16 text-3xl" : "mt-20 text-4xl"}>
                     {username ?? 'user'}
                 </Typography>
 
@@ -76,7 +98,11 @@ export default function Profile() {
                     <Button icon={<Ionicons name="heart" size={17} color="black" />} title="Donate Page" />
                 </View>
 
-                <TouchableOpacity className="mt-24 min-h-8 justify-center" onPress={handleLogout} disabled={isLoggingOut}>
+                <TouchableOpacity
+                    className={isSmallPhone ? "mt-12 mb-8 min-h-8 justify-center" : "mt-24 mb-10 min-h-8 justify-center"}
+                    onPress={handleLogout}
+                    disabled={isLoggingOut}
+                >
                     {isLoggingOut ? (
                         <ActivityIndicator color="#FF0000" />
                     ) : (
@@ -84,6 +110,7 @@ export default function Profile() {
                     )}
                 </TouchableOpacity>
             </View>
+            </ScrollView>
             
 
         </View>

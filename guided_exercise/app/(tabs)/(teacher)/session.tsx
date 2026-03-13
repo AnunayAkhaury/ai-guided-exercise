@@ -1,9 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useEffect, useMemo, useState } from 'react';
 import IvsCall from '@/src/components/IvsCall';
 import { endIvsSession, listIvsSessionParticipants } from '@/src/api/ivs';
 import { useCallStore } from '@/src/store/callStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type SessionParams = {
   token?: string;
@@ -16,6 +17,9 @@ type SessionParams = {
 export default function TeacherSessionScreen() {
   const router = useRouter();
   const setInCall = useCallStore((state) => state.setInCall);
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const isSmallPhone = width < 380;
   const { token, sessionName, userName, sessionCode, sessionId } = useLocalSearchParams<SessionParams>();
   const [ending, setEnding] = useState(false);
   const [isInStage, setIsInStage] = useState(false);
@@ -94,10 +98,10 @@ export default function TeacherSessionScreen() {
   return (
     <View style={styles.container}>
       {isInStage && (
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <View style={styles.headerCard}>
             <View style={styles.headerTopRow}>
-              <Text numberOfLines={1} style={styles.title}>
+              <Text numberOfLines={1} style={[styles.title, isSmallPhone && styles.titleCompact]}>
                 {normalizedSessionName || 'Live Session'}
               </Text>
               <View style={styles.liveBadge}>
@@ -156,6 +160,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#2F2856',
     flexShrink: 1
+  },
+  titleCompact: {
+    fontSize: 18
   },
   liveBadge: {
     backgroundColor: '#E6E2FF',

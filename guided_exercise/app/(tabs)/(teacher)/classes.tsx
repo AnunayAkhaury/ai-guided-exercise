@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, RefreshControl, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, RefreshControl, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Header from '@/src/components/ui/Header';
@@ -22,6 +22,11 @@ function canStartSession(session: IvsSession) {
 
 export default function ClassesScreen() {
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const isSmallPhone = width < 380 || height < 760;
+  const horizontalPadding = isSmallPhone ? 14 : 20;
+  const topPadding = isSmallPhone ? 16 : 24;
+  const scheduledTopPadding = isSmallPhone ? 26 : 40;
   const [sessions, setSessions] = useState<IvsSession[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [cancelingSessionId, setCancelingSessionId] = useState<string | null>(null);
@@ -81,7 +86,7 @@ export default function ClassesScreen() {
     <View className="bg-white flex-grow">
       <Header title="Classes" />
 
-      <View className="px-5 pt-9 flex-1">
+      <View style={{ paddingHorizontal: horizontalPadding, paddingTop: topPadding }} className="flex-1">
         <View className="pb-6 flex flex-row items-center justify-between">
           <View className="flex flex-row items-center gap-2">
             <Typography font="inter-semibold">Live / Ready to Start</Typography>
@@ -132,7 +137,7 @@ export default function ClassesScreen() {
           }}
         />
 
-        <View className="pt-10 pb-6 flex flex-row items-center gap-2">
+        <View style={{ paddingTop: scheduledTopPadding }} className="pb-6 flex flex-row items-center gap-2">
           <Typography font="inter-semibold">Scheduled</Typography>
           <Ionicons name="radio" size={17} color="#6155F5" />
         </View>

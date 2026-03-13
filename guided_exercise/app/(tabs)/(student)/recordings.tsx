@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, Image, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
 import { fetchRecordings } from '@/src/api/AWS/aws-s3';
 import { useUserStore } from '@/src/store/userStore';
 import MountainClimbExercise from '@/src/assets/images/mountain-climb-exercise-img.jpg';
@@ -22,6 +22,10 @@ const exerciseImages: Record<string, any> = {
 };
 
 export default function RecordingsScreen() {
+  const { width, height } = useWindowDimensions();
+  const isSmallPhone = width < 380 || height < 760;
+  const horizontalPadding = isSmallPhone ? 12 : 14;
+  const cardWidth = Math.max(148, Math.floor((width - horizontalPadding * 2 - 16) / 2));
   const [recordings, setRecordings] = React.useState<Recording[]>([]);
   const [loading, setLoading] = React.useState<boolean>(true);
   const uid = useUserStore((state) => state.uid);
@@ -36,7 +40,7 @@ export default function RecordingsScreen() {
         }
         const userRecordings = await fetchRecordings(uid);
         setRecordings(userRecordings);
-      } catch (err) {
+      } catch {
         setRecordings([]);
         setLoading(false);
       } finally {
@@ -70,10 +74,10 @@ export default function RecordingsScreen() {
         {loading && <Text>Loading...</Text>}
         {!loading && recordings.length === 0 && <Text>No recordings found</Text>}
         {!loading && recordings.length > 0 && (
-          <ScrollView>
+          <ScrollView contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
             {/* Month-Year Sections */}
             {Object.entries(groupedByMonthYear).map(([monthYear, days]) => (
-              <View key={monthYear} className='mb-3 pl-3 pt-10'>
+              <View key={monthYear} className='mb-3 pt-10' style={{ paddingLeft: horizontalPadding }}>
                 <View className='relative px-5 rounded-xl self-start overflow-hidden mb-4'>
                   <Image
                     source={Gradient}
@@ -91,7 +95,8 @@ export default function RecordingsScreen() {
                       {dayRecordings.map((recording, index) => (
                         <TouchableOpacity
                           key={index}
-                          className='w-48 flex flex-col justify-center items-center'
+                          className='flex flex-col justify-center items-center'
+                          style={{ width: cardWidth }}
                           onPress={() =>
                             router.push({
                               pathname: '/(extra)/recording-display',

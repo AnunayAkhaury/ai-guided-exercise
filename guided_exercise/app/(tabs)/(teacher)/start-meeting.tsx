@@ -1,11 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createIvsSession, getIvsToken, startIvsSession, upsertIvsSessionParticipant } from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function StartMeeting() {
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const isSmallPhone = width < 380 || height < 760;
   const { sessionName: paramSessionName, sessionId: paramSessionId, coachName: paramCoachName } = useLocalSearchParams<{
     sessionName?: string;
     sessionId?: string;
@@ -99,60 +114,75 @@ export default function StartMeeting() {
   };
 
   return (
-    <View style={styles.container}>
-      <Pressable style={styles.backButton} onPress={() => router.replace('/(tabs)/(teacher)/classes')}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+    >
+      <Pressable
+        style={[styles.backButton, { top: insets.top + 10, left: isSmallPhone ? 14 : 20 }]}
+        onPress={() => router.replace('/(tabs)/(teacher)/classes')}
+      >
         <Text style={styles.backText}>Back</Text>
       </Pressable>
-      <Text style={styles.title}>Start a Session</Text>
-      {!!normalizedSessionId && <Text style={styles.subtitle}>Launching scheduled class</Text>}
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Session Name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. Tuesday Rehab Mobility"
-          value={sessionName}
-          onChangeText={setSessionName}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </View>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: isSmallPhone ? 16 : 24 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={[styles.title, isSmallPhone && styles.titleCompact]}>Start a Session</Text>
+        {!!normalizedSessionId && <Text style={styles.subtitle}>Launching scheduled class</Text>}
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Display Name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. Coach Maya"
-          value={displayName}
-          onChangeText={setDisplayName}
-        />
-      </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Session Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Tuesday Rehab Mobility"
+            value={sessionName}
+            onChangeText={setSessionName}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
 
-      {!!error && <Text style={styles.error}>{error}</Text>}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Display Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Coach Maya"
+            value={displayName}
+            onChangeText={setDisplayName}
+          />
+        </View>
 
-      <Pressable style={styles.button} onPress={handleStart} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Start</Text>}
-      </Pressable>
-    </View>
+        {!!error && <Text style={styles.error}>{error}</Text>}
+
+        <Pressable style={styles.button} onPress={handleStart} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Start</Text>}
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F5F2FF'
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    backgroundColor: '#F5F2FF',
     gap: 16
   },
   backButton: {
     position: 'absolute',
-    top: 60,
-    left: 20,
     paddingVertical: 6,
     paddingHorizontal: 12,
     backgroundColor: '#6155F5',
-    borderRadius: 16
+    borderRadius: 16,
+    zIndex: 10
   },
   backText: {
     fontSize: 14,
@@ -164,6 +194,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     color: '#302E47'
+  },
+  titleCompact: {
+    fontSize: 24
   },
   subtitle: {
     textAlign: 'center',

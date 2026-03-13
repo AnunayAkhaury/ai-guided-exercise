@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Camera } from 'expo-camera';
 import {
@@ -93,6 +93,15 @@ export default function IvsCall({
   localParticipantLabel,
   participantNamesById
 }: IvsCallProps) {
+  const { width, height } = useWindowDimensions();
+  const isSmallPhone = width < 380 || height < 760;
+  const isLargePhone = width >= 430;
+  const localVideoHeight = isSmallPhone ? 190 : isLargePhone ? 250 : 220;
+  const remoteVideoHeight = isSmallPhone ? 170 : isLargePhone ? 220 : 200;
+  const gridVideoHeight = isSmallPhone ? 135 : isLargePhone ? 185 : 165;
+  const controlBarPaddingBottom = isSmallPhone ? 6 : 10;
+  const contentBottomPadding = isSmallPhone ? 6 : 14;
+
   const [isInStage, setIsInStage] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
@@ -254,7 +263,7 @@ export default function IvsCall({
   // not in session yet, show join screen
   if (!isInStage) {
     return (
-      <View style={styles.preJoinContainer}>
+      <View style={[styles.preJoinContainer, isSmallPhone && styles.preJoinContainerCompact]}>
         <View style={styles.joinCard}>
           <Text style={styles.joinTitle}>Welcome to Class</Text>
           <Text style={styles.joinSubtitle}>Join when you are ready.</Text>
@@ -270,14 +279,14 @@ export default function IvsCall({
 
   // show stage view with other participants
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: contentBottomPadding }]}>
       <ScrollView style={styles.videoContainer} contentContainerStyle={styles.videoContent}>
         {publishOnJoin && (
           <View style={[styles.participantWrapper, styles.localParticipantWrapper]}>
             <View style={styles.participantLabelPill}>
               <Text style={styles.participantLabel}>{localParticipantLabel?.trim() || 'You'}</Text>
             </View>
-            <View style={styles.localVideoFrame}>
+            <View style={[styles.localVideoFrame, { height: localVideoHeight }]}>
               <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} />
               {isVideoMuted && (
                 <View style={styles.cameraOffOverlay}>
@@ -303,11 +312,19 @@ export default function IvsCall({
               <ExpoIVSRemoteStreamView
                 participantId={participant.participantId}
                 deviceUrn={participant.deviceUrn}
-                style={useGridForRemotes ? styles.gridVideoFrame : styles.remoteVideoFrame}
+                style={[
+                  useGridForRemotes ? styles.gridVideoFrame : styles.remoteVideoFrame,
+                  { height: useGridForRemotes ? gridVideoHeight : remoteVideoHeight }
+                ]}
                 scaleMode="fit"
               />
             ) : (
-              <View style={useGridForRemotes ? styles.gridVideoFrame : styles.remoteVideoFrame}>
+              <View
+                style={[
+                  useGridForRemotes ? styles.gridVideoFrame : styles.remoteVideoFrame,
+                  { height: useGridForRemotes ? gridVideoHeight : remoteVideoHeight }
+                ]}
+              >
                 <View style={styles.cameraOffOverlay}>
                   <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
                   <Text style={styles.cameraOffText}>Camera Off</Text>
@@ -328,7 +345,7 @@ export default function IvsCall({
 
       {!!error && <Text style={styles.errorInline}>{error}</Text>}
 
-      <View style={styles.controlBar}>
+      <View style={[styles.controlBar, { paddingBottom: controlBarPaddingBottom }]}>
         <Pressable
           style={[styles.controlButton, isAudioMuted && styles.controlButtonMuted, !publishOnJoin && styles.disabledButton]}
           onPress={toggleAudio}
@@ -368,6 +385,9 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     justifyContent: 'center',
     paddingBottom: '16%'
+  },
+  preJoinContainerCompact: {
+    paddingBottom: '8%'
   },
   joinCard: {
     marginHorizontal: 18,
@@ -446,9 +466,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12
   },
-  localVideoFrame: { width: '100%', height: 220 },
-  remoteVideoFrame: { width: '100%', height: 200 },
-  gridVideoFrame: { width: '100%', height: 165 },
+  localVideoFrame: { width: '100%' },
+  remoteVideoFrame: { width: '100%' },
+  gridVideoFrame: { width: '100%' },
   cameraOffOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#000000',
@@ -489,6 +509,7 @@ const styles = StyleSheet.create({
   },
   controlBar: {
     paddingHorizontal: 12,
+    paddingTop: 4,
     flexDirection: 'row',
     gap: 8
   },
