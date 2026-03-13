@@ -1,5 +1,6 @@
-import type { NextFunction, Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { CreateParticipantTokenCommand, IVSRealTimeClient } from '@aws-sdk/client-ivs-realtime';
+import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
 type IvsTokenRequest = {
   stageArn?: string;
@@ -16,7 +17,7 @@ const DEFAULT_REGION = process.env.AWS_REGION || 'us-west-2';
 const USER_NAME_MAX = 128;
 const MAX_DURATION_MINUTES = 720; // 12 hours
 
-export async function createIvsTokenController(req: Request, res: Response, next: NextFunction) {
+export async function createIvsTokenController(req: Request, res: Response) {
   try {
     const {
       stageArn,
@@ -42,20 +43,18 @@ export async function createIvsTokenController(req: Request, res: Response, next
     });
 
     if (!effectiveStageArn) {
-      return res.status(400).json({ message: 'stageArn is required (or set IVS_STAGE_ARN).' });
+      return sendErrorResponse(req, res, 400, 'stageArn is required (or set IVS_STAGE_ARN).');
     }
 
     if (userName && userName.length > USER_NAME_MAX) {
-      return res.status(400).json({ message: 'userName must be 128 characters or fewer.' });
+      return sendErrorResponse(req, res, 400, 'userName must be 128 characters or fewer.');
     }
 
     if (
       durationMinutes !== undefined &&
       (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > MAX_DURATION_MINUTES)
     ) {
-      return res
-        .status(400)
-        .json({ message: `durationMinutes must be an integer between 1 and ${MAX_DURATION_MINUTES}.` });
+      return sendErrorResponse(req, res, 400, `durationMinutes must be an integer between 1 and ${MAX_DURATION_MINUTES}.`);
     }
 
     let capabilities: Array<'PUBLISH' | 'SUBSCRIBE'>;
@@ -72,7 +71,7 @@ export async function createIvsTokenController(req: Request, res: Response, next
     }
 
     if (capabilities.length === 0) {
-      return res.status(400).json({ message: 'At least one capability is required.' });
+      return sendErrorResponse(req, res, 400, 'At least one capability is required.');
     }
 
     const client = new IVSRealTimeClient({ region: DEFAULT_REGION });
@@ -103,7 +102,7 @@ export async function createIvsTokenController(req: Request, res: Response, next
       expirationTime: response.participantToken?.expirationTime
     });
   } catch (err) {
-    next(err);
-    return res.status(500).json({ message: 'Failed to create IVS participant token.' });
+    logControllerError(req, err, 'createIvsTokenController failed');
+    return sendErrorResponse(req, res, 500, 'Failed to create IVS participant token.');
   }
 }

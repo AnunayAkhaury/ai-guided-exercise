@@ -1,11 +1,11 @@
 // app/index.tsx
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { getAuth } from 'firebase/auth';
+import { auth } from '@/src/api/Firebase/firebase-config';
 
 export default function Index() {
   const router = useRouter();
-  const user = getAuth().currentUser;
+  const user = auth.currentUser;
 
   useEffect(() => {
     const timeout = setTimeout(() => {

@@ -3,6 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useEffect, useMemo, useState } from 'react';
 import IvsCall from '@/src/components/IvsCall';
 import { endIvsSession, listIvsSessionParticipants } from '@/src/api/ivs';
+import { useCallStore } from '@/src/store/callStore';
 
 type SessionParams = {
   token?: string;
@@ -14,6 +15,7 @@ type SessionParams = {
 
 export default function TeacherSessionScreen() {
   const router = useRouter();
+  const setInCall = useCallStore((state) => state.setInCall);
   const { token, sessionName, userName, sessionCode, sessionId } = useLocalSearchParams<SessionParams>();
   const [ending, setEnding] = useState(false);
   const [isInStage, setIsInStage] = useState(false);
@@ -24,6 +26,11 @@ export default function TeacherSessionScreen() {
   const normalizedSessionCode = Array.isArray(sessionCode) ? sessionCode[0] : sessionCode;
   const normalizedToken = Array.isArray(token) ? token[0] : token;
   const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Instructor', [normalizedUserName]);
+
+  useEffect(() => {
+    setInCall(true);
+    return () => setInCall(false);
+  }, [setInCall]);
 
   useEffect(() => {
     if (!normalizedSessionId) return;
@@ -88,10 +95,22 @@ export default function TeacherSessionScreen() {
     <View style={styles.container}>
       {isInStage && (
         <View style={styles.header}>
-          <View style={styles.headerTextBlock}>
-            <Text style={styles.title}>{normalizedSessionName || 'Live Session'}</Text>
+          <View style={styles.headerCard}>
+            <View style={styles.headerTopRow}>
+              <Text numberOfLines={1} style={styles.title}>
+                {normalizedSessionName || 'Live Session'}
+              </Text>
+              <View style={styles.liveBadge}>
+                <Text style={styles.liveBadgeText}>Live</Text>
+              </View>
+            </View>
             <Text style={styles.subText}>{normalizedUserName ? `Coach: ${normalizedUserName}` : 'Instructor view'}</Text>
-            {!!normalizedSessionCode && <Text style={styles.subText}>Code: {normalizedSessionCode}</Text>}
+            {!!normalizedSessionCode && (
+              <View style={styles.codePill}>
+                <Text style={styles.codePillLabel}>Session Code</Text>
+                <Text style={styles.codePillValue}>{normalizedSessionCode}</Text>
+              </View>
+            )}
           </View>
           <Pressable onPress={handleEndSession} style={styles.endButton} disabled={ending}>
             <Text style={styles.endButtonText}>{ending ? 'Ending...' : 'End Session'}</Text>
@@ -118,22 +137,59 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: 56,
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 6,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 12
   },
-  headerTextBlock: {
+  headerCard: {
     flex: 1
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
   },
   title: {
     fontSize: 20,
-    fontWeight: '700'
+    fontWeight: '700',
+    color: '#2F2856',
+    flexShrink: 1
+  },
+  liveBadge: {
+    backgroundColor: '#E6E2FF',
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4
+  },
+  liveBadgeText: {
+    color: '#6155F5',
+    fontWeight: '700',
+    fontSize: 12
   },
   subText: {
-    marginTop: 2,
+    marginTop: 4,
     color: '#4E4680'
+  },
+  codePill: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    backgroundColor: '#ECE9FF',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7
+  },
+  codePillLabel: {
+    color: '#5E5797',
+    fontSize: 11,
+    fontWeight: '600'
+  },
+  codePillValue: {
+    color: '#3B3269',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 1
   },
   backButton: {
     marginTop: 14,
@@ -149,9 +205,9 @@ const styles = StyleSheet.create({
   },
   endButton: {
     backgroundColor: '#A980FE',
-    borderRadius: 8,
-    paddingVertical: 9,
-    paddingHorizontal: 12
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 13
   },
   endButtonText: {
     color: '#fff',

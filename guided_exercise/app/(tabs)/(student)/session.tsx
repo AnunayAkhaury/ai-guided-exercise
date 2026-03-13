@@ -3,6 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import IvsCall from '@/src/components/IvsCall';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getIvsSessionById, listIvsSessionParticipants } from '@/src/api/ivs';
+import { useCallStore } from '@/src/store/callStore';
 
 type SessionParams = {
   token?: string;
@@ -14,6 +15,7 @@ type SessionParams = {
 
 export default function StudentSessionScreen() {
   const router = useRouter();
+  const setInCall = useCallStore((state) => state.setInCall);
   const { token, sessionName, userName, sessionCode, sessionId } = useLocalSearchParams<SessionParams>();
   const hasHandledEndedSession = useRef(false);
   const normalizedSessionId = Array.isArray(sessionId) ? sessionId[0] : sessionId;
@@ -24,6 +26,11 @@ export default function StudentSessionScreen() {
   const [isInStage, setIsInStage] = useState(false);
   const [participantNameById, setParticipantNameById] = useState<Record<string, string>>({});
   const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Student', [normalizedUserName]);
+
+  useEffect(() => {
+    setInCall(true);
+    return () => setInCall(false);
+  }, [setInCall]);
 
   useEffect(() => {
     if (!normalizedSessionId) return;
@@ -37,6 +44,13 @@ export default function StudentSessionScreen() {
           router.replace('/(tabs)/(student)/classes');
         }
       } catch (error) {
+        const message = String((error as any)?.message || '');
+        if (active && !hasHandledEndedSession.current && (message.includes('Session not found') || message.includes('404'))) {
+          hasHandledEndedSession.current = true;
+          Alert.alert('Session ended', 'The instructor ended this session.');
+          router.replace('/(tabs)/(student)/classes');
+          return;
+        }
         console.log('[StudentSession] polling error', error);
       }
     };
@@ -99,9 +113,21 @@ export default function StudentSessionScreen() {
     <View style={styles.container}>
       {isInStage && (
         <View style={styles.header}>
-          <Text style={styles.title}>{normalizedSessionName || 'Live Session'}</Text>
+          <View style={styles.headerTopRow}>
+            <Text numberOfLines={1} style={styles.title}>
+              {normalizedSessionName || 'Live Session'}
+            </Text>
+            <View style={styles.liveBadge}>
+              <Text style={styles.liveBadgeText}>Live</Text>
+            </View>
+          </View>
           <Text style={styles.subText}>{normalizedUserName ? `Participant: ${normalizedUserName}` : 'Student view'}</Text>
-          {!!normalizedSessionCode && <Text style={styles.subText}>Code: {normalizedSessionCode}</Text>}
+          {!!normalizedSessionCode && (
+            <View style={styles.codePill}>
+              <Text style={styles.codePillLabel}>Session Code</Text>
+              <Text style={styles.codePillValue}>{normalizedSessionCode}</Text>
+            </View>
+          )}
         </View>
       )}
       <IvsCall
@@ -124,15 +150,52 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: 56,
     paddingHorizontal: 16,
-    paddingBottom: 8
+    paddingBottom: 6
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
   },
   title: {
     fontSize: 20,
-    fontWeight: '700'
+    fontWeight: '700',
+    color: '#2F2856',
+    flexShrink: 1
+  },
+  liveBadge: {
+    backgroundColor: '#E6E2FF',
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4
+  },
+  liveBadgeText: {
+    color: '#6155F5',
+    fontWeight: '700',
+    fontSize: 12
   },
   subText: {
-    marginTop: 2,
+    marginTop: 4,
     color: '#4E4680'
+  },
+  codePill: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    backgroundColor: '#ECE9FF',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7
+  },
+  codePillLabel: {
+    color: '#5E5797',
+    fontSize: 11,
+    fontWeight: '600'
+  },
+  codePillValue: {
+    color: '#3B3269',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 1
   },
   backButton: {
     marginTop: 14,

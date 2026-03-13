@@ -8,7 +8,10 @@ export type SessionDocument = {
   sessionName: string;
   stageArn: string;
   instructorUid: string;
+  coachName: string;
   status: SessionStatus;
+  scheduledStartAt: Date | null;
+  scheduledEndAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   startedAt: Date | null;
@@ -26,6 +29,9 @@ export type CreateSessionInput = {
   sessionName: string;
   stageArn: string;
   instructorUid: string;
+  coachName?: string;
+  scheduledStartAt?: Date;
+  scheduledEndAt?: Date;
 };
 
 const SESSIONS_COLLECTION = 'sessions';
@@ -66,7 +72,10 @@ function mapSessionDoc(
     sessionName: data.sessionName,
     stageArn: data.stageArn,
     instructorUid: data.instructorUid,
+    coachName: data.coachName ?? data.instructorUid ?? 'Coach',
     status: data.status,
+    scheduledStartAt: data.scheduledStartAt?.toDate ? data.scheduledStartAt.toDate() : data.scheduledStartAt ?? null,
+    scheduledEndAt: data.scheduledEndAt?.toDate ? data.scheduledEndAt.toDate() : data.scheduledEndAt ?? null,
     createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
     updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
     startedAt: data.startedAt?.toDate ? data.startedAt.toDate() : data.startedAt ?? null,
@@ -83,7 +92,10 @@ export async function createSession(input: CreateSessionInput): Promise<SessionD
     sessionName: input.sessionName.trim(),
     stageArn: input.stageArn.trim(),
     instructorUid: input.instructorUid.trim(),
+    coachName: input.coachName?.trim() || input.instructorUid.trim(),
     status: 'scheduled',
+    scheduledStartAt: input.scheduledStartAt ?? null,
+    scheduledEndAt: input.scheduledEndAt ?? null,
     createdAt: now,
     updatedAt: now,
     startedAt: null,
@@ -156,8 +168,8 @@ export async function listSessions(statuses?: SessionStatus[]): Promise<SessionD
     .filter((session): session is SessionDocument => Boolean(session));
 
   sessions.sort((a, b) => {
-    const aTime = (a.startedAt ?? a.createdAt).getTime();
-    const bTime = (b.startedAt ?? b.createdAt).getTime();
+    const aTime = (a.startedAt ?? a.scheduledStartAt ?? a.createdAt).getTime();
+    const bTime = (b.startedAt ?? b.scheduledStartAt ?? b.createdAt).getTime();
     return bTime - aTime;
   });
 
@@ -186,6 +198,19 @@ export async function endOtherLiveSessions(currentSessionId: string): Promise<nu
   });
   await batch.commit();
   return docsToEnd.length;
+}
+
+export async function deleteSessionById(sessionId: string): Promise<void> {
+  const sessionRef = db.collection(SESSIONS_COLLECTION).doc(sessionId);
+  const participantsSnapshot = await sessionRef.collection(PARTICIPANTS_SUBCOLLECTION).get();
+
+  const batch = db.batch();
+  participantsSnapshot.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+  batch.delete(sessionRef);
+
+  await batch.commit();
 }
 
 export async function upsertSessionParticipant(

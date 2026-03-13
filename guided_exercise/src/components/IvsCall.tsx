@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Camera } from 'expo-camera';
 import {
   initializeStage,
   initializeLocalStreams,
@@ -61,6 +62,29 @@ function getParticipantDisplayName(participant: Participant): string {
   );
 }
 
+function selectPreferredVideoStream(streams: ({ mediaType: string; deviceUrn: string } & Record<string, any>)[]) {
+  if (!streams.length) return null;
+  const activeStream = streams.find((stream) => {
+    const muted = stream?.isMuted ?? stream?.muted ?? false;
+    const disabled = stream?.isDisabled ?? false;
+    return !muted && !disabled;
+  });
+  // Fallback only when muted/disabled flags are not exposed by the SDK object.
+  const streamWithoutFlags = streams.find((stream) => stream?.isMuted == null && stream?.isDisabled == null);
+  return activeStream ?? streamWithoutFlags ?? null;
+}
+
+function isLocalParticipant(participant: Participant): boolean {
+  const candidate = participant as any;
+  return Boolean(
+    candidate?.isLocal ??
+      candidate?.local ??
+      candidate?.info?.isLocal ??
+      candidate?.userInfo?.isLocal ??
+      candidate?.participantInfo?.isLocal
+  );
+}
+
 export default function IvsCall({
   token,
   publishOnJoin = true,
@@ -83,19 +107,28 @@ export default function IvsCall({
   const remoteParticipants = useMemo(() => {
     return participants
       .map((participant) => {
-        const videoStreams = participant.streams.filter((stream) => stream.mediaType === 'video');
-        const videoStream = videoStreams[videoStreams.length - 1];
-        if (!videoStream) {
+        if (isLocalParticipant(participant)) {
           return null;
         }
+        const videoStreams = participant.streams.filter((stream) => stream.mediaType === 'video') as ({
+          mediaType: string;
+          deviceUrn: string;
+        } & Record<string, any>)[];
+        const videoStream = selectPreferredVideoStream(videoStreams);
         return {
           participantId: participant.id,
           displayName: getParticipantDisplayName(participant),
-          deviceUrn: videoStream.deviceUrn
+          deviceUrn: videoStream?.deviceUrn ?? null,
+          hasVideo: Boolean(videoStream)
         };
       })
-      .filter((value): value is { participantId: string; displayName: string; deviceUrn: string } => Boolean(value));
+      .filter(
+        (value): value is { participantId: string; displayName: string; deviceUrn: string | null; hasVideo: boolean } =>
+          Boolean(value)
+      )
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [participants]);
+  const useGridForRemotes = remoteParticipants.length > 1;
 
   useEffect(() => {
     publishOnJoinRef.current = publishOnJoin;
@@ -133,7 +166,6 @@ export default function IvsCall({
             try {
               await setStreamsPublished(true);
               await setCameraMuted(false);
-              await setMicrophoneMuted(isAudioMutedRef.current);
               setIsVideoMuted(false);
               setIsAudioMuted(isAudioMutedRef.current);
             } catch (publishError: any) {
@@ -151,7 +183,6 @@ export default function IvsCall({
     // cleanup when component unmounts
     return () => {
       connectionListener.remove();
-      leaveStage();
     };
   }, []);
 
@@ -171,14 +202,16 @@ export default function IvsCall({
     hasJoinAttemptRef.current = true;
 
     try {
-      // Ensure stale connections are cleared before joining a new class on shared stage.
-      await leaveStage();
-
       // prepare SDK configurations
       await initializeStage();
       
       // Only publishers need local camera/microphone streams.
       if (publishOnJoin) {
+        const cameraPermission = await Camera.requestCameraPermissionsAsync();
+        const microphonePermission = await Camera.requestMicrophonePermissionsAsync();
+        if (cameraPermission.status !== 'granted' || microphonePermission.status !== 'granted') {
+          throw new Error('Camera and microphone permissions are required to join the call.');
+        }
         await initializeLocalStreams();
       }
 
@@ -240,27 +273,47 @@ export default function IvsCall({
     <View style={styles.container}>
       <ScrollView style={styles.videoContainer} contentContainerStyle={styles.videoContent}>
         {publishOnJoin && (
-          <View style={styles.participantWrapper}>
+          <View style={[styles.participantWrapper, styles.localParticipantWrapper]}>
             <View style={styles.participantLabelPill}>
               <Text style={styles.participantLabel}>{localParticipantLabel?.trim() || 'You'}</Text>
             </View>
-            <ExpoIVSStagePreviewView style={styles.videoFrame} />
+            <View style={styles.localVideoFrame}>
+              <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} />
+              {isVideoMuted && (
+                <View style={styles.cameraOffOverlay}>
+                  <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
+                  <Text style={styles.cameraOffText}>Camera Off</Text>
+                </View>
+              )}
+            </View>
           </View>
         )}
 
         {remoteParticipants.map((participant) => (
-          <View key={`${participant.participantId}:${participant.deviceUrn}`} style={styles.participantWrapper}>
+          <View
+            key={`${participant.participantId}:${participant.deviceUrn}`}
+            style={[styles.participantWrapper, useGridForRemotes && styles.gridParticipantWrapper]}
+          >
             <View style={styles.participantLabelPill}>
               <Text style={styles.participantLabel}>
                 {participantNamesById?.[participant.participantId] || participant.displayName}
               </Text>
             </View>
-            <ExpoIVSRemoteStreamView
-              participantId={participant.participantId}
-              deviceUrn={participant.deviceUrn}
-              style={styles.videoFrame}
-              scaleMode="fit"
-            />
+            {participant.hasVideo && participant.deviceUrn ? (
+              <ExpoIVSRemoteStreamView
+                participantId={participant.participantId}
+                deviceUrn={participant.deviceUrn}
+                style={useGridForRemotes ? styles.gridVideoFrame : styles.remoteVideoFrame}
+                scaleMode="fit"
+              />
+            ) : (
+              <View style={useGridForRemotes ? styles.gridVideoFrame : styles.remoteVideoFrame}>
+                <View style={styles.cameraOffOverlay}>
+                  <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
+                  <Text style={styles.cameraOffText}>Camera Off</Text>
+                </View>
+              </View>
+            )}
           </View>
         ))}
 
@@ -273,15 +326,22 @@ export default function IvsCall({
         )}
       </ScrollView>
 
-      {!!status && <Text style={styles.statusInline}>{status}</Text>}
       {!!error && <Text style={styles.errorInline}>{error}</Text>}
 
       <View style={styles.controlBar}>
-        <Pressable style={[styles.controlButton, !publishOnJoin && styles.disabledButton]} onPress={toggleAudio} disabled={!publishOnJoin}>
+        <Pressable
+          style={[styles.controlButton, isAudioMuted && styles.controlButtonMuted, !publishOnJoin && styles.disabledButton]}
+          onPress={toggleAudio}
+          disabled={!publishOnJoin}
+        >
           <Ionicons name={isAudioMuted ? 'mic-off' : 'mic'} size={18} color="#fff" />
           <Text style={styles.controlButtonText}>{isAudioMuted ? 'Unmute' : 'Mute'}</Text>
         </Pressable>
-        <Pressable style={[styles.controlButton, !publishOnJoin && styles.disabledButton]} onPress={toggleVideo} disabled={!publishOnJoin}>
+        <Pressable
+          style={[styles.controlButton, isVideoMuted && styles.controlButtonMuted, !publishOnJoin && styles.disabledButton]}
+          onPress={toggleVideo}
+          disabled={!publishOnJoin}
+        >
           <Ionicons name={isVideoMuted ? 'videocam-off' : 'videocam'} size={18} color="#fff" />
           <Text style={styles.controlButtonText}>{isVideoMuted ? 'Start Cam' : 'Stop Cam'}</Text>
         </Pressable>
@@ -349,16 +409,27 @@ const styles = StyleSheet.create({
   },
   videoContainer: { flex: 1, width: '100%' },
   videoContent: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
     paddingHorizontal: 14,
     paddingBottom: 10
   },
   participantWrapper: {
+    width: '100%',
     marginBottom: 12,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#101015',
     borderWidth: 2,
     borderColor: '#E5E3FF'
+  },
+  localParticipantWrapper: {
+    marginBottom: 14
+  },
+  gridParticipantWrapper: {
+    width: '48%',
+    marginHorizontal: '1%'
   },
   participantLabelPill: {
     position: 'absolute',
@@ -375,7 +446,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12
   },
-  videoFrame: { width: '100%', height: 220 },
+  localVideoFrame: { width: '100%', height: 220 },
+  remoteVideoFrame: { width: '100%', height: 200 },
+  gridVideoFrame: { width: '100%', height: 165 },
+  cameraOffOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8
+  },
+  cameraOffText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13
+  },
   emptyState: {
     borderWidth: 1,
     borderColor: '#D8D5FF',
@@ -397,12 +482,6 @@ const styles = StyleSheet.create({
   },
   status: { color: '#5A5678', textAlign: 'center', marginTop: 10 },
   error: { color: '#7A3FF2', textAlign: 'center', marginTop: 8 },
-  statusInline: {
-    color: '#4E4A75',
-    textAlign: 'center',
-    marginTop: 2,
-    marginBottom: 6
-  },
   errorInline: {
     color: '#7A3FF2',
     textAlign: 'center',
@@ -422,6 +501,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6
+  },
+  controlButtonMuted: {
+    backgroundColor: '#D64562'
   },
   endCallButton: {
     flex: 1,

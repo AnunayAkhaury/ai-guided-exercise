@@ -26,11 +26,15 @@ export type IvsSession = {
   sessionName: string;
   stageArn: string;
   instructorUid: string;
+  coachName: string;
   status: 'scheduled' | 'live' | 'ended';
+  scheduledStartAt: string | null;
+  scheduledEndAt: string | null;
   createdAt: string;
   updatedAt: string;
   startedAt: string | null;
   endedAt: string | null;
+  deleted?: boolean;
 };
 
 export type IvsSessionParticipant = {
@@ -43,7 +47,10 @@ export type IvsSessionParticipant = {
 type CreateSessionRequest = {
   sessionName: string;
   instructorUid: string;
+  coachName?: string;
   stageArn?: string;
+  scheduledStartAt?: string;
+  scheduledEndAt?: string;
 };
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -53,6 +60,22 @@ function getApiBaseUrl(): string {
     throw new Error('EXPO_PUBLIC_API_URL is not set.');
   }
   return API_BASE_URL;
+}
+
+async function buildApiError(response: Response, fallback: string): Promise<Error> {
+  const requestIdHeader = response.headers.get('x-request-id');
+
+  try {
+    const payload = (await response.json()) as { message?: string; requestId?: string };
+    const requestId = payload?.requestId || requestIdHeader || 'unknown';
+    const message = payload?.message || fallback;
+    return new Error(`${message} (requestId: ${requestId})`);
+  } catch {
+    const text = await response.text();
+    const requestId = requestIdHeader || 'unknown';
+    const message = text || fallback;
+    return new Error(`${message} (requestId: ${requestId})`);
+  }
 }
 
 async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
@@ -73,8 +96,7 @@ async function postJson<T>(path: string, body: Record<string, unknown>): Promise
   }
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed: ${response.status}`);
+    throw await buildApiError(response, `Request failed: ${response.status}`);
   }
 
   return (await response.json()) as T;
@@ -92,8 +114,7 @@ async function getJson<T>(path: string): Promise<T> {
   }
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed: ${response.status}`);
+    throw await buildApiError(response, `Request failed: ${response.status}`);
   }
 
   return (await response.json()) as T;
@@ -127,9 +148,9 @@ export async function getIvsToken(request: IvsTokenRequest): Promise<IvsTokenRes
   }
 
   if (!response.ok) {
-    const message = await response.text();
+    const message = await buildApiError(response, 'Failed to fetch IVS token.');
     console.log('[IVS][Client] token request failed', response.status, message);
-    throw new Error(message || 'Failed to fetch IVS token.');
+    throw message;
   }
 
   const data = (await response.json()) as IvsTokenResponse;

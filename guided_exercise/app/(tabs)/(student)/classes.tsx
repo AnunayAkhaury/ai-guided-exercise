@@ -2,9 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, FlatList, Alert } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import ClassCard from '@/src/components/classes/ClassCard';
 import Header from '@/src/components/ui/Header';
-import ActiveClassCard from '@/src/components/classes/ActiveClassCard';
+import TeacherActiveClassCard from '@/src/components/classes/TeacherActiveClassCard';
 import Typography from '@/src/components/ui/Typography';
 import {
   getIvsToken,
@@ -45,6 +44,29 @@ export default function ClassesScreen() {
 
   const liveSessions = useMemo(() => sessions.filter((item) => item.status === 'live'), [sessions]);
   const scheduledSessions = useMemo(() => sessions.filter((item) => item.status === 'scheduled'), [sessions]);
+
+  const getSessionWindow = (item: IvsSession) => {
+    const start = item.scheduledStartAt ? new Date(item.scheduledStartAt) : new Date(item.createdAt);
+    const end = item.scheduledEndAt ? new Date(item.scheduledEndAt) : new Date(start.getTime() + 60 * 60 * 1000);
+    return { start, end };
+  };
+
+  const isReadyToJoin = (item: IvsSession) => {
+    if (!item.scheduledStartAt) return false;
+    const start = new Date(item.scheduledStartAt).getTime();
+    const earliestJoin = start - 5 * 60 * 1000;
+    return Date.now() >= earliestJoin;
+  };
+
+  const readyScheduledSessions = useMemo(
+    () => scheduledSessions.filter((item) => isReadyToJoin(item)),
+    [scheduledSessions]
+  );
+  const upcomingScheduledSessions = useMemo(
+    () => scheduledSessions.filter((item) => !isReadyToJoin(item)),
+    [scheduledSessions]
+  );
+  const topSessions = useMemo(() => [...liveSessions, ...readyScheduledSessions], [liveSessions, readyScheduledSessions]);
 
   const handleJoinSession = async (sessionCode: string, sessionId: string) => {
     try {
@@ -94,27 +116,39 @@ export default function ClassesScreen() {
 
       <View className="px-5 pt-9">
         <View className="pb-6 flex flex-row items-center gap-2">
-          <Typography font="inter-semibold">Active Sessions</Typography>
+          <Typography font="inter-semibold">Live / Starting Soon</Typography>
           <FontAwesome6 name="dumbbell" size={16} color="black" className="-rotate-45" />
         </View>
 
         <FlatList
-          data={liveSessions}
+          data={topSessions}
           keyExtractor={(item) => item.sessionId}
-          ListEmptyComponent={<Typography className="text-[#7a7a7a]">No live sessions right now.</Typography>}
+          ListEmptyComponent={<Typography className="text-[#7a7a7a]">No live or ready sessions right now.</Typography>}
           renderItem={({ item }) => {
-            const start = item.startedAt ? new Date(item.startedAt) : new Date(item.createdAt);
-            const end = new Date(start.getTime() + 60 * 60 * 1000);
+            const { start, end } = getSessionWindow(item);
+            const isLive = item.status === 'live';
             return (
-              <ActiveClassCard
+              <TeacherActiveClassCard
                 start={start}
                 end={end}
                 title={item.sessionName}
-                desc={`Code: ${item.sessionCode}`}
-                active
-                joinLabel={joiningSessionId === item.sessionId ? 'Joining...' : 'Join Meeting'}
-                joinDisabled={Boolean(joiningSessionId)}
-                onJoinPress={() => handleJoinSession(item.sessionCode, item.sessionId)}
+                desc={`${isLive ? 'Live' : 'Ready'} • Code: ${item.sessionCode}`}
+                active={isLive}
+                subtitle={`Coach: ${item.coachName || item.instructorUid}`}
+                startLabel={
+                  isLive
+                    ? joiningSessionId === item.sessionId
+                      ? 'Joining...'
+                      : 'Join Meeting'
+                    : 'Waiting for Coach'
+                }
+                actionsDisabled={Boolean(joiningSessionId) || !isLive}
+                showSecondaryAction={false}
+                onStartPress={() => {
+                  if (isLive) {
+                    void handleJoinSession(item.sessionCode, item.sessionId);
+                  }
+                }}
               />
             );
           }}
@@ -126,19 +160,22 @@ export default function ClassesScreen() {
         </View>
 
         <FlatList
-          data={scheduledSessions}
+          data={upcomingScheduledSessions}
           keyExtractor={(item) => item.sessionId}
           ListEmptyComponent={<Typography className="text-[#7a7a7a]">No upcoming sessions.</Typography>}
           renderItem={({ item }) => {
-            const start = new Date(item.createdAt);
-            const end = new Date(start.getTime() + 60 * 60 * 1000);
+            const { start, end } = getSessionWindow(item);
             return (
-              <ClassCard
+              <TeacherActiveClassCard
                 start={start}
                 end={end}
                 title={item.sessionName}
-                desc={`Code: ${item.sessionCode}`}
+                desc={`Coach: ${item.coachName || item.instructorUid} • Code: ${item.sessionCode}`}
                 active={false}
+                subtitle="Upcoming scheduled class"
+                startLabel="Available 5 min before"
+                actionsDisabled
+                showSecondaryAction={false}
               />
             );
           }}

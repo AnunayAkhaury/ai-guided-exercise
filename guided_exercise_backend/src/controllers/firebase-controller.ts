@@ -1,67 +1,67 @@
 import type { Request, Response } from 'express';
 import { createProfile, getProfile } from '@/services/Firebase/firebase-auth.js';
-import type { NextFunction } from 'express';
 import { addRecording, getUserRecordings } from '@/services/Firebase/firebase-recording.js';
 import { getAchievements } from '@/services/Firebase/firebase-user.js';
+import { getRequestId, logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
 export function helloWorldController(req: Request, res: Response) {
-  res.status(500).json({ message: 'OK' });
+  res.status(200).json({ message: 'OK', requestId: getRequestId(req), timestamp: new Date().toISOString() });
 }
 
-export async function createProfileController(req: Request, res: Response, next: NextFunction) {
-  const { uid, role, username, fullname } = req.body;
+export async function createProfileController(req: Request, res: Response) {
+  const { uid, role, username, fullname, email } = req.body;
   try {
-    const profile = await createProfile(uid, role, username, fullname);
-    res.status(200).json({ uid, ...profile });
+    const profile = await createProfile(uid, role, username, fullname, email);
+    return res.status(200).json({ uid, ...profile });
   } catch (err: any) {
-    next(err);
-    res.status(500).json({ message: err.message || 'Internal Server Error' });
+    logControllerError(req, err, 'createProfileController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
   }
 }
 
-export async function getProfileController(req: Request, res: Response, next: NextFunction) {
+export async function getProfileController(req: Request, res: Response) {
   const { uid } = req.body;
   try {
     const user = await getProfile(uid);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return sendErrorResponse(req, res, 404, 'User not found');
     }
     return res.status(200).json({ ...user });
   } catch (err: any) {
-    next(err);
-    res.status(500).json({ message: err.message || 'Internal Server Error' });
+    logControllerError(req, err, 'getProfileController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
   }
 }
 
-export async function addRecordingController(req: Request, res: Response, next: NextFunction) {
+export async function addRecordingController(req: Request, res: Response) {
   const { uid, url, exercise } = req.body;
   try {
     await addRecording(uid, url, exercise);
-    res.status(200).json({ message: 'Recording added.' });
+    return res.status(200).json({ message: 'Recording added.' });
   } catch (err: any) {
-    next(err);
-    res.status(500).json({ message: err.message || 'Internal Server Error' });
+    logControllerError(req, err, 'addRecordingController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
   }
 }
 
-export async function getUserRecordingsController(req: Request, res: Response, next: NextFunction) {
+export async function getUserRecordingsController(req: Request, res: Response) {
   const { uid } = req.body;
   try {
     const recordingList = await getUserRecordings(uid);
-    res.status(200).json(recordingList);
+    return res.status(200).json(recordingList);
   } catch (err: any) {
-    next(err);
-    res.status(500).json({ message: err.message || 'Internal Server Error' });
+    logControllerError(req, err, 'getUserRecordingsController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
   }
 }
 
-export async function getUserAchievementsController(req: Request, res: Response, next: NextFunction) {
+export async function getUserAchievementsController(req: Request, res: Response) {
   const { uid } = req.body;
   try {
     const achievementsList = await getAchievements(uid);
-    res.status(200).json(achievementsList);
+    return res.status(200).json(achievementsList);
   } catch (err: any) {
-    next(err);
-    res.status(500).json({ message: err.message || 'Internal Server Error' });
+    logControllerError(req, err, 'getUserAchievementsController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
   }
 }

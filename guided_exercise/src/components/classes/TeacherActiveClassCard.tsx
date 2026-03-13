@@ -9,6 +9,12 @@ export default function TeacherActiveClassCard({
   title,
   desc,
   onStartPress,
+  onCancelPress,
+  cancelLabel,
+  startLabel,
+  actionsDisabled,
+  subtitle,
+  showSecondaryAction = true,
 } : {
   start: Date,
   end: Date,
@@ -16,6 +22,12 @@ export default function TeacherActiveClassCard({
   desc: string,
   active: boolean,
   onStartPress?: () => void,
+  onCancelPress?: () => void,
+  cancelLabel?: string,
+  startLabel?: string,
+  actionsDisabled?: boolean,
+  subtitle?: string,
+  showSecondaryAction?: boolean,
 }) {
     const startTime = start.toLocaleString('en-US', { 
       hour: 'numeric',
@@ -40,7 +52,7 @@ export default function TeacherActiveClassCard({
         <View className="w-full p-5 px-5 flex flex-col justify-center items-center">
             <Typography font='istokWeb-bold' className="text-xl self-start">{title}</Typography>
     
-            <Typography font='istokWeb' className="w-full text-start">with Instructor John</Typography>
+            <Typography font='istokWeb' className="w-full text-start">{subtitle ?? 'Ready to start'}</Typography>
             <View className="w-full flex flex-row justify-start items-center gap-1">
                 <AntDesign name="field-time" size={17} color="black" />
                 <Typography font='istokWeb' className=" text-wrap text-base">
@@ -50,12 +62,18 @@ export default function TeacherActiveClassCard({
             <Typography font='istokWeb' className="w-full text-start text-wrap pb-2">{desc}</Typography>
             
             <View className="flex flex-row items-center gap-3">
-              <TouchableOpacity onPress={onStartPress}>
-                <Typography font='inter-bold' className="text-base px-9 py-2 text-white bg-[#A980FE] rounded-xl">Start Meeting</Typography>
+              <TouchableOpacity onPress={onStartPress} disabled={actionsDisabled}>
+                <Typography font='inter-bold' className="text-base px-9 py-2 text-white bg-[#A980FE] rounded-xl">
+                  {startLabel ?? 'Start Meeting'}
+                </Typography>
               </TouchableOpacity>
-              <TouchableOpacity>
-                <Typography font='inter-bold' className="text-sm px-3 py-2 text-white bg-[#FF0000] rounded-xl">Cancel</Typography>
-              </TouchableOpacity>
+              {showSecondaryAction && (
+                <TouchableOpacity onPress={onCancelPress} disabled={actionsDisabled || !onCancelPress}>
+                  <Typography font='inter-bold' className="text-sm px-3 py-2 text-white bg-[#FF0000] rounded-xl">
+                    {cancelLabel ?? 'Cancel'}
+                  </Typography>
+                </TouchableOpacity>
+              )}
             </View>
         </View>
       </View>
