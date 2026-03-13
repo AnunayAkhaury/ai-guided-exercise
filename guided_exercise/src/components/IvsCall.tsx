@@ -175,6 +175,7 @@ export default function IvsCall({
             try {
               await setStreamsPublished(true);
               await setCameraMuted(false);
+              await setMicrophoneMuted(isAudioMutedRef.current);
               setIsVideoMuted(false);
               setIsAudioMuted(isAudioMutedRef.current);
             } catch (publishError: any) {
@@ -246,8 +247,12 @@ export default function IvsCall({
       return;
     }
     const willMute = !isAudioMuted;
-    await setMicrophoneMuted(willMute);
-    setIsAudioMuted(willMute);
+    try {
+      await setMicrophoneMuted(willMute);
+      setIsAudioMuted(willMute);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update microphone state.');
+    }
   };
 
   const toggleVideo = async () => {
