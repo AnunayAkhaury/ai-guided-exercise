@@ -28,9 +28,9 @@ export default function TeacherSessionScreen() {
   const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Instructor', [normalizedUserName]);
 
   useEffect(() => {
-    setInCall(isInStage);
+    setInCall(true);
     return () => setInCall(false);
-  }, [isInStage, setInCall]);
+  }, [setInCall]);
 
   useEffect(() => {
     if (!normalizedSessionId) return;

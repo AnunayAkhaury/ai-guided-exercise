@@ -24,6 +24,7 @@ export default function TabLayout() {
       }}
       screenOptions={{
         tabBarStyle: {
+          display: inCall ? "none" : "flex",
           backgroundColor: "#A980FE",
           height: 80,
           paddingTop: 13,

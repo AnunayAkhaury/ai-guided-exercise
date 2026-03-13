@@ -119,7 +119,11 @@ export default function ClassesScreen() {
                 onStartPress={() =>
                   router.push({
                     pathname: '/(tabs)/(teacher)/start-meeting',
-                    params: { sessionName: item.sessionName, sessionId: item.sessionId }
+                    params: {
+                      sessionName: item.sessionName,
+                      sessionId: item.sessionId,
+                      coachName: item.coachName || item.instructorUid
+                    }
                   })
                 }
                 onCancelPress={() => handleCancelScheduled(item.sessionId)}

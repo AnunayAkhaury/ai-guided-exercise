@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createIvsSession, getIvsToken, startIvsSession, upsertIvsSessionParticipant } from '@/src/api/ivs';
@@ -6,18 +6,37 @@ import { useUserStore } from '@/src/store/userStore';
 
 export default function StartMeeting() {
   const router = useRouter();
-  const { sessionName: paramSessionName, sessionId: paramSessionId } = useLocalSearchParams<{
+  const { sessionName: paramSessionName, sessionId: paramSessionId, coachName: paramCoachName } = useLocalSearchParams<{
     sessionName?: string;
     sessionId?: string;
+    coachName?: string;
   }>();
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
-  const fallbackDisplayName = username?.trim() || fullname?.trim() || 'Instructor Test';
-  const [sessionName, setSessionName] = useState((paramSessionName as string) || '');
-  const [displayName, setDisplayName] = useState(fallbackDisplayName);
+  const fallbackDisplayName = useMemo(
+    () => username?.trim() || fullname?.trim() || 'Instructor Test',
+    [fullname, username]
+  );
+  const normalizedParamSessionName = Array.isArray(paramSessionName) ? paramSessionName[0] : paramSessionName;
+  const normalizedParamCoachName = Array.isArray(paramCoachName) ? paramCoachName[0] : paramCoachName;
+  const [sessionName, setSessionName] = useState(normalizedParamSessionName || '');
+  const [displayName, setDisplayName] = useState(normalizedParamCoachName || fallbackDisplayName);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const normalizedSessionId = Array.isArray(paramSessionId) ? paramSessionId[0] : paramSessionId;
+
+  useEffect(() => {
+    if (normalizedParamSessionName) {
+      setSessionName(normalizedParamSessionName);
+    }
+    if (normalizedParamCoachName) {
+      setDisplayName(normalizedParamCoachName);
+      return;
+    }
+    if (!normalizedSessionId) {
+      setDisplayName(fallbackDisplayName);
+    }
+  }, [fallbackDisplayName, normalizedParamCoachName, normalizedParamSessionName, normalizedSessionId]);
 
   const handleStart = async () => {
     const trimmedSession = sessionName.trim();
