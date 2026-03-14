@@ -29,6 +29,7 @@ export default function StudentSessionScreen() {
   const normalizedToken = Array.isArray(token) ? token[0] : token;
   const [isInStage, setIsInStage] = useState(false);
   const [participantNameById, setParticipantNameById] = useState<Record<string, string>>({});
+  const [participantRoleById, setParticipantRoleById] = useState<Record<string, string>>({});
   const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Student', [normalizedUserName]);
 
   useEffect(() => {
@@ -91,7 +92,19 @@ export default function StudentSessionScreen() {
           }
           return acc;
         }, {});
+        const nextRoleMap = participants.reduce<Record<string, string>>((acc, participant) => {
+          if (participant.role) {
+            if (participant.participantId) {
+              acc[participant.participantId] = participant.role;
+            }
+            if (participant.userId) {
+              acc[participant.userId] = participant.role;
+            }
+          }
+          return acc;
+        }, {});
         setParticipantNameById(nextMap);
+        setParticipantRoleById(nextRoleMap);
       } catch (error) {
         console.log('[StudentSession] participant list error', error);
       }
@@ -157,6 +170,8 @@ export default function StudentSessionScreen() {
         onInStageChange={setIsInStage}
         localParticipantLabel={normalizedLocalLabel}
         participantNamesById={participantNameById}
+        participantRolesById={participantRoleById}
+        localParticipantRole="student"
       />
     </View>
   );

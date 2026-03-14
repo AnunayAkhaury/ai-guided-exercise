@@ -24,6 +24,7 @@ export default function TeacherSessionScreen() {
   const [ending, setEnding] = useState(false);
   const [isInStage, setIsInStage] = useState(false);
   const [participantNameById, setParticipantNameById] = useState<Record<string, string>>({});
+  const [participantRoleById, setParticipantRoleById] = useState<Record<string, string>>({});
   const normalizedSessionId = Array.isArray(sessionId) ? sessionId[0] : sessionId;
   const normalizedSessionName = Array.isArray(sessionName) ? sessionName[0] : sessionName;
   const normalizedUserName = Array.isArray(userName) ? userName[0] : userName;
@@ -55,7 +56,19 @@ export default function TeacherSessionScreen() {
           }
           return acc;
         }, {});
+        const nextRoleMap = participants.reduce<Record<string, string>>((acc, participant) => {
+          if (participant.role) {
+            if (participant.participantId) {
+              acc[participant.participantId] = participant.role;
+            }
+            if (participant.userId) {
+              acc[participant.userId] = participant.role;
+            }
+          }
+          return acc;
+        }, {});
         setParticipantNameById(nextMap);
+        setParticipantRoleById(nextRoleMap);
       } catch (error) {
         console.log('[TeacherSession] participant list error', error);
       }
@@ -143,6 +156,8 @@ export default function TeacherSessionScreen() {
         onInStageChange={setIsInStage}
         localParticipantLabel={normalizedLocalLabel}
         participantNamesById={participantNameById}
+        participantRolesById={participantRoleById}
+        localParticipantRole="instructor"
       />
     </View>
   );

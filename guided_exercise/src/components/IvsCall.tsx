@@ -24,6 +24,8 @@ type IvsCallProps = {
   onInStageChange?: (inStage: boolean) => void;
   localParticipantLabel?: string;
   participantNamesById?: Record<string, string>;
+  participantRolesById?: Record<string, string>;
+  localParticipantRole?: 'student' | 'instructor';
 };
 
 function firstNonEmptyString(...values: unknown[]): string | null {
@@ -91,7 +93,9 @@ export default function IvsCall({
   onLeave,
   onInStageChange,
   localParticipantLabel,
-  participantNamesById
+  participantNamesById,
+  participantRolesById,
+  localParticipantRole
 }: IvsCallProps) {
   const { width, height } = useWindowDimensions();
   const isSmallPhone = width < 380 || height < 760;
@@ -120,6 +124,11 @@ export default function IvsCall({
           return null;
         }
         const candidate = participant as any;
+        const attributes =
+          candidate?.attributes ??
+          candidate?.info?.attributes ??
+          candidate?.userInfo?.attributes ??
+          candidate?.participantInfo?.attributes;
         const lookupKeys = [
           participant.id,
           candidate?.userId,
@@ -127,6 +136,15 @@ export default function IvsCall({
           candidate?.participantId,
           candidate?.info?.participantId
         ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+        const resolvedRole =
+          lookupKeys.map((key) => participantRolesById?.[key]).find(Boolean) ||
+          firstNonEmptyString(
+            attributes?.role,
+            candidate?.role,
+            candidate?.info?.role,
+            candidate?.userInfo?.role,
+            candidate?.participantInfo?.role
+          );
         const videoStreams = participant.streams.filter((stream) => stream.mediaType === 'video') as ({
           mediaType: string;
           deviceUrn: string;
@@ -135,6 +153,7 @@ export default function IvsCall({
         return {
           participantId: participant.id,
           lookupKeys,
+          role: typeof resolvedRole === 'string' ? resolvedRole.toLowerCase() : undefined,
           displayName: getParticipantDisplayName(participant),
           deviceUrn: videoStream?.deviceUrn ?? null,
           hasVideo: Boolean(videoStream)
@@ -146,6 +165,7 @@ export default function IvsCall({
         ): value is {
           participantId: string;
           lookupKeys: string[];
+          role?: string;
           displayName: string;
           deviceUrn: string | null;
           hasVideo: boolean;
@@ -153,8 +173,19 @@ export default function IvsCall({
           Boolean(value)
       )
       .sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [participants]);
-  const useGridForRemotes = remoteParticipants.length > 1;
+  }, [participantRolesById, participants]);
+  const localIsInstructor = localParticipantRole === 'instructor';
+  const instructorRemote = useMemo(
+    () => remoteParticipants.find((participant) => participant.role === 'instructor') ?? null,
+    [remoteParticipants]
+  );
+  const remainingRemoteParticipants = useMemo(() => {
+    if (!instructorRemote) return remoteParticipants;
+    return remoteParticipants.filter((participant) => participant.participantId !== instructorRemote.participantId);
+  }, [instructorRemote, remoteParticipants]);
+  const includeLocalInGrid = publishOnJoin && !localIsInstructor;
+  const totalStudentTiles = remainingRemoteParticipants.length + (includeLocalInGrid ? 1 : 0);
+  const useGridForStudents = totalStudentTiles > 1;
 
   useEffect(() => {
     publishOnJoinRef.current = publishOnJoin;
@@ -303,7 +334,7 @@ export default function IvsCall({
   return (
     <View style={[styles.container, { paddingBottom: contentBottomPadding }]}>
       <ScrollView style={styles.videoContainer} contentContainerStyle={styles.videoContent}>
-        {publishOnJoin && (
+        {publishOnJoin && localIsInstructor && (
           <View style={[styles.participantWrapper, styles.localParticipantWrapper]}>
             <View style={styles.participantLabelPill}>
               <Text style={styles.participantLabel}>{localParticipantLabel?.trim() || 'You'}</Text>
@@ -320,10 +351,58 @@ export default function IvsCall({
           </View>
         )}
 
-        {remoteParticipants.map((participant) => (
+        {!localIsInstructor && instructorRemote && (
+          <View style={[styles.participantWrapper, styles.localParticipantWrapper]}>
+            <View style={styles.participantLabelPill}>
+              <Text style={styles.participantLabel}>
+                {instructorRemote.lookupKeys.map((key) => participantNamesById?.[key]).find(Boolean) ||
+                  instructorRemote.displayName}
+              </Text>
+            </View>
+            {instructorRemote.hasVideo && instructorRemote.deviceUrn ? (
+              <ExpoIVSRemoteStreamView
+                participantId={instructorRemote.participantId}
+                deviceUrn={instructorRemote.deviceUrn}
+                style={[styles.remoteVideoFrame, { height: remoteVideoHeight }]}
+                scaleMode="fill"
+              />
+            ) : (
+              <View style={[styles.remoteVideoFrame, { height: remoteVideoHeight }]}>
+                <View style={styles.cameraOffOverlay}>
+                  <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
+                  <Text style={styles.cameraOffText}>Camera Off</Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        {includeLocalInGrid && (
+          <View style={[styles.participantWrapper, useGridForStudents && styles.gridParticipantWrapper]}>
+            <View style={styles.participantLabelPill}>
+              <Text style={styles.participantLabel}>{localParticipantLabel?.trim() || 'You'}</Text>
+            </View>
+            <View
+              style={[
+                useGridForStudents ? styles.gridVideoFrame : styles.remoteVideoFrame,
+                { height: useGridForStudents ? gridVideoHeight : remoteVideoHeight }
+              ]}
+            >
+              <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} />
+              {isVideoMuted && (
+                <View style={styles.cameraOffOverlay}>
+                  <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
+                  <Text style={styles.cameraOffText}>Camera Off</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {remainingRemoteParticipants.map((participant) => (
           <View
             key={`${participant.participantId}:${participant.deviceUrn}`}
-            style={[styles.participantWrapper, useGridForRemotes && styles.gridParticipantWrapper]}
+            style={[styles.participantWrapper, useGridForStudents && styles.gridParticipantWrapper]}
           >
             <View style={styles.participantLabelPill}>
               <Text style={styles.participantLabel}>
@@ -335,16 +414,16 @@ export default function IvsCall({
                 participantId={participant.participantId}
                 deviceUrn={participant.deviceUrn}
                 style={[
-                  useGridForRemotes ? styles.gridVideoFrame : styles.remoteVideoFrame,
-                  { height: useGridForRemotes ? gridVideoHeight : remoteVideoHeight }
+                  useGridForStudents ? styles.gridVideoFrame : styles.remoteVideoFrame,
+                  { height: useGridForStudents ? gridVideoHeight : remoteVideoHeight }
                 ]}
-                scaleMode="fit"
+                scaleMode="fill"
               />
             ) : (
               <View
                 style={[
-                  useGridForRemotes ? styles.gridVideoFrame : styles.remoteVideoFrame,
-                  { height: useGridForRemotes ? gridVideoHeight : remoteVideoHeight }
+                  useGridForStudents ? styles.gridVideoFrame : styles.remoteVideoFrame,
+                  { height: useGridForStudents ? gridVideoHeight : remoteVideoHeight }
                 ]}
               >
                 <View style={styles.cameraOffOverlay}>
@@ -356,7 +435,7 @@ export default function IvsCall({
           </View>
         ))}
 
-        {remoteParticipants.length === 0 && (
+        {remainingRemoteParticipants.length === 0 && !includeLocalInGrid && (
           <View style={styles.emptyState}>
             <MaterialIcons name="groups-2" size={28} color="#6155F5" />
             <Text style={styles.emptyStateTitle}>Waiting for others</Text>
