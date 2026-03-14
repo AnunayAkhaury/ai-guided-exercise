@@ -21,6 +21,10 @@ type IvsCallProps = {
   token?: string;
   publishOnJoin?: boolean;
   onLeave?: () => void;
+  onInfoPress?: () => void;
+  onEndSession?: () => void;
+  endSessionLabel?: string;
+  endSessionDisabled?: boolean;
   onInStageChange?: (inStage: boolean) => void;
   localParticipantLabel?: string;
   participantNamesById?: Record<string, string>;
@@ -91,6 +95,10 @@ export default function IvsCall({
   token,
   publishOnJoin = true,
   onLeave,
+  onInfoPress,
+  onEndSession,
+  endSessionLabel = 'End Session',
+  endSessionDisabled = false,
   onInStageChange,
   localParticipantLabel,
   participantNamesById,
@@ -463,10 +471,26 @@ export default function IvsCall({
           <Ionicons name={isVideoMuted ? 'videocam-off' : 'videocam'} size={18} color="#fff" />
           <Text style={styles.controlButtonText}>{isVideoMuted ? 'Start Cam' : 'Stop Cam'}</Text>
         </Pressable>
+        {onInfoPress && (
+          <Pressable style={styles.infoButton} onPress={onInfoPress}>
+            <Ionicons name="information-circle-outline" size={18} color="#fff" />
+            <Text style={styles.controlButtonText}>Info</Text>
+          </Pressable>
+        )}
         <Pressable style={styles.endCallButton} onPress={handleLeave}>
           <Ionicons name="call" size={18} color="#fff" />
           <Text style={styles.controlButtonText}>Leave</Text>
         </Pressable>
+        {onEndSession && (
+          <Pressable
+            style={[styles.controlButton, styles.controlButtonMuted, endSessionDisabled && styles.disabledButton]}
+            onPress={onEndSession}
+            disabled={endSessionDisabled}
+          >
+            <Ionicons name="stop-circle-outline" size={18} color="#fff" />
+            <Text style={styles.controlButtonText}>{endSessionLabel}</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
@@ -630,6 +654,16 @@ const styles = StyleSheet.create({
   endCallButton: {
     flex: 1,
     backgroundColor: '#A980FE',
+    borderRadius: 12,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6
+  },
+  infoButton: {
+    flex: 1,
+    backgroundColor: '#6A63A4',
     borderRadius: 12,
     paddingVertical: 11,
     flexDirection: 'row',
