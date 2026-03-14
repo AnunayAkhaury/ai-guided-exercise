@@ -12,9 +12,11 @@ export default function TabLayout() {
   const setInCall = useCallStore((state) => state.setInCall);
   const pathname = usePathname();
   const skipAuth = __DEV__ && role == null;
+  const normalizedPath = (pathname || "").toLowerCase();
   const isSessionRoute =
-    pathname === "/(tabs)/(teacher)/session" ||
-    pathname === "/(tabs)/(student)/session";
+    normalizedPath.endsWith('/session') ||
+    normalizedPath.includes('/(teacher)/session') ||
+    normalizedPath.includes('/(student)/session');
 
   useEffect(() => {
     if (!isSessionRoute && inCall) {
@@ -26,7 +28,7 @@ export default function TabLayout() {
     <Tabs
       screenListeners={{
         tabPress: (event) => {
-          if (!inCall) return;
+          if (!inCall && !isSessionRoute) return;
           event.preventDefault();
           Alert.alert(
             "Call in progress",
@@ -36,7 +38,7 @@ export default function TabLayout() {
       }}
       screenOptions={{
         tabBarStyle: {
-          display: inCall ? "none" : "flex",
+          display: inCall || isSessionRoute ? "none" : "flex",
           backgroundColor: "#A980FE",
           height: 80,
           paddingTop: 13,
@@ -134,6 +136,17 @@ export default function TabLayout() {
       />
 
       {/* Common tabs */}
+      <Tabs.Screen
+        name="video-ui-test"
+        options={{
+          title: "UI Test",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="flask-outline" color={color} size={size} />
+          ),
+          href: null,
+          headerShown: false,
+        }}
+      />
       <Tabs.Screen
         name="profile"
         options={{
