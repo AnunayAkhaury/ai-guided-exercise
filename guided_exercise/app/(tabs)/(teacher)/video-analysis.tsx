@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { processVideo, isAvailable } from 'quickpose-post-processor';
-import { Directory, File, Paths } from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import { fetchVideoUrl } from '@/src/api/AWS/aws-s3';
 import { useVideoPlayer, VideoView } from 'expo-video';
 
@@ -17,11 +17,11 @@ type State =
 export default function VideoAnalysis() {
   const router = useRouter();
   const [state, setState] = useState<State>({ status: 'idle' });
-  //   const [outputUri, setOutputUri] = useState<string | null>(null);
+  const [outputUri, setOutputUri] = useState<string | null>(null);
 
-  //   const player = useVideoPlayer({
-  //     uri: outputUri ?? undefined
-  //   });
+  const player = useVideoPlayer({
+    uri: outputUri ?? undefined
+  });
 
   // iOS only
   if (Platform.OS !== 'ios') {
@@ -54,14 +54,16 @@ export default function VideoAnalysis() {
 
       // Note: Video key's should be uuid keys (unique identifiers)
       const videoKey = '5f27ec3b-bb61-42fc-a0e8-34dcfcf8b2ea';
-
       const videoUrl = await fetchVideoUrl(videoKey);
 
-      const destination = new Directory(Paths.cache, 'videos');
-      await destination.create({ idempotent: true });
-
-      const output = await File.downloadFileAsync(videoUrl, destination);
-      //   setOutputUri(output.uri);
+      const file = new File(Paths.cache, 'videos', videoKey + '.mp4');
+      const fileExists = file.info().exists;
+      if (fileExists) {
+        setOutputUri(file.uri);
+      } else {
+        const downloadedFile = await File.downloadFileAsync(videoUrl, file, { idempotent: true });
+        setOutputUri(downloadedFile.uri);
+      }
 
       if (!isAvailable()) {
         setState({
@@ -72,7 +74,7 @@ export default function VideoAnalysis() {
         return;
       }
 
-      const result = await processVideo(output.uri, QUICKPOSE_SDK_KEY, (progress) => {
+      const result = await processVideo(file.uri, QUICKPOSE_SDK_KEY, (progress) => {
         setState({ status: 'processing', progress });
       });
 
@@ -81,9 +83,9 @@ export default function VideoAnalysis() {
         feedbacks: result.feedbacks.length > 0 ? result.feedbacks : ['No form corrections detected – great work!']
       });
 
-      if (output) {
-        output.delete();
-      }
+      //   if (file) {
+      //     file.delete();
+      //   }
     } catch (err: any) {
       setState({ status: 'error', message: err?.message ?? 'Processing failed.' });
     }
@@ -109,7 +111,7 @@ export default function VideoAnalysis() {
         <Text style={styles.videoCardName}>exercise-test.mp4</Text>
       </View>
 
-      {/* {outputUri && <VideoView key={outputUri} player={player} style={{ width: '100%', height: 200 }} />} */}
+      {outputUri && <VideoView key={outputUri} player={player} style={{ width: '100%', height: 200 }} />}
 
       {/* Idle: analyse button */}
       {state.status === 'idle' && (

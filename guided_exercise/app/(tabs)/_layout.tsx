@@ -1,7 +1,7 @@
-import { Tabs } from "expo-router";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useUserStore } from "@/src/store/userStore";
-import { AntDesign, Entypo, Ionicons, Octicons } from "@expo/vector-icons";
+import { Tabs } from 'expo-router';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useUserStore } from '@/src/store/userStore';
+import { AntDesign, Entypo, Ionicons, Octicons } from '@expo/vector-icons';
 
 export default function TabLayout() {
   const role = useUserStore((state) => state.role);
@@ -11,50 +11,43 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: "#A980FE",
+          backgroundColor: '#A980FE',
           height: 80,
-          paddingTop: 13,
+          paddingTop: 13
         },
         tabBarLabelStyle: {
           fontSize: 14,
-          fontFamily: "Inter_600SemiBold",
+          fontFamily: 'Inter_600SemiBold'
         },
-        tabBarActiveTintColor: "#6155F5",
-        tabBarInactiveTintColor: "#000",
-      }}
-    >
+        tabBarActiveTintColor: '#6155F5',
+        tabBarInactiveTintColor: '#000'
+      }}>
       {/* Student tabs */}
       <Tabs.Screen
         name="(student)/classes"
         options={{
-          title: "Classes",
-          tabBarIcon: ({ color, size }) => (
-            <AntDesign name="book" color={color} size={size} />
-          ),
-          href: role === 'student' || skipAuth ? "/(tabs)/(student)/classes" : null,
-          headerShown: false,
+          title: 'Classes',
+          tabBarIcon: ({ color, size }) => <AntDesign name="book" color={color} size={size} />,
+          href: role === 'student' || skipAuth ? '/(tabs)/(student)/classes' : null,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="(student)/join-meeting"
         options={{
-          title: "Join Meeting",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="screenshot-monitor" color={color} size={size} />
-          ),
-          href: role === 'student' || skipAuth ? "/(tabs)/(student)/join-meeting" : null,
-          headerShown: false,
+          title: 'Join Meeting',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="screenshot-monitor" color={color} size={size} />,
+          href: role === 'student' || skipAuth ? '/(tabs)/(student)/join-meeting' : null,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="(student)/recordings"
         options={{
-          title: "Recordings",
-          tabBarIcon: ({ color, size }) => (
-            <Entypo name="folder-video" color={color} size={size} />
-          ),
-          href: role === 'student' || skipAuth ? "/(tabs)/(student)/recordings" : null,
-          headerShown: false,
+          title: 'Recordings',
+          tabBarIcon: ({ color, size }) => <Entypo name="folder-video" color={color} size={size} />,
+          href: role === 'student' || skipAuth ? '/(tabs)/(student)/recordings' : null,
+          headerShown: false
         }}
       />
       <Tabs.Screen
@@ -69,63 +62,55 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(teacher)/classes"
         options={{
-          title: "Classes",
-          tabBarIcon: ({ color, size }) => (
-            <AntDesign name="book" color={color} size={size} />
-          ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/classes" : null,
-          headerShown: false,
+          title: 'Classes',
+          tabBarIcon: ({ color, size }) => <AntDesign name="book" color={color} size={size} />,
+          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/classes' : null,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="(teacher)/start-meeting"
         options={{
-          title: "Start Meeting",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="screenshot-monitor" color={color} size={size} />
-          ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/start-meeting" : null,
-          headerShown: false,
+          title: 'Start Meeting',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="screenshot-monitor" color={color} size={size} />,
+          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/start-meeting' : null,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="(teacher)/schedule"
         options={{
-          title: "Schedule",
-          tabBarIcon: ({ color, size }) => (
-            <AntDesign name="schedule" color={color} size={size} />
-          ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/schedule" : null,
-          headerShown: false,
+          title: 'Schedule',
+          tabBarIcon: ({ color, size }) => <AntDesign name="schedule" color={color} size={size} />,
+          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/schedule' : null,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="(teacher)/students"
         options={{
-          title: "Students",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" color={color} size={size} />
-          ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/students" : null,
-          headerShown: false,
+          title: 'Students',
+          tabBarIcon: ({ color, size }) => <Ionicons name="people" color={color} size={size} />,
+          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/students' : null,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="(teacher)/session"
         options={{
-          title: "Session",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="screenshot-monitor" color={color} size={size} />
-          ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/session" : null,
-          headerShown: false,
+          title: 'Session',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="screenshot-monitor" color={color} size={size} />,
+          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/session' : null,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="(teacher)/video-analysis"
         options={{
-          href: null,
-          headerShown: false,
+          title: 'Video Analysis',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="screenshot-monitor" color={color} size={size} />,
+          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/video-analysis' : null,
+          headerShown: false
         }}
       />
 
@@ -133,11 +118,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Octicons name="person" color={color} size={size} />
-          ),
-          headerShown: false,
+          title: 'Profile',
+          tabBarIcon: ({ color, size }) => <Octicons name="person" color={color} size={size} />,
+          headerShown: false
         }}
       />
     </Tabs>
