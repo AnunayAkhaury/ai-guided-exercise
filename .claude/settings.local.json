@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(python analyze-form.py \"../src/assets/images/GoodFormCurls-angles.json\" \"../src/assets/images/BadFormCurls-angles.json\" \"../src/assets/images/bad_reps.json\")",
+      "Bash(python -c ':*)"
+    ]
+  }
+}
