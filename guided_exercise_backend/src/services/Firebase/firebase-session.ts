@@ -20,6 +20,7 @@ export type SessionDocument = {
 
 export type SessionParticipantDocument = {
   participantId: string;
+  userId: string | null;
   displayName: string;
   role: string | null;
   updatedAt: Date;
@@ -217,7 +218,8 @@ export async function upsertSessionParticipant(
   sessionId: string,
   participantId: string,
   displayName: string,
-  role?: string
+  role?: string,
+  userId?: string
 ): Promise<SessionParticipantDocument> {
   const now = new Date();
   const normalizedParticipantId = participantId.trim();
@@ -231,6 +233,7 @@ export async function upsertSessionParticipant(
   await participantRef.set(
     {
       participantId: normalizedParticipantId,
+      userId: userId?.trim() || null,
       displayName: normalizedDisplayName,
       role: role?.trim() || null,
       updatedAt: now
@@ -240,6 +243,7 @@ export async function upsertSessionParticipant(
 
   return {
     participantId: normalizedParticipantId,
+    userId: userId?.trim() || null,
     displayName: normalizedDisplayName,
     role: role?.trim() || null,
     updatedAt: now
@@ -258,6 +262,7 @@ export async function listSessionParticipants(sessionId: string): Promise<Sessio
     const data = doc.data();
     return {
       participantId: data.participantId,
+      userId: data.userId ?? null,
       displayName: data.displayName,
       role: data.role ?? null,
       updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt

@@ -1,20 +1,34 @@
-import { Tabs } from "expo-router";
+import { Tabs, usePathname } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useUserStore } from "@/src/store/userStore";
 import { AntDesign, Entypo, Ionicons, Octicons } from "@expo/vector-icons";
 import { Alert } from "react-native";
 import { useCallStore } from "@/src/store/callStore";
+import { useEffect } from "react";
 
 export default function TabLayout() {
   const role = useUserStore((state) => state.role);
   const inCall = useCallStore((state) => state.inCall);
+  const setInCall = useCallStore((state) => state.setInCall);
+  const pathname = usePathname();
   const skipAuth = __DEV__ && role == null;
+  const normalizedPath = (pathname || "").toLowerCase();
+  const isSessionRoute =
+    normalizedPath.endsWith('/session') ||
+    normalizedPath.includes('/(teacher)/session') ||
+    normalizedPath.includes('/(student)/session');
+
+  useEffect(() => {
+    if (!isSessionRoute && inCall) {
+      setInCall(false);
+    }
+  }, [inCall, isSessionRoute, setInCall]);
 
   return (
     <Tabs
       screenListeners={{
         tabPress: (event) => {
-          if (!inCall) return;
+          if (!inCall && !isSessionRoute) return;
           event.preventDefault();
           Alert.alert(
             "Call in progress",
@@ -24,7 +38,7 @@ export default function TabLayout() {
       }}
       screenOptions={{
         tabBarStyle: {
-          display: inCall ? "none" : "flex",
+          display: inCall || isSessionRoute ? "none" : "flex",
           backgroundColor: "#A980FE",
           height: 80,
           paddingTop: 13,
@@ -123,7 +137,18 @@ export default function TabLayout() {
 
       {/* Common tabs */}
       <Tabs.Screen
-        name="profile/profile"
+        name="video-ui-test"
+        options={{
+          title: "UI Test",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="flask-outline" color={color} size={size} />
+          ),
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size }) => (

@@ -8,17 +8,24 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  useWindowDimensions
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import React, { useState } from 'react';
 import { createAccount, createProfile } from '@/src/api/Firebase/firebase-auth';
 import { auth } from '@/src/api/Firebase/firebase-config';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const INSTRUCTOR_SIGNUP_CODE = 'UCDavis123';
 
 export default function Signup() {
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const isSmallPhone = width < 380 || height < 760;
+  const cardWidth = Math.min(460, width - (isSmallPhone ? 24 : 36));
+
   const [email, setEmail] = useState<string>('');
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -91,10 +98,20 @@ export default function Signup() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <View style={styles.formCard}>
-          <Text style={styles.title}>Sign Up</Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+    >
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top + (isSmallPhone ? 8 : 14), paddingBottom: Math.max(insets.bottom + 16, 24) }
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={[styles.formCard, { width: cardWidth }]}>
+          <Text style={[styles.title, isSmallPhone && styles.titleCompact]}>Sign Up</Text>
           <View style={styles.roleRow}>
             <Pressable
               style={[styles.roleButton, role === 'student' && styles.roleButtonActive]}
@@ -175,7 +192,6 @@ const styles = StyleSheet.create({
     paddingVertical: 24
   },
   formCard: {
-    width: '88%',
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingHorizontal: 20,
@@ -190,6 +206,9 @@ const styles = StyleSheet.create({
     color: '#302E47',
     fontWeight: '700',
     textAlign: 'center'
+  },
+  titleCompact: {
+    fontSize: 26
   },
   inputContainer: {
     width: '100%',

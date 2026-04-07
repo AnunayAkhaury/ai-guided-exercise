@@ -1,26 +1,39 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createIvsSession, getIvsToken, startIvsSession, upsertIvsSessionParticipant } from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function StartMeeting() {
   const router = useRouter();
-  const { sessionName: paramSessionName, sessionId: paramSessionId, coachName: paramCoachName } = useLocalSearchParams<{
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const isSmallPhone = width < 380 || height < 760;
+  const { sessionName: paramSessionName, sessionId: paramSessionId } = useLocalSearchParams<{
     sessionName?: string;
     sessionId?: string;
-    coachName?: string;
   }>();
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
-  const fallbackDisplayName = useMemo(
-    () => username?.trim() || fullname?.trim() || 'Instructor Test',
+  const uid = useUserStore((state) => state.uid);
+  const instructorDisplayName = useMemo(
+    () => fullname?.trim() || username?.trim() || 'Instructor',
     [fullname, username]
   );
   const normalizedParamSessionName = Array.isArray(paramSessionName) ? paramSessionName[0] : paramSessionName;
-  const normalizedParamCoachName = Array.isArray(paramCoachName) ? paramCoachName[0] : paramCoachName;
   const [sessionName, setSessionName] = useState(normalizedParamSessionName || '');
-  const [displayName, setDisplayName] = useState(normalizedParamCoachName || fallbackDisplayName);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const normalizedSessionId = Array.isArray(paramSessionId) ? paramSessionId[0] : paramSessionId;
@@ -29,21 +42,15 @@ export default function StartMeeting() {
     if (normalizedParamSessionName) {
       setSessionName(normalizedParamSessionName);
     }
-    if (normalizedParamCoachName) {
-      setDisplayName(normalizedParamCoachName);
-      return;
-    }
-    if (!normalizedSessionId) {
-      setDisplayName(fallbackDisplayName);
-    }
-  }, [fallbackDisplayName, normalizedParamCoachName, normalizedParamSessionName, normalizedSessionId]);
+  }, [normalizedParamSessionName]);
 
   const handleStart = async () => {
     const trimmedSession = sessionName.trim();
-    const trimmedName = displayName.trim() || fallbackDisplayName;
+    const trimmedName = instructorDisplayName;
+    const effectiveUid = uid?.trim();
 
-    if (!trimmedSession || !trimmedName) {
-      setError('Please enter a session name and display name.');
+    if (!trimmedSession || !trimmedName || !effectiveUid) {
+      setError('Missing required profile data. Please re-login and try again.');
       return;
     }
 
@@ -55,7 +62,7 @@ export default function StartMeeting() {
         : await (async () => {
             const createdSession = await createIvsSession({
               sessionName: trimmedSession,
-              instructorUid: trimmedName,
+              instructorUid: effectiveUid,
               coachName: trimmedName
             });
             return startIvsSession(createdSession.sessionId);
@@ -63,12 +70,14 @@ export default function StartMeeting() {
 
       const tokenResult = await getIvsToken({
         stageArn: liveSession.stageArn,
-        userId: trimmedName,
+        userId: effectiveUid,
         userName: trimmedName,
         publish: true,
         subscribe: true,
         durationMinutes: 60,
         attributes: {
+          displayName: trimmedName,
+          userId: effectiveUid,
           role: 'instructor',
           sessionId: liveSession.sessionId,
           sessionCode: liveSession.sessionCode
@@ -77,6 +86,7 @@ export default function StartMeeting() {
       await upsertIvsSessionParticipant({
         sessionId: liveSession.sessionId,
         participantId: tokenResult.participantId,
+        userId: effectiveUid,
         displayName: trimmedName,
         role: 'instructor'
       });
@@ -99,60 +109,72 @@ export default function StartMeeting() {
   };
 
   return (
-    <View style={styles.container}>
-      <Pressable style={styles.backButton} onPress={() => router.replace('/(tabs)/(teacher)/classes')}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+    >
+      <Pressable
+        style={[styles.backButton, { top: insets.top + 10, left: isSmallPhone ? 14 : 20 }]}
+        onPress={() => router.replace('/(tabs)/(teacher)/classes')}
+      >
         <Text style={styles.backText}>Back</Text>
       </Pressable>
-      <Text style={styles.title}>Start a Session</Text>
-      {!!normalizedSessionId && <Text style={styles.subtitle}>Launching scheduled class</Text>}
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Session Name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. Tuesday Rehab Mobility"
-          value={sessionName}
-          onChangeText={setSessionName}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </View>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: isSmallPhone ? 16 : 24 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={[styles.title, isSmallPhone && styles.titleCompact]}>Start a Session</Text>
+        {!!normalizedSessionId && <Text style={styles.subtitle}>Launching scheduled class</Text>}
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Display Name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. Coach Maya"
-          value={displayName}
-          onChangeText={setDisplayName}
-        />
-      </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Session Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Tuesday Rehab Mobility"
+            value={sessionName}
+            onChangeText={setSessionName}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
 
-      {!!error && <Text style={styles.error}>{error}</Text>}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Coach Name</Text>
+          <View style={styles.readOnlyInput}>
+            <Text style={styles.readOnlyText}>{instructorDisplayName}</Text>
+          </View>
+        </View>
 
-      <Pressable style={styles.button} onPress={handleStart} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Start</Text>}
-      </Pressable>
-    </View>
+        {!!error && <Text style={styles.error}>{error}</Text>}
+
+        <Pressable style={styles.button} onPress={handleStart} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Start</Text>}
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F5F2FF'
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    backgroundColor: '#F5F2FF',
     gap: 16
   },
   backButton: {
     position: 'absolute',
-    top: 60,
-    left: 20,
     paddingVertical: 6,
     paddingHorizontal: 12,
     backgroundColor: '#6155F5',
-    borderRadius: 16
+    borderRadius: 16,
+    zIndex: 10
   },
   backText: {
     fontSize: 14,
@@ -164,6 +186,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     color: '#302E47'
+  },
+  titleCompact: {
+    fontSize: 24
   },
   subtitle: {
     textAlign: 'center',
@@ -188,6 +213,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D8D5FF',
     color: '#1D1C2B'
+  },
+  readOnlyInput: {
+    backgroundColor: '#F0EEFF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#D8D5FF'
+  },
+  readOnlyText: {
+    fontSize: 16,
+    color: '#3C366B',
+    fontWeight: '600'
   },
   button: {
     backgroundColor: '#6155F5',

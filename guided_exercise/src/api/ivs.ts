@@ -39,6 +39,7 @@ export type IvsSession = {
 
 export type IvsSessionParticipant = {
   participantId: string;
+  userId?: string | null;
   displayName: string;
   role?: string | null;
   updatedAt?: string;
@@ -196,6 +197,7 @@ export function getIvsSessionById(sessionId: string): Promise<IvsSession> {
 export function upsertIvsSessionParticipant(request: {
   sessionId: string;
   participantId: string;
+  userId?: string;
   displayName: string;
   role?: 'student' | 'instructor';
 }): Promise<IvsSessionParticipant> {

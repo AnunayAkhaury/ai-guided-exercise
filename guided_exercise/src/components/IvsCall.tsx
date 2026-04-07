@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Camera } from 'expo-camera';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   initializeStage,
   initializeLocalStreams,
@@ -21,9 +22,15 @@ type IvsCallProps = {
   token?: string;
   publishOnJoin?: boolean;
   onLeave?: () => void;
+  onInfoPress?: () => void;
+  onEndSession?: () => void;
+  endSessionLabel?: string;
+  endSessionDisabled?: boolean;
   onInStageChange?: (inStage: boolean) => void;
   localParticipantLabel?: string;
   participantNamesById?: Record<string, string>;
+  participantRolesById?: Record<string, string>;
+  localParticipantRole?: 'student' | 'instructor';
 };
 
 function firstNonEmptyString(...values: unknown[]): string | null {
@@ -89,10 +96,25 @@ export default function IvsCall({
   token,
   publishOnJoin = true,
   onLeave,
+  onInfoPress,
+  onEndSession,
+  endSessionLabel = 'End Session',
+  endSessionDisabled = false,
   onInStageChange,
   localParticipantLabel,
-  participantNamesById
+  participantNamesById,
+  participantRolesById,
+  localParticipantRole
 }: IvsCallProps) {
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const isSmallPhone = width < 380 || height < 760;
+  const localVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.56)));
+  const remoteVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.56)));
+  const gridVideoHeight = Math.max(190, Math.min(260, Math.round(((width - 38) / 2) * 1.35)));
+  const controlBarPaddingBottom = isSmallPhone ? 6 : 10;
+  const contentBottomPadding = isSmallPhone ? 6 : 14;
+
   const [isInStage, setIsInStage] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
@@ -110,6 +132,28 @@ export default function IvsCall({
         if (isLocalParticipant(participant)) {
           return null;
         }
+        const candidate = participant as any;
+        const attributes =
+          candidate?.attributes ??
+          candidate?.info?.attributes ??
+          candidate?.userInfo?.attributes ??
+          candidate?.participantInfo?.attributes;
+        const lookupKeys = [
+          participant.id,
+          candidate?.userId,
+          candidate?.info?.userId,
+          candidate?.participantId,
+          candidate?.info?.participantId
+        ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+        const resolvedRole =
+          lookupKeys.map((key) => participantRolesById?.[key]).find(Boolean) ||
+          firstNonEmptyString(
+            attributes?.role,
+            candidate?.role,
+            candidate?.info?.role,
+            candidate?.userInfo?.role,
+            candidate?.participantInfo?.role
+          );
         const videoStreams = participant.streams.filter((stream) => stream.mediaType === 'video') as ({
           mediaType: string;
           deviceUrn: string;
@@ -117,18 +161,40 @@ export default function IvsCall({
         const videoStream = selectPreferredVideoStream(videoStreams);
         return {
           participantId: participant.id,
+          lookupKeys,
+          role: typeof resolvedRole === 'string' ? resolvedRole.toLowerCase() : undefined,
           displayName: getParticipantDisplayName(participant),
           deviceUrn: videoStream?.deviceUrn ?? null,
           hasVideo: Boolean(videoStream)
         };
       })
       .filter(
-        (value): value is { participantId: string; displayName: string; deviceUrn: string | null; hasVideo: boolean } =>
+        (
+          value
+        ): value is {
+          participantId: string;
+          lookupKeys: string[];
+          role?: string;
+          displayName: string;
+          deviceUrn: string | null;
+          hasVideo: boolean;
+        } =>
           Boolean(value)
       )
       .sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [participants]);
-  const useGridForRemotes = remoteParticipants.length > 1;
+  }, [participantRolesById, participants]);
+  const localIsInstructor = localParticipantRole === 'instructor';
+  const instructorRemote = useMemo(
+    () => remoteParticipants.find((participant) => participant.role === 'instructor') ?? null,
+    [remoteParticipants]
+  );
+  const remainingRemoteParticipants = useMemo(() => {
+    if (!instructorRemote) return remoteParticipants;
+    return remoteParticipants.filter((participant) => participant.participantId !== instructorRemote.participantId);
+  }, [instructorRemote, remoteParticipants]);
+  const includeLocalInGrid = publishOnJoin && !localIsInstructor;
+  const totalStudentTiles = remainingRemoteParticipants.length + (includeLocalInGrid ? 1 : 0);
+  const useGridForStudents = totalStudentTiles > 1;
 
   useEffect(() => {
     publishOnJoinRef.current = publishOnJoin;
@@ -164,8 +230,16 @@ export default function IvsCall({
           // Ensure publish state is applied after the stage is actually connected.
           void (async () => {
             try {
-              await setStreamsPublished(true);
+              await setMicrophoneMuted(isAudioMutedRef.current);
               await setCameraMuted(false);
+              await setStreamsPublished(true);
+              // IVS may briefly unmute during publish init on some devices; enforce mute again.
+              setTimeout(() => {
+                void setMicrophoneMuted(isAudioMutedRef.current).catch(() => undefined);
+              }, 350);
+              setTimeout(() => {
+                void setMicrophoneMuted(isAudioMutedRef.current).catch(() => undefined);
+              }, 1200);
               setIsVideoMuted(false);
               setIsAudioMuted(isAudioMutedRef.current);
             } catch (publishError: any) {
@@ -204,6 +278,8 @@ export default function IvsCall({
     try {
       // prepare SDK configurations
       await initializeStage();
+      // Always join as non-publishing first to avoid accidental open-mic moments.
+      await setStreamsPublished(false);
       
       // Only publishers need local camera/microphone streams.
       if (publishOnJoin) {
@@ -213,6 +289,9 @@ export default function IvsCall({
           throw new Error('Camera and microphone permissions are required to join the call.');
         }
         await initializeLocalStreams();
+        // Force "join muted" before connecting.
+        await setMicrophoneMuted(true);
+        setIsAudioMuted(true);
       }
 
       // connect to the stage using token
@@ -237,8 +316,12 @@ export default function IvsCall({
       return;
     }
     const willMute = !isAudioMuted;
-    await setMicrophoneMuted(willMute);
-    setIsAudioMuted(willMute);
+    try {
+      await setMicrophoneMuted(willMute);
+      setIsAudioMuted(willMute);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update microphone state.');
+    }
   };
 
   const toggleVideo = async () => {
@@ -254,7 +337,7 @@ export default function IvsCall({
   // not in session yet, show join screen
   if (!isInStage) {
     return (
-      <View style={styles.preJoinContainer}>
+      <View style={[styles.preJoinContainer, isSmallPhone && styles.preJoinContainerCompact]}>
         <View style={styles.joinCard}>
           <Text style={styles.joinTitle}>Welcome to Class</Text>
           <Text style={styles.joinSubtitle}>Join when you are ready.</Text>
@@ -270,15 +353,20 @@ export default function IvsCall({
 
   // show stage view with other participants
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.videoContainer} contentContainerStyle={styles.videoContent}>
-        {publishOnJoin && (
+    <View style={[styles.container, { paddingTop: insets.top + 8, paddingBottom: contentBottomPadding }]}>
+      <ScrollView
+        style={styles.videoContainer}
+        contentContainerStyle={styles.videoContent}
+        showsVerticalScrollIndicator={false}
+        bounces
+      >
+        {publishOnJoin && localIsInstructor && (
           <View style={[styles.participantWrapper, styles.localParticipantWrapper]}>
             <View style={styles.participantLabelPill}>
               <Text style={styles.participantLabel}>{localParticipantLabel?.trim() || 'You'}</Text>
             </View>
-            <View style={styles.localVideoFrame}>
-              <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} />
+            <View style={[styles.localVideoFrame, { height: localVideoHeight }]}>
+              <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} scaleMode="fill" />
               {isVideoMuted && (
                 <View style={styles.cameraOffOverlay}>
                   <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
@@ -289,25 +377,87 @@ export default function IvsCall({
           </View>
         )}
 
-        {remoteParticipants.map((participant) => (
+        {!localIsInstructor && instructorRemote && (
+          <View style={[styles.participantWrapper, styles.localParticipantWrapper]}>
+            <View style={styles.participantLabelPill}>
+              <Text style={styles.participantLabel}>
+                {instructorRemote.lookupKeys.map((key) => participantNamesById?.[key]).find(Boolean) ||
+                  instructorRemote.displayName}
+              </Text>
+            </View>
+            {instructorRemote.hasVideo && instructorRemote.deviceUrn ? (
+              <View style={[styles.remoteVideoFrame, { height: remoteVideoHeight }]}>
+                <ExpoIVSRemoteStreamView
+                  participantId={instructorRemote.participantId}
+                  deviceUrn={instructorRemote.deviceUrn}
+                  style={StyleSheet.absoluteFillObject}
+                  scaleMode="fill"
+                />
+              </View>
+            ) : (
+              <View style={[styles.remoteVideoFrame, { height: remoteVideoHeight }]}>
+                <View style={styles.cameraOffOverlay}>
+                  <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
+                  <Text style={styles.cameraOffText}>Camera Off</Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        {includeLocalInGrid && (
+          <View style={[styles.participantWrapper, useGridForStudents && styles.gridParticipantWrapper]}>
+            <View style={styles.participantLabelPill}>
+              <Text style={styles.participantLabel}>{localParticipantLabel?.trim() || 'You'}</Text>
+            </View>
+            <View
+              style={[
+                useGridForStudents ? styles.gridVideoFrame : styles.remoteVideoFrame,
+                { height: useGridForStudents ? gridVideoHeight : remoteVideoHeight }
+              ]}
+            >
+              <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} scaleMode="fill" />
+              {isVideoMuted && (
+                <View style={styles.cameraOffOverlay}>
+                  <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
+                  <Text style={styles.cameraOffText}>Camera Off</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {remainingRemoteParticipants.map((participant) => (
           <View
             key={`${participant.participantId}:${participant.deviceUrn}`}
-            style={[styles.participantWrapper, useGridForRemotes && styles.gridParticipantWrapper]}
+            style={[styles.participantWrapper, useGridForStudents && styles.gridParticipantWrapper]}
           >
             <View style={styles.participantLabelPill}>
               <Text style={styles.participantLabel}>
-                {participantNamesById?.[participant.participantId] || participant.displayName}
+                {participant.lookupKeys.map((key) => participantNamesById?.[key]).find(Boolean) || participant.displayName}
               </Text>
             </View>
             {participant.hasVideo && participant.deviceUrn ? (
-              <ExpoIVSRemoteStreamView
-                participantId={participant.participantId}
-                deviceUrn={participant.deviceUrn}
-                style={useGridForRemotes ? styles.gridVideoFrame : styles.remoteVideoFrame}
-                scaleMode="fit"
-              />
+              <View
+                style={[
+                  useGridForStudents ? styles.gridVideoFrame : styles.remoteVideoFrame,
+                  { height: useGridForStudents ? gridVideoHeight : remoteVideoHeight }
+                ]}
+              >
+                <ExpoIVSRemoteStreamView
+                  participantId={participant.participantId}
+                  deviceUrn={participant.deviceUrn}
+                  style={StyleSheet.absoluteFillObject}
+                  scaleMode="fill"
+                />
+              </View>
             ) : (
-              <View style={useGridForRemotes ? styles.gridVideoFrame : styles.remoteVideoFrame}>
+              <View
+                style={[
+                  useGridForStudents ? styles.gridVideoFrame : styles.remoteVideoFrame,
+                  { height: useGridForStudents ? gridVideoHeight : remoteVideoHeight }
+                ]}
+              >
                 <View style={styles.cameraOffOverlay}>
                   <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
                   <Text style={styles.cameraOffText}>Camera Off</Text>
@@ -317,7 +467,7 @@ export default function IvsCall({
           </View>
         ))}
 
-        {remoteParticipants.length === 0 && (
+        {remainingRemoteParticipants.length === 0 && !includeLocalInGrid && (
           <View style={styles.emptyState}>
             <MaterialIcons name="groups-2" size={28} color="#6155F5" />
             <Text style={styles.emptyStateTitle}>Waiting for others</Text>
@@ -328,7 +478,7 @@ export default function IvsCall({
 
       {!!error && <Text style={styles.errorInline}>{error}</Text>}
 
-      <View style={styles.controlBar}>
+      <View style={[styles.controlBar, { paddingBottom: controlBarPaddingBottom }]}>
         <Pressable
           style={[styles.controlButton, isAudioMuted && styles.controlButtonMuted, !publishOnJoin && styles.disabledButton]}
           onPress={toggleAudio}
@@ -345,11 +495,42 @@ export default function IvsCall({
           <Ionicons name={isVideoMuted ? 'videocam-off' : 'videocam'} size={18} color="#fff" />
           <Text style={styles.controlButtonText}>{isVideoMuted ? 'Start Cam' : 'Stop Cam'}</Text>
         </Pressable>
-        <Pressable style={styles.endCallButton} onPress={handleLeave}>
-          <Ionicons name="call" size={18} color="#fff" />
-          <Text style={styles.controlButtonText}>Leave</Text>
-        </Pressable>
+        {onInfoPress && !onEndSession && (
+          <Pressable style={styles.infoButton} onPress={onInfoPress}>
+            <Ionicons name="information-circle-outline" size={18} color="#fff" />
+            <Text style={styles.controlButtonText}>Info</Text>
+          </Pressable>
+        )}
+        {!onEndSession && (
+          <Pressable style={styles.endCallButton} onPress={handleLeave}>
+            <Ionicons name="call" size={18} color="#fff" />
+            <Text style={styles.controlButtonText}>Leave</Text>
+          </Pressable>
+        )}
       </View>
+
+      {onEndSession && (
+        <View style={[styles.controlBarSecondary, { paddingBottom: controlBarPaddingBottom }]}>
+          {onInfoPress && (
+            <Pressable style={styles.infoButtonSecondary} onPress={onInfoPress}>
+              <Ionicons name="information-circle-outline" size={18} color="#fff" />
+              <Text style={styles.controlButtonText}>Info</Text>
+            </Pressable>
+          )}
+          <Pressable style={styles.endCallButton} onPress={handleLeave}>
+            <Ionicons name="call" size={18} color="#fff" />
+            <Text style={styles.controlButtonText}>Leave</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.controlButton, styles.controlButtonMuted, endSessionDisabled && styles.disabledButton]}
+            onPress={onEndSession}
+            disabled={endSessionDisabled}
+          >
+            <Ionicons name="stop-circle-outline" size={18} color="#fff" />
+            <Text style={styles.controlButtonText}>{endSessionLabel}</Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
@@ -359,7 +540,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     alignSelf: 'center',
-    paddingTop: 12,
+    paddingTop: 0,
     paddingBottom: 14
   },
   preJoinContainer: {
@@ -368,6 +549,9 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     justifyContent: 'center',
     paddingBottom: '16%'
+  },
+  preJoinContainerCompact: {
+    paddingBottom: '8%'
   },
   joinCard: {
     marginHorizontal: 18,
@@ -413,7 +597,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'flex-start',
     paddingHorizontal: 14,
-    paddingBottom: 10
+    paddingBottom: 18
   },
   participantWrapper: {
     width: '100%',
@@ -425,11 +609,12 @@ const styles = StyleSheet.create({
     borderColor: '#E5E3FF'
   },
   localParticipantWrapper: {
-    marginBottom: 14
+    marginBottom: 14,
+    marginTop: 2
   },
   gridParticipantWrapper: {
-    width: '48%',
-    marginHorizontal: '1%'
+    width: '49%',
+    marginHorizontal: '0.5%'
   },
   participantLabelPill: {
     position: 'absolute',
@@ -446,9 +631,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12
   },
-  localVideoFrame: { width: '100%', height: 220 },
-  remoteVideoFrame: { width: '100%', height: 200 },
-  gridVideoFrame: { width: '100%', height: 165 },
+  localVideoFrame: { width: '100%', overflow: 'hidden' },
+  remoteVideoFrame: { width: '100%', overflow: 'hidden' },
+  gridVideoFrame: { width: '100%', overflow: 'hidden' },
   cameraOffOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#000000',
@@ -489,6 +674,14 @@ const styles = StyleSheet.create({
   },
   controlBar: {
     paddingHorizontal: 12,
+    paddingTop: 4,
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2
+  },
+  controlBarSecondary: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
     flexDirection: 'row',
     gap: 8
   },
@@ -508,6 +701,26 @@ const styles = StyleSheet.create({
   endCallButton: {
     flex: 1,
     backgroundColor: '#A980FE',
+    borderRadius: 12,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6
+  },
+  infoButton: {
+    flex: 1,
+    backgroundColor: '#6A63A4',
+    borderRadius: 12,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6
+  },
+  infoButtonSecondary: {
+    flex: 1,
+    backgroundColor: '#6A63A4',
     borderRadius: 12,
     paddingVertical: 11,
     flexDirection: 'row',

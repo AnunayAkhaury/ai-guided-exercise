@@ -34,6 +34,7 @@ type SessionIdRequest = {
 type UpsertParticipantRequest = {
   sessionId?: string;
   participantId?: string;
+  userId?: string;
   displayName?: string;
   role?: string;
 };
@@ -248,7 +249,7 @@ export async function endSessionController(req: Request, res: Response) {
 
 export async function upsertSessionParticipantController(req: Request, res: Response) {
   try {
-    const { sessionId, participantId, displayName, role } = req.body as UpsertParticipantRequest;
+    const { sessionId, participantId, userId, displayName, role } = req.body as UpsertParticipantRequest;
     if (!sessionId?.trim()) {
       return sendErrorResponse(req, res, 400, 'sessionId is required.');
     }
@@ -264,7 +265,7 @@ export async function upsertSessionParticipantController(req: Request, res: Resp
       return sendErrorResponse(req, res, 404, 'Session not found.');
     }
 
-    const participant = await upsertSessionParticipant(sessionId, participantId, displayName, role);
+    const participant = await upsertSessionParticipant(sessionId, participantId, displayName, role, userId);
     return res.status(200).json(participant);
   } catch (err: any) {
     logControllerError(req, err, 'upsertSessionParticipantController failed');

@@ -8,14 +8,21 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  useWindowDimensions
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import React, { useState } from 'react';
 import { login } from '@/src/api/Firebase/firebase-auth';
 import { useUserStore } from '@/src/store/userStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function Login() {
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const isSmallPhone = width < 380 || height < 760;
+  const cardWidth = Math.min(440, width - (isSmallPhone ? 24 : 36));
+
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,10 +53,20 @@ export default function Login() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <View style={styles.formCard}>
-          <Text style={styles.title}>Login</Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+    >
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top + (isSmallPhone ? 8 : 14), paddingBottom: Math.max(insets.bottom + 16, 24) }
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={[styles.formCard, { width: cardWidth }]}>
+          <Text style={[styles.title, isSmallPhone && styles.titleCompact]}>Login</Text>
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Email</Text>
             <TextInput style={styles.input} onChangeText={(email) => setEmail(email)} value={email} />
@@ -91,7 +108,6 @@ const styles = StyleSheet.create({
     paddingVertical: 24
   },
   formCard: {
-    width: '86%',
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingHorizontal: 20,
@@ -106,6 +122,9 @@ const styles = StyleSheet.create({
     color: '#302E47',
     fontWeight: '700',
     textAlign: 'center'
+  },
+  titleCompact: {
+    fontSize: 26
   },
   inputContainer: {
     width: '100%',
