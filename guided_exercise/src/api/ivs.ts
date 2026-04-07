@@ -8,6 +8,25 @@ type IvsTokenRequest = {
   attributes?: Record<string, string>;
 };
 
+export type IvsTelemetryEventName =
+  | 'join_attempt'
+  | 'token_reused'
+  | 'token_refreshed'
+  | 'participant_left_marked'
+  | 'join_failed'
+  | 'token_refresh_failed'
+  | 'participant_left_mark_failed';
+
+export type IvsTelemetryPayload = {
+  eventName: IvsTelemetryEventName;
+  sessionId?: string;
+  stageArn?: string;
+  userId?: string;
+  role?: 'student' | 'instructor' | 'unknown';
+  participantId?: string;
+  details?: Record<string, unknown>;
+};
+
 type IvsTokenResponse = {
   token: string;
   participantId?: string;
@@ -42,6 +61,10 @@ export type IvsSessionParticipant = {
   userId?: string | null;
   displayName: string;
   role?: string | null;
+  active?: boolean;
+  joinedAt?: string;
+  leftAt?: string | null;
+  lastSeenAt?: string;
   updatedAt?: string;
 };
 
@@ -55,6 +78,30 @@ type CreateSessionRequest = {
 };
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+const TOKEN_REUSE_BUFFER_MS = 90 * 1000;
+
+type CachedToken = {
+  sessionId: string;
+  stageArn: string;
+  userId: string;
+  role: 'student' | 'instructor';
+  token: string;
+  participantId: string;
+  expirationTimeMs?: number;
+};
+
+type CachedTokenLookup = {
+  sessionId: string;
+  stageArn: string;
+  userId: string;
+  role: 'student' | 'instructor';
+};
+
+const tokenCache = new Map<string, CachedToken>();
+
+function tokenCacheKey(input: CachedTokenLookup): string {
+  return `${input.sessionId}:${input.userId}:${input.role}`;
+}
 
 function getApiBaseUrl(): string {
   if (!API_BASE_URL) {
@@ -169,6 +216,38 @@ export async function getIvsToken(request: IvsTokenRequest): Promise<IvsTokenRes
   };
 }
 
+export function getReusableIvsToken(input: CachedTokenLookup): IvsTokenResult | null {
+  const key = tokenCacheKey(input);
+  const entry = tokenCache.get(key);
+  if (!entry) return null;
+  if (entry.stageArn !== input.stageArn) {
+    tokenCache.delete(key);
+    return null;
+  }
+  if (entry.expirationTimeMs && entry.expirationTimeMs <= Date.now() + TOKEN_REUSE_BUFFER_MS) {
+    tokenCache.delete(key);
+    return null;
+  }
+  return {
+    token: entry.token,
+    participantId: entry.participantId,
+    expirationTime: entry.expirationTimeMs ? new Date(entry.expirationTimeMs).toISOString() : undefined
+  };
+}
+
+export function cacheIvsToken(input: CachedTokenLookup, tokenResult: IvsTokenResult): void {
+  tokenCache.set(tokenCacheKey(input), {
+    ...input,
+    token: tokenResult.token,
+    participantId: tokenResult.participantId,
+    expirationTimeMs: tokenResult.expirationTime ? Date.parse(tokenResult.expirationTime) : undefined
+  });
+}
+
+export function clearIvsTokenCacheForSession(sessionId: string, userId: string, role: 'student' | 'instructor'): void {
+  tokenCache.delete(`${sessionId}:${userId}:${role}`);
+}
+
 export function createIvsSession(request: CreateSessionRequest): Promise<IvsSession> {
   return postJson<IvsSession>('/api/ivs/sessions/create', request);
 }
@@ -206,4 +285,31 @@ export function upsertIvsSessionParticipant(request: {
 
 export function listIvsSessionParticipants(sessionId: string): Promise<IvsSessionParticipant[]> {
   return getJson<IvsSessionParticipant[]>(`/api/ivs/sessions/${encodeURIComponent(sessionId)}/participants`);
+}
+
+export function markIvsSessionParticipantLeft(request: {
+  sessionId: string;
+  participantId: string;
+}): Promise<{ success: true; participantId: string; sessionId: string }> {
+  return postJson<{ success: true; participantId: string; sessionId: string }>(
+    '/api/ivs/sessions/participants/leave',
+    request
+  );
+}
+
+export async function sendIvsTelemetry(payload: IvsTelemetryPayload): Promise<void> {
+  try {
+    await postJson<{ success: boolean; telemetryId: string }>(
+      '/api/ivs/telemetry',
+      {
+        ...payload,
+        clientTimestamp: new Date().toISOString()
+      }
+    );
+  } catch (error) {
+    console.log('[IVS][Client] telemetry send failed', {
+      eventName: payload.eventName,
+      error
+    });
+  }
 }

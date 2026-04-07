@@ -21,16 +21,28 @@ import type { Participant } from 'expo-realtime-ivs-broadcast';
 type IvsCallProps = {
   token?: string;
   publishOnJoin?: boolean;
-  onLeave?: () => void;
+  onLeave?: () => void | Promise<void>;
   onInfoPress?: () => void;
   onEndSession?: () => void;
   endSessionLabel?: string;
   endSessionDisabled?: boolean;
   onInStageChange?: (inStage: boolean) => void;
+  onRequestFreshToken?: () => Promise<{ token: string; participantId?: string } | null>;
+  onJoinAttempt?: () => void | Promise<void>;
+  onJoinFailed?: (message: string) => void | Promise<void>;
   localParticipantLabel?: string;
   participantNamesById?: Record<string, string>;
   participantRolesById?: Record<string, string>;
   localParticipantRole?: 'student' | 'instructor';
+};
+
+type RemoteParticipantInfo = {
+  participantId: string;
+  lookupKeys: string[];
+  role: string | undefined;
+  displayName: string;
+  deviceUrn: string | null;
+  hasVideo: boolean;
 };
 
 function firstNonEmptyString(...values: unknown[]): string | null {
@@ -56,15 +68,11 @@ function getParticipantDisplayName(participant: Participant): string {
       attributes?.userName,
       attributes?.displayName,
       candidate?.userName,
-      candidate?.userId,
       candidate?.displayName,
       candidate?.info?.userName,
-      candidate?.info?.userId,
       candidate?.info?.displayName,
       candidate?.userInfo?.userName,
-      candidate?.userInfo?.userId,
-      candidate?.participantInfo?.userName,
-      candidate?.participantInfo?.userId
+      candidate?.participantInfo?.userName
     ) ?? participant.id
   );
 }
@@ -101,6 +109,9 @@ export default function IvsCall({
   endSessionLabel = 'End Session',
   endSessionDisabled = false,
   onInStageChange,
+  onRequestFreshToken,
+  onJoinAttempt,
+  onJoinFailed,
   localParticipantLabel,
   participantNamesById,
   participantRolesById,
@@ -121,14 +132,15 @@ export default function IvsCall({
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
+  const [activeToken, setActiveToken] = useState(token);
   const publishOnJoinRef = useRef(publishOnJoin);
   const isAudioMutedRef = useRef(isAudioMuted);
   const hasJoinAttemptRef = useRef(false);
 
   const { participants } = useStageParticipants() as { participants: Participant[] };
-  const remoteParticipants = useMemo(() => {
+  const remoteParticipants = useMemo<RemoteParticipantInfo[]>(() => {
     return participants
-      .map((participant) => {
+      .map<RemoteParticipantInfo | null>((participant) => {
         if (isLocalParticipant(participant)) {
           return null;
         }
@@ -140,8 +152,6 @@ export default function IvsCall({
           candidate?.participantInfo?.attributes;
         const lookupKeys = [
           participant.id,
-          candidate?.userId,
-          candidate?.info?.userId,
           candidate?.participantId,
           candidate?.info?.participantId
         ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
@@ -168,19 +178,7 @@ export default function IvsCall({
           hasVideo: Boolean(videoStream)
         };
       })
-      .filter(
-        (
-          value
-        ): value is {
-          participantId: string;
-          lookupKeys: string[];
-          role?: string;
-          displayName: string;
-          deviceUrn: string | null;
-          hasVideo: boolean;
-        } =>
-          Boolean(value)
-      )
+      .filter((value): value is RemoteParticipantInfo => value !== null)
       .sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [participantRolesById, participants]);
   const localIsInstructor = localParticipantRole === 'instructor';
@@ -199,6 +197,10 @@ export default function IvsCall({
   useEffect(() => {
     publishOnJoinRef.current = publishOnJoin;
   }, [publishOnJoin]);
+
+  useEffect(() => {
+    setActiveToken(token);
+  }, [token]);
 
   useEffect(() => {
     isAudioMutedRef.current = isAudioMuted;
@@ -265,7 +267,7 @@ export default function IvsCall({
   }, [isInStage, onInStageChange]);
 
   const join = async () => {
-    if (!token) {
+    if (!activeToken) {
       setError('No token provided.');
       return;
     }
@@ -274,13 +276,24 @@ export default function IvsCall({
     setStatus('Initializing Stage...');
     setError('');
     hasJoinAttemptRef.current = true;
+    await Promise.resolve(onJoinAttempt?.());
 
-    try {
-      // prepare SDK configurations
+    const isAuthTokenFailure = (message: string) => {
+      const normalized = message.toLowerCase();
+      return (
+        normalized.includes('token') ||
+        normalized.includes('expired') ||
+        normalized.includes('unauthorized') ||
+        normalized.includes('forbidden') ||
+        normalized.includes('authentication')
+      );
+    };
+
+    const runJoin = async (joinToken: string) => {
       await initializeStage();
       // Always join as non-publishing first to avoid accidental open-mic moments.
       await setStreamsPublished(false);
-      
+
       // Only publishers need local camera/microphone streams.
       if (publishOnJoin) {
         const cameraPermission = await Camera.requestCameraPermissionsAsync();
@@ -295,10 +308,30 @@ export default function IvsCall({
       }
 
       // connect to the stage using token
-      await joinStage(token);
+      await joinStage(joinToken);
+    };
 
+    try {
+      await runJoin(activeToken);
     } catch (err: any) {
-      setError(err.message || 'Failed to join stage.');
+      const message = err?.message || 'Failed to join stage.';
+      if (onRequestFreshToken && isAuthTokenFailure(message)) {
+        try {
+          const refreshed = await onRequestFreshToken();
+          if (refreshed?.token) {
+            setActiveToken(refreshed.token);
+            await runJoin(refreshed.token);
+            return;
+          }
+        } catch (refreshError: any) {
+          setError(refreshError?.message || message);
+          setIsJoining(false);
+          hasJoinAttemptRef.current = false;
+          return;
+        }
+      }
+      setError(message);
+      await Promise.resolve(onJoinFailed?.(message));
       setIsJoining(false);
       hasJoinAttemptRef.current = false;
     }
@@ -307,7 +340,9 @@ export default function IvsCall({
   const handleLeave = async () => {
     hasJoinAttemptRef.current = false;
     await leaveStage();
-    if (onLeave) onLeave();
+    if (onLeave) {
+      await Promise.resolve(onLeave());
+    }
   };
 
   const toggleAudio = async () => {

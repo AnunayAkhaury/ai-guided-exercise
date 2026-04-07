@@ -12,7 +12,15 @@ import {
   useWindowDimensions
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { createIvsSession, getIvsToken, startIvsSession, upsertIvsSessionParticipant } from '@/src/api/ivs';
+import {
+  cacheIvsToken,
+  createIvsSession,
+  getIvsToken,
+  getReusableIvsToken,
+  sendIvsTelemetry,
+  startIvsSession,
+  upsertIvsSessionParticipant
+} from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -68,21 +76,48 @@ export default function StartMeeting() {
             return startIvsSession(createdSession.sessionId);
           })();
 
-      const tokenResult = await getIvsToken({
+      const cached = getReusableIvsToken({
+        sessionId: liveSession.sessionId,
         stageArn: liveSession.stageArn,
         userId: effectiveUid,
-        userName: trimmedName,
-        publish: true,
-        subscribe: true,
-        durationMinutes: 60,
-        attributes: {
-          displayName: trimmedName,
+        role: 'instructor'
+      });
+      if (cached) {
+        void sendIvsTelemetry({
+          eventName: 'token_reused',
+          sessionId: liveSession.sessionId,
+          stageArn: liveSession.stageArn,
           userId: effectiveUid,
           role: 'instructor',
+          participantId: cached.participantId
+        });
+      }
+      const tokenResult =
+        cached ??
+        (await getIvsToken({
+          stageArn: liveSession.stageArn,
+          userId: effectiveUid,
+          userName: trimmedName,
+          publish: true,
+          subscribe: true,
+          durationMinutes: 60,
+          attributes: {
+            displayName: trimmedName,
+            userId: effectiveUid,
+            role: 'instructor',
+            sessionId: liveSession.sessionId,
+            sessionCode: liveSession.sessionCode
+          }
+        }));
+      cacheIvsToken(
+        {
           sessionId: liveSession.sessionId,
-          sessionCode: liveSession.sessionCode
-        }
-      });
+          stageArn: liveSession.stageArn,
+          userId: effectiveUid,
+          role: 'instructor'
+        },
+        tokenResult
+      );
       await upsertIvsSessionParticipant({
         sessionId: liveSession.sessionId,
         participantId: tokenResult.participantId,
@@ -98,6 +133,8 @@ export default function StartMeeting() {
           userName: trimmedName,
           sessionCode: liveSession.sessionCode,
           sessionId: liveSession.sessionId,
+          stageArn: liveSession.stageArn,
+          participantId: tokenResult.participantId,
           token: tokenResult.token
         }
       });

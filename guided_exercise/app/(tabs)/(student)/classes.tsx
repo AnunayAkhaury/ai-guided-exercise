@@ -6,9 +6,12 @@ import Header from '@/src/components/ui/Header';
 import TeacherActiveClassCard from '@/src/components/classes/TeacherActiveClassCard';
 import Typography from '@/src/components/ui/Typography';
 import {
+  cacheIvsToken,
   getIvsToken,
+  getReusableIvsToken,
   joinIvsSessionByCode,
   listIvsSessions,
+  sendIvsTelemetry,
   type IvsSession,
   upsertIvsSessionParticipant
 } from '@/src/api/ivs';
@@ -83,21 +86,48 @@ export default function ClassesScreen() {
       if (!effectiveUid) {
         throw new Error('Missing profile uid. Please log out and log in again.');
       }
-      const tokenResult = await getIvsToken({
+      const cached = getReusableIvsToken({
+        sessionId: joinedSession.sessionId,
         stageArn: joinedSession.stageArn,
         userId: effectiveUid,
-        userName: displayName,
-        publish: true,
-        subscribe: true,
-        durationMinutes: 60,
-        attributes: {
-          displayName,
+        role: 'student'
+      });
+      if (cached) {
+        void sendIvsTelemetry({
+          eventName: 'token_reused',
+          sessionId: joinedSession.sessionId,
+          stageArn: joinedSession.stageArn,
           userId: effectiveUid,
           role: 'student',
+          participantId: cached.participantId
+        });
+      }
+      const tokenResult =
+        cached ??
+        (await getIvsToken({
+          stageArn: joinedSession.stageArn,
+          userId: effectiveUid,
+          userName: displayName,
+          publish: true,
+          subscribe: true,
+          durationMinutes: 60,
+          attributes: {
+            displayName,
+            userId: effectiveUid,
+            role: 'student',
+            sessionId: joinedSession.sessionId,
+            sessionCode: joinedSession.sessionCode
+          }
+        }));
+      cacheIvsToken(
+        {
           sessionId: joinedSession.sessionId,
-          sessionCode: joinedSession.sessionCode
-        }
-      });
+          stageArn: joinedSession.stageArn,
+          userId: effectiveUid,
+          role: 'student'
+        },
+        tokenResult
+      );
       await upsertIvsSessionParticipant({
         sessionId: joinedSession.sessionId,
         participantId: tokenResult.participantId,
@@ -112,6 +142,8 @@ export default function ClassesScreen() {
           sessionName: joinedSession.sessionName,
           sessionCode: joinedSession.sessionCode,
           sessionId: joinedSession.sessionId,
+          stageArn: joinedSession.stageArn,
+          participantId: tokenResult.participantId,
           userName: displayName,
           token: tokenResult.token
         }
