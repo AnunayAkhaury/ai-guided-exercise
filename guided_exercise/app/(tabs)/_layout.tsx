@@ -4,22 +4,14 @@ import { useUserStore } from "@/src/store/userStore";
 import { AntDesign, Entypo, Ionicons, Octicons } from "@expo/vector-icons";
 import { Alert } from "react-native";
 import { useCallStore } from "@/src/store/callStore";
-import { useEffect } from "react";
 
 export default function TabLayout() {
   const role = useUserStore((state) => state.role);
   const inCall = useCallStore((state) => state.inCall);
-  const setInCall = useCallStore((state) => state.setInCall);
   const pathname = usePathname();
   const skipAuth = __DEV__ && role == null;
   const normalizedPath = (pathname || "").toLowerCase();
   const isSessionRoute = normalizedPath.endsWith('/session');
-
-  useEffect(() => {
-    if (!isSessionRoute && inCall) {
-      setInCall(false);
-    }
-  }, [inCall, isSessionRoute, setInCall]);
 
   return (
     <Tabs
@@ -124,6 +116,20 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="session"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="(student)/session"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="(teacher)/session"
         options={{
           href: null,
           headerShown: false,
