@@ -5,7 +5,7 @@ export default function StudentSessionRedirect() {
   return (
     <Redirect
       href={{
-        pathname: '/(tabs)/session',
+        pathname: '/(tabs)/session' as any,
         params: {
           ...params,
           role: 'student'

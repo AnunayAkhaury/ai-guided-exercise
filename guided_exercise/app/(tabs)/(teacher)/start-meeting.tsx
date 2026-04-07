@@ -23,6 +23,7 @@ import {
 } from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { resolvePreferredDisplayName } from '@/src/utils/display-name';
 
 export default function StartMeeting() {
   const router = useRouter();
@@ -37,7 +38,12 @@ export default function StartMeeting() {
   const fullname = useUserStore((state) => state.fullname);
   const uid = useUserStore((state) => state.uid);
   const instructorDisplayName = useMemo(
-    () => fullname?.trim() || username?.trim() || 'Instructor',
+    () =>
+      resolvePreferredDisplayName({
+        fullname,
+        username,
+        fallback: 'Instructor'
+      }),
     [fullname, username]
   );
   const normalizedParamSessionName = Array.isArray(paramSessionName) ? paramSessionName[0] : paramSessionName;
@@ -127,7 +133,7 @@ export default function StartMeeting() {
       });
 
       router.push({
-        pathname: '/(tabs)/session',
+        pathname: '/(tabs)/session' as any,
         params: {
           sessionName: liveSession.sessionName,
           userName: trimmedName,

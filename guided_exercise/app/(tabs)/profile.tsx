@@ -11,9 +11,9 @@ import { router } from "expo-router";
 function Button({ icon, title }: { icon: ReactNode, title: string, }) {
     return (
         <TouchableOpacity className="w-full flex flex-row p-5 justify-between items-center bg-[#EDEDED]">
-            <View className="flex flex-row gap-5 justify-center items-center">
+            <View className="flex flex-row gap-4 justify-center items-center flex-1 pr-2">
                 {icon}
-                <Typography font='inter-medium' className="text-base">{title}</Typography>
+                <Typography font='inter-medium' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} className="text-base flex-1">{title}</Typography>
             </View>
             <AntDesign name="right" size={12} color="#868686" />
         </TouchableOpacity>

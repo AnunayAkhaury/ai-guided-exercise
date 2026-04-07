@@ -117,9 +117,10 @@ export default function IvsCall({
   participantRolesById,
   localParticipantRole
 }: IvsCallProps) {
-  const { width, height } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isSmallPhone = width < 380 || height < 760;
+  const compactControls = isSmallPhone || fontScale > 1.15;
   const localVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.56)));
   const remoteVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.56)));
   const gridVideoHeight = Math.max(190, Math.min(260, Math.round(((width - 38) / 2) * 1.35)));
@@ -513,56 +514,91 @@ export default function IvsCall({
 
       {!!error && <Text style={styles.errorInline}>{error}</Text>}
 
-      <View style={[styles.controlBar, { paddingBottom: controlBarPaddingBottom }]}>
+      <View style={[styles.controlBar, compactControls && styles.compactControlBar, { paddingBottom: controlBarPaddingBottom }]}>
         <Pressable
-          style={[styles.controlButton, isAudioMuted && styles.controlButtonMuted, !publishOnJoin && styles.disabledButton]}
+          style={[
+            styles.controlButton,
+            compactControls && styles.compactControlButton,
+            isAudioMuted && styles.controlButtonMuted,
+            !publishOnJoin && styles.disabledButton
+          ]}
           onPress={toggleAudio}
           disabled={!publishOnJoin}
         >
           <Ionicons name={isAudioMuted ? 'mic-off' : 'mic'} size={18} color="#fff" />
-          <Text style={styles.controlButtonText}>{isAudioMuted ? 'Unmute' : 'Mute'}</Text>
+          <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+            {isAudioMuted ? (compactControls ? 'Mic On' : 'Unmute') : 'Mute'}
+          </Text>
         </Pressable>
         <Pressable
-          style={[styles.controlButton, isVideoMuted && styles.controlButtonMuted, !publishOnJoin && styles.disabledButton]}
+          style={[
+            styles.controlButton,
+            compactControls && styles.compactControlButton,
+            isVideoMuted && styles.controlButtonMuted,
+            !publishOnJoin && styles.disabledButton
+          ]}
           onPress={toggleVideo}
           disabled={!publishOnJoin}
         >
           <Ionicons name={isVideoMuted ? 'videocam-off' : 'videocam'} size={18} color="#fff" />
-          <Text style={styles.controlButtonText}>{isVideoMuted ? 'Start Cam' : 'Stop Cam'}</Text>
+          <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+            {isVideoMuted ? 'Start Cam' : compactControls ? 'Cam Off' : 'Stop Cam'}
+          </Text>
         </Pressable>
         {onInfoPress && !onEndSession && (
-          <Pressable style={styles.infoButton} onPress={onInfoPress}>
+          <Pressable style={[styles.infoButton, compactControls && styles.compactControlButton]} onPress={onInfoPress}>
             <Ionicons name="information-circle-outline" size={18} color="#fff" />
-            <Text style={styles.controlButtonText}>Info</Text>
+            <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+              Info
+            </Text>
           </Pressable>
         )}
         {!onEndSession && (
-          <Pressable style={styles.endCallButton} onPress={handleLeave}>
+          <Pressable style={[styles.endCallButton, compactControls && styles.compactControlButton]} onPress={handleLeave}>
             <Ionicons name="call" size={18} color="#fff" />
-            <Text style={styles.controlButtonText}>Leave</Text>
+            <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+              Leave
+            </Text>
           </Pressable>
         )}
       </View>
 
       {onEndSession && (
-        <View style={[styles.controlBarSecondary, { paddingBottom: controlBarPaddingBottom }]}>
+        <View
+          style={[
+            styles.controlBarSecondary,
+            compactControls && styles.compactControlBar,
+            { paddingBottom: controlBarPaddingBottom }
+          ]}
+        >
           {onInfoPress && (
-            <Pressable style={styles.infoButtonSecondary} onPress={onInfoPress}>
+            <Pressable style={[styles.infoButtonSecondary, compactControls && styles.compactControlButton]} onPress={onInfoPress}>
               <Ionicons name="information-circle-outline" size={18} color="#fff" />
-              <Text style={styles.controlButtonText}>Info</Text>
+              <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                Info
+              </Text>
             </Pressable>
           )}
-          <Pressable style={styles.endCallButton} onPress={handleLeave}>
+          <Pressable style={[styles.endCallButton, compactControls && styles.compactControlButton]} onPress={handleLeave}>
             <Ionicons name="call" size={18} color="#fff" />
-            <Text style={styles.controlButtonText}>Leave</Text>
+            <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+              Leave
+            </Text>
           </Pressable>
           <Pressable
-            style={[styles.controlButton, styles.controlButtonMuted, endSessionDisabled && styles.disabledButton]}
+            style={[
+              styles.controlButton,
+              compactControls && styles.compactControlButton,
+              styles.controlButtonMuted,
+              endSessionDisabled && styles.disabledButton
+            ]}
             onPress={onEndSession}
             disabled={endSessionDisabled}
           >
             <Ionicons name="stop-circle-outline" size={18} color="#fff" />
-            <Text style={styles.controlButtonText}>{endSessionLabel}</Text>
+            <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+              {compactControls && endSessionLabel === 'End Session' ? 'End' : endSessionLabel}
+            </Text>
           </Pressable>
         </View>
       )}
@@ -711,6 +747,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 4,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginTop: 2
   },
@@ -718,26 +755,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 8,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8
+  },
+  compactControlBar: {
+    gap: 6
   },
   controlButton: {
     flex: 1,
+    minWidth: 96,
+    minHeight: 44,
     backgroundColor: '#6155F5',
     borderRadius: 12,
-    paddingVertical: 11,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6
+  },
+  compactControlButton: {
+    minWidth: 88
   },
   controlButtonMuted: {
     backgroundColor: '#D64562'
   },
   endCallButton: {
     flex: 1,
+    minWidth: 96,
+    minHeight: 44,
     backgroundColor: '#A980FE',
     borderRadius: 12,
-    paddingVertical: 11,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -745,9 +795,12 @@ const styles = StyleSheet.create({
   },
   infoButton: {
     flex: 1,
+    minWidth: 96,
+    minHeight: 44,
     backgroundColor: '#6A63A4',
     borderRadius: 12,
-    paddingVertical: 11,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -755,9 +808,12 @@ const styles = StyleSheet.create({
   },
   infoButtonSecondary: {
     flex: 1,
+    minWidth: 96,
+    minHeight: 44,
     backgroundColor: '#6A63A4',
     borderRadius: 12,
-    paddingVertical: 11,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -766,7 +822,8 @@ const styles = StyleSheet.create({
   controlButtonText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 13
+    fontSize: 13,
+    flexShrink: 1
   },
   disabledButton: {
     opacity: 0.5

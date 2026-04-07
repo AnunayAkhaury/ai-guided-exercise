@@ -37,12 +37,17 @@ export default function TabLayout() {
         tabBarStyle: {
           display: inCall || isSessionRoute ? "none" : "flex",
           backgroundColor: "#A980FE",
-          height: 80,
-          paddingTop: 13,
+          minHeight: 64,
+          height: 'auto',
+          paddingTop: 10,
+          paddingBottom: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 14,
+          fontSize: 13,
           fontFamily: "Inter_600SemiBold",
+        },
+        tabBarItemStyle: {
+          paddingVertical: 2,
         },
         tabBarActiveTintColor: "#6155F5",
         tabBarInactiveTintColor: "#000",

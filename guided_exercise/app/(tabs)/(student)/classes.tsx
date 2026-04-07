@@ -137,7 +137,7 @@ export default function ClassesScreen() {
       });
 
       router.push({
-        pathname: '/(tabs)/session',
+        pathname: '/(tabs)/session' as any,
         params: {
           sessionName: joinedSession.sessionName,
           sessionCode: joinedSession.sessionCode,

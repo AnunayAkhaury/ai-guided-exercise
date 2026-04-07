@@ -61,15 +61,15 @@ export default function TeacherActiveClassCard({
             </View>
             <Typography font='istokWeb' className="w-full text-start text-wrap pb-2">{desc}</Typography>
             
-            <View className="flex flex-row items-center gap-3">
+            <View className="flex flex-row flex-wrap items-center gap-3 w-full">
               <TouchableOpacity onPress={onStartPress} disabled={actionsDisabled}>
-                <Typography font='inter-bold' className="text-base px-9 py-2 text-white bg-[#A980FE] rounded-xl">
+                <Typography font='inter-bold' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} className="text-base px-7 py-2 text-white bg-[#A980FE] rounded-xl">
                   {startLabel ?? 'Start Meeting'}
                 </Typography>
               </TouchableOpacity>
               {showSecondaryAction && (
                 <TouchableOpacity onPress={onCancelPress} disabled={actionsDisabled || !onCancelPress}>
-                  <Typography font='inter-bold' className="text-sm px-3 py-2 text-white bg-[#FF0000] rounded-xl">
+                  <Typography font='inter-bold' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} className="text-sm px-3 py-2 text-white bg-[#FF0000] rounded-xl">
                     {cancelLabel ?? 'Cancel'}
                   </Typography>
                 </TouchableOpacity>

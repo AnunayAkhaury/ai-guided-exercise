@@ -5,7 +5,7 @@ export default function TeacherSessionRedirect() {
   return (
     <Redirect
       href={{
-        pathname: '/(tabs)/session',
+        pathname: '/(tabs)/session' as any,
         params: {
           ...params,
           role: 'instructor'
