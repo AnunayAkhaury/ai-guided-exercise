@@ -127,7 +127,7 @@ export default function StartMeeting() {
       });
 
       router.push({
-        pathname: '/(tabs)/(teacher)/session',
+        pathname: '/(tabs)/session',
         params: {
           sessionName: liveSession.sessionName,
           userName: trimmedName,
@@ -135,6 +135,7 @@ export default function StartMeeting() {
           sessionId: liveSession.sessionId,
           stageArn: liveSession.stageArn,
           participantId: tokenResult.participantId,
+          role: 'instructor',
           token: tokenResult.token
         }
       });

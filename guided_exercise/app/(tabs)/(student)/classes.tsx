@@ -137,13 +137,14 @@ export default function ClassesScreen() {
       });
 
       router.push({
-        pathname: '/(tabs)/(student)/session',
+        pathname: '/(tabs)/session',
         params: {
           sessionName: joinedSession.sessionName,
           sessionCode: joinedSession.sessionCode,
           sessionId: joinedSession.sessionId,
           stageArn: joinedSession.stageArn,
           participantId: tokenResult.participantId,
+          role: 'student',
           userName: displayName,
           token: tokenResult.token
         }

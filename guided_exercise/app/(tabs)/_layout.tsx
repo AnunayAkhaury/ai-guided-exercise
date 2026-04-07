@@ -13,10 +13,7 @@ export default function TabLayout() {
   const pathname = usePathname();
   const skipAuth = __DEV__ && role == null;
   const normalizedPath = (pathname || "").toLowerCase();
-  const isSessionRoute =
-    normalizedPath.endsWith('/session') ||
-    normalizedPath.includes('/(teacher)/session') ||
-    normalizedPath.includes('/(student)/session');
+  const isSessionRoute = normalizedPath.endsWith('/session');
 
   useEffect(() => {
     if (!isSessionRoute && inCall) {
@@ -74,13 +71,6 @@ export default function TabLayout() {
           headerShown: false,
         }}
       />
-      <Tabs.Screen
-        name="(student)/session"
-        options={{
-          href: null,
-          headerShown: false
-        }}
-      />
 
       {/* Instructor tabs */}
       <Tabs.Screen
@@ -128,7 +118,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="(teacher)/session"
+        name="session"
         options={{
           href: null,
           headerShown: false,

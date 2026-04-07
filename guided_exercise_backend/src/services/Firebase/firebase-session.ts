@@ -23,6 +23,10 @@ export type SessionParticipantDocument = {
   userId: string | null;
   displayName: string;
   role: string | null;
+  active: boolean;
+  joinedAt: Date;
+  leftAt: Date | null;
+  lastSeenAt: Date;
   updatedAt: Date;
 };
 
@@ -224,28 +228,68 @@ export async function upsertSessionParticipant(
   const now = new Date();
   const normalizedParticipantId = participantId.trim();
   const normalizedDisplayName = displayName.trim();
+  const normalizedUserId = userId?.trim() || null;
   const participantRef = db
     .collection(SESSIONS_COLLECTION)
     .doc(sessionId)
     .collection(PARTICIPANTS_SUBCOLLECTION)
     .doc(normalizedParticipantId);
+  const participantsCollectionRef = db.collection(SESSIONS_COLLECTION).doc(sessionId).collection(PARTICIPANTS_SUBCOLLECTION);
 
-  await participantRef.set(
+  const existing = await participantRef.get();
+  const existingData = existing.data();
+  const existingJoinedAt = existingData?.joinedAt?.toDate ? existingData.joinedAt.toDate() : existingData?.joinedAt ?? now;
+
+  const batch = db.batch();
+
+  if (normalizedUserId) {
+    const activeEntriesForUser = await participantsCollectionRef
+      .where('userId', '==', normalizedUserId)
+      .where('active', '==', true)
+      .get();
+
+    activeEntriesForUser.docs
+      .filter((doc) => doc.id !== normalizedParticipantId)
+      .forEach((doc) => {
+        batch.set(
+          doc.ref,
+          {
+            active: false,
+            leftAt: now,
+            updatedAt: now,
+            lastSeenAt: now
+          },
+          { merge: true }
+        );
+      });
+  }
+
+  batch.set(
+    participantRef,
     {
       participantId: normalizedParticipantId,
-      userId: userId?.trim() || null,
+      userId: normalizedUserId,
       displayName: normalizedDisplayName,
       role: role?.trim() || null,
+      active: true,
+      joinedAt: existingJoinedAt,
+      leftAt: null,
+      lastSeenAt: now,
       updatedAt: now
     },
     { merge: true }
   );
+  await batch.commit();
 
   return {
     participantId: normalizedParticipantId,
-    userId: userId?.trim() || null,
+    userId: normalizedUserId,
     displayName: normalizedDisplayName,
     role: role?.trim() || null,
+    active: true,
+    joinedAt: existingJoinedAt,
+    leftAt: null,
+    lastSeenAt: now,
     updatedAt: now
   };
 }
@@ -258,14 +302,77 @@ export async function listSessionParticipants(sessionId: string): Promise<Sessio
     .limit(200)
     .get();
 
-  return snapshot.docs.map((doc) => {
+  const participants = snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
       participantId: data.participantId,
       userId: data.userId ?? null,
       displayName: data.displayName,
       role: data.role ?? null,
+      active: data.active === true,
+      joinedAt: data.joinedAt?.toDate ? data.joinedAt.toDate() : data.joinedAt,
+      leftAt: data.leftAt?.toDate ? data.leftAt.toDate() : data.leftAt ?? null,
+      lastSeenAt: data.lastSeenAt?.toDate ? data.lastSeenAt.toDate() : data.lastSeenAt,
       updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt
     } as SessionParticipantDocument;
   });
+
+  const rolePriority = (role: string | null) => {
+    if (role === 'instructor') return 0;
+    if (role === 'student') return 1;
+    return 2;
+  };
+
+  return participants
+    .filter((participant) => participant.active)
+    .sort((a, b) => {
+      const roleDelta = rolePriority(a.role) - rolePriority(b.role);
+      if (roleDelta !== 0) return roleDelta;
+      const nameDelta = a.displayName.localeCompare(b.displayName);
+      if (nameDelta !== 0) return nameDelta;
+      return a.participantId.localeCompare(b.participantId);
+    });
+}
+
+export async function markSessionParticipantLeft(
+  sessionId: string,
+  participantId: string
+): Promise<SessionParticipantDocument | null> {
+  const now = new Date();
+  const normalizedParticipantId = participantId.trim();
+  const participantRef = db
+    .collection(SESSIONS_COLLECTION)
+    .doc(sessionId)
+    .collection(PARTICIPANTS_SUBCOLLECTION)
+    .doc(normalizedParticipantId);
+
+  const existing = await participantRef.get();
+  if (!existing.exists) {
+    return null;
+  }
+
+  const data = existing.data();
+  const joinedAt = data?.joinedAt?.toDate ? data.joinedAt.toDate() : data?.joinedAt ?? now;
+
+  await participantRef.set(
+    {
+      active: false,
+      leftAt: now,
+      lastSeenAt: now,
+      updatedAt: now
+    },
+    { merge: true }
+  );
+
+  return {
+    participantId: normalizedParticipantId,
+    userId: data?.userId ?? null,
+    displayName: data?.displayName,
+    role: data?.role ?? null,
+    active: false,
+    joinedAt,
+    leftAt: now,
+    lastSeenAt: now,
+    updatedAt: now
+  };
 }

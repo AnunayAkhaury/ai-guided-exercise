@@ -8,6 +8,7 @@ import {
   getSessionById,
   listSessionParticipants,
   listSessions,
+  markSessionParticipantLeft,
   upsertSessionParticipant,
   updateSessionStatus
 } from '@/services/Firebase/firebase-session.js';
@@ -37,6 +38,11 @@ type UpsertParticipantRequest = {
   userId?: string;
   displayName?: string;
   role?: string;
+};
+
+type LeaveParticipantRequest = {
+  sessionId?: string;
+  participantId?: string;
 };
 
 const VALID_STATUSES: SessionStatus[] = ['scheduled', 'live', 'ended'];
@@ -290,5 +296,36 @@ export async function listSessionParticipantsController(req: Request, res: Respo
   } catch (err: any) {
     logControllerError(req, err, 'listSessionParticipantsController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to list session participants.');
+  }
+}
+
+export async function leaveSessionParticipantController(req: Request, res: Response) {
+  try {
+    const { sessionId, participantId } = req.body as LeaveParticipantRequest;
+    if (!sessionId?.trim()) {
+      return sendErrorResponse(req, res, 400, 'sessionId is required.');
+    }
+    if (!participantId?.trim()) {
+      return sendErrorResponse(req, res, 400, 'participantId is required.');
+    }
+
+    const existing = await getSessionById(sessionId);
+    if (!existing) {
+      return sendErrorResponse(req, res, 404, 'Session not found.');
+    }
+
+    const participant = await markSessionParticipantLeft(sessionId, participantId);
+    if (!participant) {
+      return sendErrorResponse(req, res, 404, 'Participant not found.');
+    }
+
+    return res.status(200).json({
+      success: true,
+      sessionId,
+      participantId: participant.participantId
+    });
+  } catch (err: any) {
+    logControllerError(req, err, 'leaveSessionParticipantController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to mark participant as left.');
   }
 }
