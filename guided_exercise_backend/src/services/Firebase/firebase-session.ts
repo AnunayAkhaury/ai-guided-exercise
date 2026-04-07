@@ -334,6 +334,40 @@ export async function listSessionParticipants(sessionId: string): Promise<Sessio
     });
 }
 
+export async function getSessionParticipantById(
+  sessionId: string,
+  participantId: string
+): Promise<SessionParticipantDocument | null> {
+  const normalizedParticipantId = participantId.trim();
+  const snapshot = await db
+    .collection(SESSIONS_COLLECTION)
+    .doc(sessionId)
+    .collection(PARTICIPANTS_SUBCOLLECTION)
+    .doc(normalizedParticipantId)
+    .get();
+
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  const data = snapshot.data();
+  if (!data) {
+    return null;
+  }
+
+  return {
+    participantId: data.participantId ?? normalizedParticipantId,
+    userId: data.userId ?? null,
+    displayName: data.displayName ?? '',
+    role: data.role ?? null,
+    active: data.active === true,
+    joinedAt: data.joinedAt?.toDate ? data.joinedAt.toDate() : data.joinedAt,
+    leftAt: data.leftAt?.toDate ? data.leftAt.toDate() : data.leftAt ?? null,
+    lastSeenAt: data.lastSeenAt?.toDate ? data.lastSeenAt.toDate() : data.lastSeenAt,
+    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt
+  } as SessionParticipantDocument;
+}
+
 export async function markSessionParticipantLeft(
   sessionId: string,
   participantId: string

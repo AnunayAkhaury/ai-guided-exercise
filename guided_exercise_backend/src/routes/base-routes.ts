@@ -9,6 +9,7 @@ import { addRecordingController } from '@/controllers/firebase-controller.js';
 import { uploadVideoController, getVideoUrlController } from '@/controllers/aws-controller.js';
 import { createIvsTokenController } from '@/controllers/ivs-controller.js';
 import { addIvsTelemetryController } from '@/controllers/telemetry-controller.js';
+import { upsertRecordingController } from '@/controllers/recording-controller.js';
 import {
   createSessionController,
   endSessionController,
@@ -28,6 +29,7 @@ router.post('/api/firebase/createProfile', createProfileController);
 router.post('/api/firebase/getProfile', getProfileController);
 router.post('/api/firebase/addRecording', addRecordingController);
 router.post('/api/firebase/getUserRecordings', getUserRecordingsController);
+router.post('/api/recordings/upsert', upsertRecordingController);
 router.post('/api/ivs/token', createIvsTokenController);
 router.post('/api/ivs/telemetry', addIvsTelemetryController);
 router.post('/api/ivs/sessions/create', createSessionController);

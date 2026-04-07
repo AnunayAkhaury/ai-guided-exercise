@@ -2,7 +2,6 @@ import type { Request, Response } from 'express';
 import { DisconnectParticipantCommand, IVSRealTimeClient } from '@aws-sdk/client-ivs-realtime';
 import {
   createSession,
-  deleteSessionById,
   endOtherLiveSessions,
   getSessionByCode,
   getSessionById,
@@ -245,8 +244,9 @@ export async function endSessionController(req: Request, res: Response) {
     if (existing.status === 'live') {
       await disconnectKnownParticipantsForSession(existing);
     }
-    await deleteSessionById(sessionId);
-    return res.status(200).json({ ...existing, status: 'ended', deleted: true });
+    await updateSessionStatus(sessionId, 'ended');
+    const updated = await getSessionById(sessionId);
+    return res.status(200).json(updated ?? { ...existing, status: 'ended' });
   } catch (err: any) {
     logControllerError(req, err, 'endSessionController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to end session.');
