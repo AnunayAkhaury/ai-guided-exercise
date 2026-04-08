@@ -68,6 +68,33 @@ export type IvsSessionParticipant = {
   updatedAt?: string;
 };
 
+export type IvsRecording = {
+  recordingId: string;
+  sessionId: string;
+  participantId: string;
+  userId: string | null;
+  rawS3Prefix: string;
+  recordingStart: string | null;
+  recordingEnd: string | null;
+  durationMs: number | null;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  processedVideoUrl: string | null;
+  feedbackJsonUrl: string | null;
+  error: string | null;
+  source: 'manual' | 'eventbridge' | 'worker';
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type IvsRecordingPlayback = {
+  recordingId: string;
+  sessionId: string;
+  participantId: string;
+  playbackUrl: string;
+  expiresInSeconds: number;
+  hlsPlaylistKey: string;
+};
+
 type CreateSessionRequest = {
   sessionName: string;
   instructorUid: string;
@@ -295,6 +322,18 @@ export function markIvsSessionParticipantLeft(request: {
     '/api/ivs/sessions/participants/leave',
     request
   );
+}
+
+export function listIvsRecordingsBySession(sessionId: string): Promise<IvsRecording[]> {
+  return getJson<IvsRecording[]>(`/api/recordings/session/${encodeURIComponent(sessionId)}`);
+}
+
+export function listIvsRecordingsByUser(userId: string): Promise<IvsRecording[]> {
+  return getJson<IvsRecording[]>(`/api/recordings/user/${encodeURIComponent(userId)}`);
+}
+
+export function getIvsRecordingPlayback(recordingId: string): Promise<IvsRecordingPlayback> {
+  return getJson<IvsRecordingPlayback>(`/api/recordings/${encodeURIComponent(recordingId)}/playback`);
 }
 
 export async function sendIvsTelemetry(payload: IvsTelemetryPayload): Promise<void> {
