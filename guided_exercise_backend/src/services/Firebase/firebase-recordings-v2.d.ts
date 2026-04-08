@@ -36,5 +36,7 @@ export declare function toRecordingId(input: {
     rawS3Prefix: string;
 }): string;
 export declare function upsertRecording(input: UpsertRecordingInput): Promise<RecordingDocument>;
+export declare function listRecordingsBySessionId(sessionId: string): Promise<RecordingDocument[]>;
+export declare function listRecordingsByUserId(userId: string): Promise<RecordingDocument[]>;
 export {};
 //# sourceMappingURL=firebase-recordings-v2.d.ts.map

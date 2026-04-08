@@ -6,7 +6,11 @@ import {
   getSessionParticipantById,
   updateSessionIvsSessionId
 } from '@/services/Firebase/firebase-session.js';
-import { upsertRecording } from '@/services/Firebase/firebase-recordings-v2.js';
+import {
+  listRecordingsBySessionId,
+  listRecordingsByUserId,
+  upsertRecording
+} from '@/services/Firebase/firebase-recordings-v2.js';
 import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
 type UpsertRecordingRequest = {
@@ -111,5 +115,40 @@ export async function upsertRecordingController(req: Request, res: Response) {
   } catch (err: any) {
     logControllerError(req, err, 'upsertRecordingController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to upsert recording.');
+  }
+}
+
+export async function listRecordingsBySessionController(req: Request, res: Response) {
+  try {
+    const sessionId = Array.isArray(req.params.sessionId) ? req.params.sessionId[0] : req.params.sessionId;
+    if (!sessionId?.trim()) {
+      return sendErrorResponse(req, res, 400, 'sessionId is required.');
+    }
+
+    const session = await getSessionById(sessionId);
+    if (!session) {
+      return sendErrorResponse(req, res, 404, 'Session not found.');
+    }
+
+    const recordings = await listRecordingsBySessionId(sessionId);
+    return res.status(200).json(recordings);
+  } catch (err: any) {
+    logControllerError(req, err, 'listRecordingsBySessionController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to list recordings by session.');
+  }
+}
+
+export async function listRecordingsByUserController(req: Request, res: Response) {
+  try {
+    const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
+    if (!userId?.trim()) {
+      return sendErrorResponse(req, res, 400, 'userId is required.');
+    }
+
+    const recordings = await listRecordingsByUserId(userId);
+    return res.status(200).json(recordings);
+  } catch (err: any) {
+    logControllerError(req, err, 'listRecordingsByUserController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to list recordings by user.');
   }
 }

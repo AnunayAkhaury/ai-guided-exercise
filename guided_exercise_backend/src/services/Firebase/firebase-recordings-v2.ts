@@ -112,3 +112,40 @@ export async function upsertRecording(input: UpsertRecordingInput): Promise<Reco
   }
   return mapped;
 }
+
+function recordingSortTime(recording: RecordingDocument): number {
+  const primary = recording.recordingStart ?? recording.createdAt;
+  return primary.getTime();
+}
+
+export async function listRecordingsBySessionId(sessionId: string): Promise<RecordingDocument[]> {
+  const normalizedSessionId = sessionId.trim();
+  const snapshot = await db
+    .collection(RECORDINGS_COLLECTION)
+    .where('sessionId', '==', normalizedSessionId)
+    .limit(500)
+    .get();
+
+  const recordings = snapshot.docs
+    .map((doc) => mapRecordingDoc(doc.id, doc.data()))
+    .filter((recording): recording is RecordingDocument => Boolean(recording));
+
+  recordings.sort((a, b) => recordingSortTime(b) - recordingSortTime(a));
+  return recordings;
+}
+
+export async function listRecordingsByUserId(userId: string): Promise<RecordingDocument[]> {
+  const normalizedUserId = userId.trim();
+  const snapshot = await db
+    .collection(RECORDINGS_COLLECTION)
+    .where('userId', '==', normalizedUserId)
+    .limit(500)
+    .get();
+
+  const recordings = snapshot.docs
+    .map((doc) => mapRecordingDoc(doc.id, doc.data()))
+    .filter((recording): recording is RecordingDocument => Boolean(recording));
+
+  recordings.sort((a, b) => recordingSortTime(b) - recordingSortTime(a));
+  return recordings;
+}
