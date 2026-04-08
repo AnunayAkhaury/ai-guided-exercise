@@ -27,8 +27,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
 const require    = createRequire(import.meta.url);
 
+// frames per second to extract from the video
+const EXTRACT_FPS = 10;
 // paths
-const BASE_NAME    = process.argv[2] ?? 'exercise-test';
+const BASE_NAME    = process.argv[2] ?? 'GoodFormCurls';
 const PROJECT_ROOT = resolve(__dirname, '..');
 const ASSETS_DIR   = join(PROJECT_ROOT, 'src/assets/images');
 const VIDEO_PATH   = join(ASSETS_DIR, `${BASE_NAME}.mp4`);
@@ -157,7 +159,7 @@ function startServer() {
 }
 
 // ffmpeg helpers
-function extractFrames(videoPath, outDir, fps = 3) {
+function extractFrames(videoPath, outDir, fps = EXTRACT_FPS) {
   return new Promise((resolve, reject) => {
     const ffmpeg     = require('fluent-ffmpeg');
     const ffmpegPath = require('ffmpeg-static');
@@ -217,12 +219,12 @@ async function main() {
     console.log('Model cached.');
   }
 
-  // extract frames at 3 fps
+  // extract frames at EXTRACT_FPS fps
   const tmpDir = join(require('os').tmpdir(), `pose_frames_${Date.now()}`);
   mkdirSync(tmpDir, { recursive: true });
 
-  console.log('Extracting frames at 3 fps...');
-  await extractFrames(VIDEO_PATH, tmpDir, 3);
+  console.log(`Extracting frames at ${EXTRACT_FPS} fps...`);
+  await extractFrames(VIDEO_PATH, tmpDir, EXTRACT_FPS);
 
   const framePaths = readdirSync(tmpDir)
     .filter(f => f.endsWith('.png'))
