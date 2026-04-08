@@ -20,6 +20,16 @@ type UpsertRecordingRequest = {
 
 export async function upsertRecordingController(req: Request, res: Response) {
   try {
+    const expectedIngestSecret = process.env.RECORDING_INGEST_SECRET;
+    if (!expectedIngestSecret) {
+      return sendErrorResponse(req, res, 500, 'Recording ingest secret is not configured on server.');
+    }
+
+    const providedIngestSecret = req.header('x-ingest-secret');
+    if (!providedIngestSecret || providedIngestSecret !== expectedIngestSecret) {
+      return sendErrorResponse(req, res, 401, 'Unauthorized recording ingest request.');
+    }
+
     const body = req.body as UpsertRecordingRequest;
     if (!body.sessionId?.trim()) {
       return sendErrorResponse(req, res, 400, 'sessionId is required.');
