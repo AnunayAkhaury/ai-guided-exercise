@@ -27,6 +27,7 @@ export default function ClassesScreen() {
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
   const uid = useUserStore((state) => state.uid);
+  const role = useUserStore((state) => state.role);
   const [sessions, setSessions] = useState<IvsSession[]>([]);
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
   const fallbackDisplayName = username?.trim() || fullname?.trim() || 'Student Test';
@@ -41,8 +42,13 @@ export default function ClassesScreen() {
   }, []);
 
   useEffect(() => {
+    if (!role) return;
+    if (role !== 'student') {
+      router.replace(role === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/profile');
+      return;
+    }
     void loadSessions();
-  }, [loadSessions]);
+  }, [loadSessions, role, router]);
 
   useEffect(() => {
     const interval = setInterval(() => {

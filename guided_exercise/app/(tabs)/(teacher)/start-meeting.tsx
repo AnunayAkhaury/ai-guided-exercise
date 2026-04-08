@@ -37,6 +37,7 @@ export default function StartMeeting() {
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
   const uid = useUserStore((state) => state.uid);
+  const role = useUserStore((state) => state.role);
   const instructorDisplayName = useMemo(
     () =>
       resolvePreferredDisplayName({
@@ -57,6 +58,13 @@ export default function StartMeeting() {
       setSessionName(normalizedParamSessionName);
     }
   }, [normalizedParamSessionName]);
+
+  useEffect(() => {
+    if (!role) return;
+    if (role !== 'instructor') {
+      router.replace(role === 'student' ? '/(tabs)/(student)/classes' : '/(tabs)/profile');
+    }
+  }, [role, router]);
 
   const handleStart = async () => {
     const trimmedSession = sessionName.trim();

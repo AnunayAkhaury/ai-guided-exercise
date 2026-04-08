@@ -6,6 +6,7 @@ import Header from '@/src/components/ui/Header';
 import Typography from '@/src/components/ui/Typography';
 import TeacherActiveClassCard from '@/src/components/classes/TeacherActiveClassCard';
 import { endIvsSession, listIvsSessions, type IvsSession } from '@/src/api/ivs';
+import { useUserStore } from '@/src/store/userStore';
 
 function toSessionWindow(session: IvsSession) {
   const start = session.scheduledStartAt ? new Date(session.scheduledStartAt) : new Date(session.createdAt);
@@ -30,6 +31,7 @@ export default function ClassesScreen() {
   const [sessions, setSessions] = useState<IvsSession[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [cancelingSessionId, setCancelingSessionId] = useState<string | null>(null);
+  const role = useUserStore((state) => state.role);
 
   const loadSessions = useCallback(async () => {
     const data = await listIvsSessions(['live', 'scheduled']);
@@ -48,8 +50,13 @@ export default function ClassesScreen() {
   }, [loadSessions]);
 
   useEffect(() => {
+    if (!role) return;
+    if (role !== 'instructor') {
+      router.replace(role === 'student' ? '/(tabs)/(student)/classes' : '/(tabs)/profile');
+      return;
+    }
     void refreshSessions();
-  }, [refreshSessions]);
+  }, [refreshSessions, role, router]);
 
   useEffect(() => {
     const interval = setInterval(() => {
