@@ -24,7 +24,7 @@ SCRIPTS_DIR  = Path(__file__).parent
 PROJECT_ROOT = SCRIPTS_DIR.parent
 ASSETS_DIR   = PROJECT_ROOT / "src" / "assets" / "images"
 
-BASE_NAME  = sys.argv[1] if len(sys.argv) > 1 else "exercise-test"
+BASE_NAME  = sys.argv[1] if len(sys.argv) > 1 else "GoodFormCurls"
 POSE_JSON  = ASSETS_DIR / f"{BASE_NAME}-pose.json"
 ANGLES_JSON = ASSETS_DIR / f"{BASE_NAME}-angles.json"
 DELTAS_JSON = ASSETS_DIR / f"{BASE_NAME}-angle-deltas.json"
