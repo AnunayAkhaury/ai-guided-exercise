@@ -113,6 +113,20 @@ export async function upsertRecording(input: UpsertRecordingInput): Promise<Reco
   return mapped;
 }
 
+export async function getRecordingById(recordingId: string): Promise<RecordingDocument | null> {
+  const normalizedRecordingId = recordingId.trim();
+  if (!normalizedRecordingId) {
+    return null;
+  }
+
+  const snapshot = await db.collection(RECORDINGS_COLLECTION).doc(normalizedRecordingId).get();
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  return mapRecordingDoc(snapshot.id, snapshot.data());
+}
+
 function recordingSortTime(recording: RecordingDocument): number {
   const primary = recording.recordingStart ?? recording.createdAt;
   return primary.getTime();

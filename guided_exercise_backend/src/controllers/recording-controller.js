@@ -1,8 +1,23 @@
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { findLatestSessionByParticipantId, getSessionById, getSessionByIvsSessionId, getSessionParticipantById, updateSessionIvsSessionId } from '@/services/Firebase/firebase-session.js';
-import { listRecordingsBySessionId, listRecordingsByUserId, upsertRecording } from '@/services/Firebase/firebase-recordings-v2.js';
+import { getRecordingById, listRecordingsBySessionId, listRecordingsByUserId, upsertRecording } from '@/services/Firebase/firebase-recordings-v2.js';
 import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
+const DEFAULT_REGION = process.env.AWS_REGION || 'us-west-2';
+const PLAYBACK_URL_TTL_SECONDS = 10 * 60;
 function isLikelyIvsSessionId(value) {
     return value.startsWith('st-');
+}
+function parseS3Prefix(rawS3Prefix) {
+    const normalized = rawS3Prefix.trim().replace(/^s3:\/\//, '');
+    const separatorIdx = normalized.indexOf('/');
+    if (separatorIdx <= 0 || separatorIdx === normalized.length - 1) {
+        return null;
+    }
+    return {
+        bucket: normalized.slice(0, separatorIdx),
+        keyPrefix: normalized.slice(separatorIdx + 1).replace(/\/+$/, '')
+    };
 }
 export async function upsertRecordingController(req, res) {
     try {
@@ -111,6 +126,41 @@ export async function listRecordingsByUserController(req, res) {
     catch (err) {
         logControllerError(req, err, 'listRecordingsByUserController failed');
         return sendErrorResponse(req, res, 500, err?.message || 'Failed to list recordings by user.');
+    }
+}
+export async function getRecordingPlaybackController(req, res) {
+    try {
+        const recordingId = Array.isArray(req.params.recordingId) ? req.params.recordingId[0] : req.params.recordingId;
+        if (!recordingId?.trim()) {
+            return sendErrorResponse(req, res, 400, 'recordingId is required.');
+        }
+        const recording = await getRecordingById(recordingId);
+        if (!recording) {
+            return sendErrorResponse(req, res, 404, 'Recording not found.');
+        }
+        const parsed = parseS3Prefix(recording.rawS3Prefix);
+        if (!parsed) {
+            return sendErrorResponse(req, res, 400, 'Invalid recording S3 prefix.');
+        }
+        const hlsPlaylistKey = `${parsed.keyPrefix}/media/hls/high/playlist.m3u8`;
+        const s3Client = new S3Client({ region: DEFAULT_REGION });
+        const command = new GetObjectCommand({
+            Bucket: parsed.bucket,
+            Key: hlsPlaylistKey
+        });
+        const playbackUrl = await getSignedUrl(s3Client, command, { expiresIn: PLAYBACK_URL_TTL_SECONDS });
+        return res.status(200).json({
+            recordingId: recording.recordingId,
+            sessionId: recording.sessionId,
+            participantId: recording.participantId,
+            playbackUrl,
+            expiresInSeconds: PLAYBACK_URL_TTL_SECONDS,
+            hlsPlaylistKey
+        });
+    }
+    catch (err) {
+        logControllerError(req, err, 'getRecordingPlaybackController failed');
+        return sendErrorResponse(req, res, 500, err?.message || 'Failed to get recording playback URL.');
     }
 }
 //# sourceMappingURL=recording-controller.js.map
