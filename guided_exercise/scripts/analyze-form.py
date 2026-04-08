@@ -27,10 +27,11 @@ import bisect
 import numpy as np
 from scipy.signal import find_peaks
 
-DEVIATION_THRESHOLD = 10.0   # percent — deviations beyond this are flagged
+DEVIATION_THRESHOLD = 25.0   # percent — deviations beyond this are flagged
+MIN_REP_GAP_MS      = 500    # ms — valley timestamps closer than this are merged into one boundary
 
 # ── Configure these for each new comparison ───────────────────────────────────
-VIDEO_NAME    = "GoodFormCurls"              # base name of the -angles.json to test
+VIDEO_NAME    = "BadFormCurls"              # base name of the -angles.json to test
 IDEAL_FILE    = "GoodFormCurls-ideal.json"  # output of analyze-ideal.py
 ASSETS_DIR    = "../src/assets/images"
 # ──────────────────────────────────────────────────────────────────────────────
@@ -49,11 +50,20 @@ def _series(frames: list[dict], joint: str) -> np.ndarray:
     return np.array([f["angles"][joint] for f in frames])
 
 
-def load_baseline(path: str) -> tuple[dict, str, float]:
+def load_baseline(path: str) -> dict:
     """Load the ideal baseline JSON written by analyze-ideal.py."""
     with open(path, "r") as f:
         data = json.load(f)
-    return data["joints"], data["primaryJoint"], data["primaryProminence"]
+    return data["joints"]
+
+
+def _merge_boundaries(timestamps: list[int]) -> list[int]:
+    """Deduplicate valley timestamps from multiple joints that fall within MIN_REP_GAP_MS of each other."""
+    merged = []
+    for ts in sorted(timestamps):
+        if not merged or ts - merged[-1] >= MIN_REP_GAP_MS:
+            merged.append(ts)
+    return merged
 
 
 def find_form_extrema(frames: list[dict], baseline: dict) -> list[dict]:
@@ -114,7 +124,7 @@ def flag_deviations(
         info     = baseline[joint]
         expected = info["avg_peak"] if entry["type"] == "Peak" else info["avg_valley"]
         actual   = entry["actual_angle"]
-        diff_pct = abs(actual - expected) / abs(expected) * 100.0 if expected != 0 else 0.0
+        diff_pct = abs(actual - expected) / info["rom"] * 100.0
 
         if diff_pct > threshold:
             flagged.append({
@@ -134,16 +144,20 @@ def flag_deviations(
 
 def analyze(baseline_path: str, form_path: str) -> list[dict]:
     """Full pipeline: load baseline + form data, detect reps, flag deviations."""
-    baseline, primary_joint, primary_prominence = load_baseline(baseline_path)
+    baseline   = load_baseline(baseline_path)
     form_frames = load_angles(form_path)
 
-    # Re-detect rep boundaries from this video's own cycle using the ideal
-    # joint's prominence — ideal timestamps are from a different video.
-    rep_boundaries: list[int] = []
-    if primary_joint is not None:
-        form_series = _series(form_frames, primary_joint)
-        valley_idxs, _ = find_peaks(-form_series, prominence=primary_prominence)
-        rep_boundaries = [form_frames[i]["timestampMs"] for i in valley_idxs]
+    # Re-detect rep boundaries from all joints with significant ROM.
+    # Valley timestamps from multiple joints are merged to avoid duplicates.
+    all_valley_ts: list[int] = []
+    for joint, info in baseline.items():
+        if not info["rep_boundaries"]:
+            continue
+        form_series = _series(form_frames, joint)
+        valley_idxs, _ = find_peaks(-form_series, prominence=info["prominence"])
+        all_valley_ts.extend(form_frames[i]["timestampMs"] for i in valley_idxs)
+
+    rep_boundaries = _merge_boundaries(all_valley_ts)
 
     extrema = find_form_extrema(form_frames, baseline)
     extrema = assign_rep_index(extrema, rep_boundaries)

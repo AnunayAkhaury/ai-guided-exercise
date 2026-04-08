@@ -33,8 +33,9 @@ from datetime import datetime, timezone
 import numpy as np
 from scipy.signal import find_peaks
 
-STATIC_ROM_THRESHOLD = 15.0   # degrees — joints with smaller ROM are ignored
-PROMINENCE_FACTOR    = 0.20   # fraction of ROM used as peak/valley prominence
+STATIC_ROM_THRESHOLD    = 15.0   # degrees — joints with smaller ROM are ignored
+PROMINENCE_FACTOR       = 0.20   # fraction of ROM used as peak/valley prominence
+REP_BOUNDARY_ROM_THRESHOLD = 40.0  # degrees — joints above this ROM contribute rep boundaries
 
 # ── Configure these for each new ideal video ──────────────────────────────────
 VIDEO_NAME  = "GoodFormCurls"        # base name of the -angles.json file
@@ -64,15 +65,12 @@ def analyze_good_form(frames: list[dict]) -> dict:
         "avg_valley":     float,
         "prominence":     float,
         "rom":            float,
-        "rep_boundaries": list[int],   # timestampMs of valleys (primary joint only)
+        "rep_boundaries": list[int],   # timestampMs of valleys for joints above REP_BOUNDARY_ROM_THRESHOLD
     }
-    Primary joint = most periodic (highest peaks+valleys count).
     """
     joints = list(frames[0]["angles"].keys())
     timestamps = [f["timestampMs"] for f in frames]
     baseline = {}
-    best_periodicity = 0
-    primary_joint = None
 
     for joint in joints:
         series = _series(frames, joint)
@@ -99,19 +97,14 @@ def analyze_good_form(frames: list[dict]) -> dict:
             "valley_indices": valley_indices.tolist(),
         }
 
-        periodicity = len(peak_indices) + len(valley_indices)
-        if periodicity > best_periodicity:
-            best_periodicity = periodicity
-            primary_joint = joint
-
     for joint, info in baseline.items():
         valley_idxs = info.pop("valley_indices")
-        if joint == primary_joint:
+        if info["rom"] >= REP_BOUNDARY_ROM_THRESHOLD:
             info["rep_boundaries"] = [timestamps[i] for i in valley_idxs]
         else:
             info["rep_boundaries"] = []
 
-    return baseline, primary_joint
+    return baseline
 
 
 if __name__ == "__main__":
@@ -119,20 +112,18 @@ if __name__ == "__main__":
     output_path = sys.argv[2] if len(sys.argv) >= 3 else OUTPUT_PATH
 
     frames = load_angles(input_path)
-    baseline, primary_joint = analyze_good_form(frames)
+    baseline = analyze_good_form(frames)
 
     if not baseline:
         print("No active joints found — check STATIC_ROM_THRESHOLD.", file=sys.stderr)
         sys.exit(1)
 
-    primary_prominence = baseline[primary_joint]["prominence"] if primary_joint else None
+    boundary_joints = [j for j, info in baseline.items() if info["rep_boundaries"]]
 
     output = {
-        "sourceFile":        os.path.basename(input_path),
-        "generatedAt":       datetime.now(timezone.utc).isoformat(),
-        "primaryJoint":      primary_joint,
-        "primaryProminence": primary_prominence,
-        "joints":            baseline,
+        "sourceFile":    os.path.basename(input_path),
+        "generatedAt":   datetime.now(timezone.utc).isoformat(),
+        "joints":        baseline,
     }
 
     with open(output_path, "w") as f:
@@ -140,6 +131,6 @@ if __name__ == "__main__":
 
     print(
         f"Wrote baseline for {len(baseline)} joints "
-        f"(primary: {primary_joint}) to {output_path}",
+        f"(rep boundaries from: {', '.join(boundary_joints) or 'none'}) to {output_path}",
         file=sys.stderr,
     )
