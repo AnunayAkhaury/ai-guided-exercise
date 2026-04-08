@@ -4,6 +4,7 @@ export type SessionStatus = 'scheduled' | 'live' | 'ended';
 
 export type SessionDocument = {
   sessionId: string;
+  ivsSessionId: string | null;
   sessionCode: string;
   sessionName: string;
   stageArn: string;
@@ -73,6 +74,7 @@ function mapSessionDoc(
   }
   return {
     sessionId: id,
+    ivsSessionId: data.ivsSessionId ?? null,
     sessionCode: data.sessionCode,
     sessionName: data.sessionName,
     stageArn: data.stageArn,
@@ -93,6 +95,7 @@ export async function createSession(input: CreateSessionInput): Promise<SessionD
   const now = new Date();
   const ref = db.collection(SESSIONS_COLLECTION).doc();
   const payload: Omit<SessionDocument, 'sessionId'> = {
+    ivsSessionId: null,
     sessionCode,
     sessionName: input.sessionName.trim(),
     stageArn: input.stageArn.trim(),
@@ -138,6 +141,42 @@ export async function getSessionByCode(sessionCode: string): Promise<SessionDocu
     return null;
   }
   return mapSessionDoc(doc.id, doc.data());
+}
+
+export async function getSessionByIvsSessionId(ivsSessionId: string): Promise<SessionDocument | null> {
+  const normalizedIvsSessionId = ivsSessionId.trim();
+  if (!normalizedIvsSessionId) {
+    return null;
+  }
+
+  const snapshot = await db
+    .collection(SESSIONS_COLLECTION)
+    .where('ivsSessionId', '==', normalizedIvsSessionId)
+    .limit(1)
+    .get();
+  if (snapshot.empty) {
+    return null;
+  }
+  const doc = snapshot.docs[0];
+  if (!doc) {
+    return null;
+  }
+  return mapSessionDoc(doc.id, doc.data());
+}
+
+export async function updateSessionIvsSessionId(sessionId: string, ivsSessionId: string): Promise<void> {
+  const normalizedIvsSessionId = ivsSessionId.trim();
+  if (!normalizedIvsSessionId) {
+    return;
+  }
+
+  await db.collection(SESSIONS_COLLECTION).doc(sessionId).set(
+    {
+      ivsSessionId: normalizedIvsSessionId,
+      updatedAt: new Date()
+    },
+    { merge: true }
+  );
 }
 
 export async function updateSessionStatus(sessionId: string, status: SessionStatus): Promise<void> {
@@ -366,6 +405,47 @@ export async function getSessionParticipantById(
     lastSeenAt: data.lastSeenAt?.toDate ? data.lastSeenAt.toDate() : data.lastSeenAt,
     updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt
   } as SessionParticipantDocument;
+}
+
+export async function findLatestSessionByParticipantId(participantId: string): Promise<SessionDocument | null> {
+  const normalizedParticipantId = participantId.trim();
+  const snapshot = await db
+    .collectionGroup(PARTICIPANTS_SUBCOLLECTION)
+    .where('participantId', '==', normalizedParticipantId)
+    .limit(25)
+    .get();
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const candidates = await Promise.all(
+    snapshot.docs.map(async (doc) => {
+      const data = doc.data();
+      const participantUpdatedAtRaw = data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt;
+      const participantUpdatedAt =
+        participantUpdatedAtRaw instanceof Date && !Number.isNaN(participantUpdatedAtRaw.getTime())
+          ? participantUpdatedAtRaw
+          : new Date(0);
+      const sessionRef = doc.ref.parent.parent;
+      if (!sessionRef) return null;
+      const sessionSnapshot = await sessionRef.get();
+      if (!sessionSnapshot.exists) return null;
+      const session = mapSessionDoc(sessionSnapshot.id, sessionSnapshot.data());
+      if (!session) return null;
+      return { session, participantUpdatedAt };
+    })
+  );
+
+  const validCandidates = candidates.filter((value): value is { session: SessionDocument; participantUpdatedAt: Date } =>
+    Boolean(value)
+  );
+  if (validCandidates.length === 0) {
+    return null;
+  }
+
+  validCandidates.sort((a, b) => b.participantUpdatedAt.getTime() - a.participantUpdatedAt.getTime());
+  return validCandidates[0]?.session ?? null;
 }
 
 export async function markSessionParticipantLeft(

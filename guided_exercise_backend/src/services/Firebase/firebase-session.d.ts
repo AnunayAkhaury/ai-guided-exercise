@@ -1,0 +1,51 @@
+export type SessionStatus = 'scheduled' | 'live' | 'ended';
+export type SessionDocument = {
+    sessionId: string;
+    ivsSessionId: string | null;
+    sessionCode: string;
+    sessionName: string;
+    stageArn: string;
+    instructorUid: string;
+    coachName: string;
+    status: SessionStatus;
+    scheduledStartAt: Date | null;
+    scheduledEndAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    startedAt: Date | null;
+    endedAt: Date | null;
+};
+export type SessionParticipantDocument = {
+    participantId: string;
+    userId: string | null;
+    displayName: string;
+    role: string | null;
+    active: boolean;
+    joinedAt: Date;
+    leftAt: Date | null;
+    lastSeenAt: Date;
+    updatedAt: Date;
+};
+export type CreateSessionInput = {
+    sessionName: string;
+    stageArn: string;
+    instructorUid: string;
+    coachName?: string;
+    scheduledStartAt?: Date;
+    scheduledEndAt?: Date;
+};
+export declare function createSession(input: CreateSessionInput): Promise<SessionDocument>;
+export declare function getSessionById(sessionId: string): Promise<SessionDocument | null>;
+export declare function getSessionByCode(sessionCode: string): Promise<SessionDocument | null>;
+export declare function getSessionByIvsSessionId(ivsSessionId: string): Promise<SessionDocument | null>;
+export declare function updateSessionIvsSessionId(sessionId: string, ivsSessionId: string): Promise<void>;
+export declare function updateSessionStatus(sessionId: string, status: SessionStatus): Promise<void>;
+export declare function listSessions(statuses?: SessionStatus[]): Promise<SessionDocument[]>;
+export declare function endOtherLiveSessions(currentSessionId: string): Promise<number>;
+export declare function deleteSessionById(sessionId: string): Promise<void>;
+export declare function upsertSessionParticipant(sessionId: string, participantId: string, displayName: string, role?: string, userId?: string): Promise<SessionParticipantDocument>;
+export declare function listSessionParticipants(sessionId: string): Promise<SessionParticipantDocument[]>;
+export declare function getSessionParticipantById(sessionId: string, participantId: string): Promise<SessionParticipantDocument | null>;
+export declare function findLatestSessionByParticipantId(participantId: string): Promise<SessionDocument | null>;
+export declare function markSessionParticipantLeft(sessionId: string, participantId: string): Promise<SessionParticipantDocument | null>;
+//# sourceMappingURL=firebase-session.d.ts.map

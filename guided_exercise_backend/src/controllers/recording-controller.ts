@@ -1,5 +1,11 @@
 import type { Request, Response } from 'express';
-import { getSessionById, getSessionParticipantById } from '@/services/Firebase/firebase-session.js';
+import {
+  findLatestSessionByParticipantId,
+  getSessionById,
+  getSessionByIvsSessionId,
+  getSessionParticipantById,
+  updateSessionIvsSessionId
+} from '@/services/Firebase/firebase-session.js';
 import { upsertRecording } from '@/services/Firebase/firebase-recordings-v2.js';
 import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
@@ -17,6 +23,10 @@ type UpsertRecordingRequest = {
   error?: string;
   source?: 'manual' | 'eventbridge' | 'worker';
 };
+
+function isLikelyIvsSessionId(value: string): boolean {
+  return value.startsWith('st-');
+}
 
 export async function upsertRecordingController(req: Request, res: Response) {
   try {
@@ -44,12 +54,30 @@ export async function upsertRecordingController(req: Request, res: Response) {
     const participantId = body.participantId.trim();
     const rawS3Prefix = body.rawS3Prefix.trim();
 
-    const session = await getSessionById(sessionId);
+    // Ingest first tries IVS session linkage, then app session id.
+    let session = await getSessionByIvsSessionId(sessionId);
     if (!session) {
-      return sendErrorResponse(req, res, 404, 'Session not found.');
+      session = await getSessionById(sessionId);
+    }
+    let effectiveSessionId = session?.sessionId ?? sessionId;
+    if (!session) {
+      // Fall back to resolving by participant linkage captured at join/rejoin.
+      const inferredSession = await findLatestSessionByParticipantId(participantId);
+      if (inferredSession) {
+        session = inferredSession;
+        effectiveSessionId = inferredSession.sessionId;
+        // Backfill IVS session id mapping so subsequent events resolve directly.
+        if (isLikelyIvsSessionId(sessionId) && inferredSession.ivsSessionId !== sessionId) {
+          await updateSessionIvsSessionId(inferredSession.sessionId, sessionId);
+        }
+      }
     }
 
-    const participant = await getSessionParticipantById(sessionId, participantId);
+    if (!session) {
+      return sendErrorResponse(req, res, 404, 'Session not found for provided sessionId/participantId.');
+    }
+
+    const participant = await getSessionParticipantById(effectiveSessionId, participantId);
     const userId = participant?.userId ?? null;
 
     const recordingStart = body.recordingStart ? new Date(body.recordingStart) : null;
@@ -62,7 +90,7 @@ export async function upsertRecordingController(req: Request, res: Response) {
     }
 
     const payload = {
-      sessionId,
+      sessionId: effectiveSessionId,
       participantId,
       userId,
       rawS3Prefix,
