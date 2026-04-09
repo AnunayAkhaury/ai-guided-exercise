@@ -130,7 +130,15 @@ class FeedbackGenerator:
 
 
 # Example usage: python main.py --model_path "pose_landmarker_heavy.task" --video_path "instructor_pushup.mp4" --pickle_path "output/instructor_detection_result.pkl" --recompute_data 0
-def main():
+def main(model_path, video_path, pickle_path, recompute_data):
+    feedbackGenerator = FeedbackGenerator(model_path, video_path, pickle_path, recompute_data=bool(recompute_data))
+    feedbackGenerator.process_video()
+    feedbackGenerator.exercise_data.compute_all_angles()
+
+    video_annotator = VideoAnnotations(feedbackGenerator.exercise_data)
+    video_annotator.annotated_video()
+
+if __name__ == "__main__":
     # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_path", required=True)
@@ -139,12 +147,4 @@ def main():
     parser.add_argument("--recompute_data", type=int, default=1)
     args = parser.parse_args()
 
-    feedbackGenerator = FeedbackGenerator(args.model_path, args.video_path, args.pickle_path, recompute_data=bool(args.recompute_data))
-    feedbackGenerator.process_video()
-    feedbackGenerator.exercise_data.compute_all_angles()
-
-    video_annotator = VideoAnnotations(feedbackGenerator.exercise_data)
-    video_annotator.annotated_video()
-
-if __name__ == "__main__":
-    main()
+    main(args.model_path, args.video_path, args.pickle_path, args.recompute_data)

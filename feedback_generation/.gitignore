@@ -1,0 +1,4 @@
+.env
+output
+virtualenv
+__pycache__

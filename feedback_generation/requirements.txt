@@ -1,0 +1,6 @@
+fastapi[standard]
+opencv-python
+mediapipe
+uvicorn
+boto3
+python-dotenv
