@@ -124,7 +124,7 @@ def flag_deviations(
         info     = baseline[joint]
         expected = info["avg_peak"] if entry["type"] == "Peak" else info["avg_valley"]
         actual   = entry["actual_angle"]
-        diff_pct = abs(actual - expected) / info["rom"] * 100.0
+        diff_pct = abs(actual - expected) / expected * 100.0
 
         if diff_pct > threshold:
             flagged.append({
@@ -174,4 +174,5 @@ if __name__ == "__main__":
     with open(output_path, "w") as f:
         json.dump(results, f, indent=2)
 
-    print(f"Wrote {len(results)} flagged rep(s) to {output_path}", file=sys.stderr)
+    flagged_reps = len({r["rep_index"] for r in results})
+    print(f"Wrote {len(results)} flag(s) across {flagged_reps} flagged rep(s) to {output_path}", file=sys.stderr)
