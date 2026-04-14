@@ -9,12 +9,15 @@ import {
   updateSessionIvsSessionId
 } from '@/services/Firebase/firebase-session.js';
 import {
+  claimRecordingForProcessing,
   getRecordingById,
   listRecordingsBySessionId,
   listRecordingsByUserId,
+  toRecordingId,
   updateRecordingById,
   upsertRecording
 } from '@/services/Firebase/firebase-recordings-v2.js';
+import type { RecordingDocument } from '@/services/Firebase/firebase-recordings-v2.js';
 import { startRecordingWorkerTask } from '@/services/AWS/ecs.js';
 import { getRequestId, logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
@@ -60,6 +63,64 @@ function parseS3Prefix(rawS3Prefix: string): { bucket: string; keyPrefix: string
     bucket: normalized.slice(0, separatorIdx),
     keyPrefix: normalized.slice(separatorIdx + 1).replace(/\/+$/, '')
   };
+}
+
+function isAutoStartRecordingProcessingEnabled(): boolean {
+  return process.env.AUTO_START_RECORDING_PROCESSING?.trim().toLowerCase() === 'true';
+}
+
+function shouldPreserveExistingStatus(
+  existingRecording: RecordingDocument | null,
+  body: UpsertRecordingRequest
+): boolean {
+  if (body.source !== 'eventbridge' || body.status !== 'completed') {
+    return false;
+  }
+
+  return existingRecording?.status === 'processing' || Boolean(existingRecording?.processedVideoUrl);
+}
+
+function shouldAutoStartRecordingProcessing(recording: RecordingDocument): boolean {
+  return Boolean(
+    isAutoStartRecordingProcessingEnabled() &&
+      recording.source === 'eventbridge' &&
+      recording.status === 'completed' &&
+      !recording.processedVideoUrl &&
+      recording.userId?.trim() &&
+      recording.rawS3Prefix?.trim()
+  );
+}
+
+async function autoStartRecordingProcessing(
+  req: Request,
+  recording: RecordingDocument
+): Promise<RecordingDocument> {
+  if (!shouldAutoStartRecordingProcessing(recording)) {
+    return recording;
+  }
+
+  const claimedRecording = await claimRecordingForProcessing(recording.recordingId);
+  if (!claimedRecording) {
+    return (await getRecordingById(recording.recordingId)) ?? recording;
+  }
+
+  try {
+    await startRecordingWorkerTask({
+      recordingId: claimedRecording.recordingId,
+      rawS3Prefix: claimedRecording.rawS3Prefix,
+      userId: claimedRecording.userId!
+    });
+
+    return claimedRecording;
+  } catch (err: any) {
+    const failedRecording = await updateRecordingById(recording.recordingId, {
+      status: 'failed',
+      error: err?.message || 'Failed to start recording worker task.'
+    });
+
+    logControllerError(req, err, 'upsertRecordingController failed to auto-start ECS task');
+    return failedRecording;
+  }
 }
 
 export async function upsertRecordingController(req: Request, res: Response) {
@@ -123,6 +184,13 @@ export async function upsertRecordingController(req: Request, res: Response) {
       return sendErrorResponse(req, res, 400, 'recordingEnd must be a valid ISO date string.');
     }
 
+    const resolvedRecordingId = toRecordingId({
+      recordingId: body.recordingId,
+      rawS3Prefix
+    });
+    const existingRecording = await getRecordingById(resolvedRecordingId);
+    const preserveExistingStatus = shouldPreserveExistingStatus(existingRecording, body);
+
     const payload = {
       sessionId: effectiveSessionId,
       participantId,
@@ -133,15 +201,16 @@ export async function upsertRecordingController(req: Request, res: Response) {
       source: body.source ?? 'manual',
       ...(body.recordingId ? { recordingId: body.recordingId } : {}),
       ...(typeof body.durationMs === 'number' ? { durationMs: body.durationMs } : {}),
-      ...(body.status ? { status: body.status } : {}),
+      ...(body.status && !preserveExistingStatus ? { status: body.status } : {}),
       ...(body.processedVideoUrl ? { processedVideoUrl: body.processedVideoUrl } : {}),
       ...(body.feedbackJsonUrl ? { feedbackJsonUrl: body.feedbackJsonUrl } : {}),
-      ...(body.error ? { error: body.error } : {})
+      ...(body.error && !preserveExistingStatus ? { error: body.error } : {})
     };
 
     const recording = await upsertRecording(payload);
+    const finalRecording = await autoStartRecordingProcessing(req, recording);
 
-    return res.status(200).json(recording);
+    return res.status(200).json(finalRecording);
   } catch (err: any) {
     logControllerError(req, err, 'upsertRecordingController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to upsert recording.');

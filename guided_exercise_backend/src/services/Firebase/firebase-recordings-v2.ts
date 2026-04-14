@@ -173,6 +173,57 @@ export async function updateRecordingById(
   return mapped;
 }
 
+export async function claimRecordingForProcessing(recordingId: string): Promise<RecordingDocument | null> {
+  const normalizedRecordingId = recordingId.trim();
+  if (!normalizedRecordingId) {
+    throw new Error('recordingId is required.');
+  }
+
+  const ref = db.collection(RECORDINGS_COLLECTION).doc(normalizedRecordingId);
+
+  return db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists) {
+      throw new Error('Recording not found.');
+    }
+
+    const existing = mapRecordingDoc(snapshot.id, snapshot.data());
+    if (!existing) {
+      throw new Error('Recording not found.');
+    }
+
+    if (!existing.userId?.trim()) {
+      throw new Error('Recording is missing userId and cannot be processed.');
+    }
+
+    if (!existing.rawS3Prefix?.trim()) {
+      throw new Error('Recording is missing rawS3Prefix and cannot be processed.');
+    }
+
+    if (existing.status === 'processing' || Boolean(existing.processedVideoUrl)) {
+      return null;
+    }
+
+    const now = new Date();
+    transaction.set(
+      ref,
+      {
+        status: 'processing',
+        error: null,
+        updatedAt: now
+      },
+      { merge: true }
+    );
+
+    return {
+      ...existing,
+      status: 'processing',
+      error: null,
+      updatedAt: now
+    } satisfies RecordingDocument;
+  });
+}
+
 function recordingSortTime(recording: RecordingDocument): number {
   const primary = recording.recordingStart ?? recording.createdAt;
   return primary.getTime();
