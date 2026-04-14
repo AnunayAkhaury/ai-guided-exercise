@@ -1,6 +1,5 @@
 import os
 import json
-from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
@@ -19,13 +18,11 @@ class OutputFeedback(BaseModel):
         le=10
     )
 
-def llm_generate_feedback(exercise_name, base_name, data_dir="./data"):
-    load_dotenv()
-    api_key=os.environ.get("GEMINI_API_KEY")
+def llm_generate_feedback(exercise_name, base_name, data_dir="/app/data"):
 
     bad_reps_file_path = os.path.join(data_dir, f"{base_name}-bad-reps.json")
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client()
     prompt = f"Based on the following JSON describing incorrectly performed {exercise_name} reptitions, identify the errors of each rep and create one repetition feedback entry per repetition."
     
     with open(bad_reps_file_path, "r") as f:

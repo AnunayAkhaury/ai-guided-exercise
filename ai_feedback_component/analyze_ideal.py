@@ -72,7 +72,7 @@ def analyze_good_form(frames: list[dict]) -> dict:
 
     return baseline
 
-def generate_ideal_baseline(base_name, data_dir="./data"):
+def generate_ideal_baseline(base_name, data_dir="/app/data"):
     """
     Main logic: Reads angles, processes peaks, and writes the baseline JSON.
     """

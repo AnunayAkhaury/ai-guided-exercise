@@ -55,7 +55,7 @@ def compute_angles(lm_dict: dict) -> dict:
             angles[joint] = None
     return angles
 
-def calculate_joint_angles(base_name, data_dir="./data"):
+def calculate_joint_angles(base_name, data_dir="/app/data"):
     """
     Constructs paths internally, calculates joint angles and deltas, 
     and saves JSON outputs.

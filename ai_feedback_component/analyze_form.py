@@ -105,7 +105,7 @@ def flag_deviations(
     flagged.sort(key=lambda x: (x["timestampMs"], x["frameIndex"]))
     return flagged
 
-def run_form_analysis(video_name, ideal_base_name=None, data_dir="./data"):
+def run_form_analysis(video_name, ideal_base_name=None, data_dir="/app/data"):
     """
     Constructs paths and runs the analysis pipeline.
     """

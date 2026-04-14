@@ -3,7 +3,6 @@ import traceback
 import io
 from contextlib import redirect_stdout
 
-# import your existing functions
 from main import generate_ideal, generate_comparison
 
 app = Flask(__name__)

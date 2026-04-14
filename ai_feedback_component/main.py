@@ -41,9 +41,10 @@ def generate_comparison(exercise_name, test_video_name, ideal_baseline_name):
 
     # 4. Generate feedback using LLM
     result = llm_generate_feedback(exercise_name, test_video_name)
-    return result
 
     print(f"--- Analysis Complete: {test_video_name}-bad_reps.json ---\n")
+
+    return result
 
 # NOTE: Not used in flask app, only for testing. Generate_ideal and generate_comparison functions are used directly in flask app
 def main():
