@@ -33,6 +33,16 @@ type UpsertRecordingRequest = {
   source?: 'manual' | 'eventbridge' | 'worker';
 };
 
+type WorkerCompleteRequest = {
+  recordingId?: string;
+  processedVideoUrl?: string;
+  feedbackJsonUrl?: string;
+  status?: string;
+  error?: string;
+  outputBucket?: string;
+  outputKey?: string;
+};
+
 const DEFAULT_REGION = process.env.AWS_REGION || 'us-west-2';
 const PLAYBACK_URL_TTL_SECONDS = 10 * 60;
 
@@ -273,5 +283,71 @@ export async function startRecordingProcessingController(req: Request, res: Resp
   } catch (err: any) {
     logControllerError(req, err, 'startRecordingProcessingController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to start recording processing.');
+  }
+}
+
+export async function completeRecordingProcessingController(req: Request, res: Response) {
+  try {
+    const expectedWorkerSecret = process.env.WORKER_SHARED_SECRET?.trim();
+    if (!expectedWorkerSecret) {
+      return sendErrorResponse(req, res, 500, 'Worker shared secret is not configured on server.');
+    }
+
+    const providedWorkerSecret = req.header('x-worker-secret');
+    if (!providedWorkerSecret || providedWorkerSecret !== expectedWorkerSecret) {
+      return sendErrorResponse(req, res, 401, 'Unauthorized worker callback request.');
+    }
+
+    const body = req.body as WorkerCompleteRequest;
+    const recordingId = body.recordingId?.trim();
+    if (!recordingId) {
+      return sendErrorResponse(req, res, 400, 'recordingId is required.');
+    }
+
+    const recording = await getRecordingById(recordingId);
+    if (!recording) {
+      return sendErrorResponse(req, res, 404, 'Recording not found.');
+    }
+
+    const failed = body.status?.trim().toLowerCase() === 'failed' || Boolean(body.error?.trim());
+    if (failed) {
+      // Preserve a successful processed video if a later retry reports failure.
+      if (recording.processedVideoUrl) {
+        return res.status(200).json({
+          message: 'Ignoring worker failure callback because recording already has a processed video.',
+          recording
+        });
+      }
+
+      const failedRecording = await updateRecordingById(recordingId, {
+        status: 'failed',
+        error: body.error?.trim() || 'Worker reported processing failure.'
+      });
+
+      return res.status(200).json({
+        message: 'Recording marked as failed.',
+        recording: failedRecording
+      });
+    }
+
+    const processedVideoUrl = body.processedVideoUrl?.trim();
+    if (!processedVideoUrl) {
+      return sendErrorResponse(req, res, 400, 'processedVideoUrl is required for a successful worker callback.');
+    }
+
+    const completedRecording = await updateRecordingById(recordingId, {
+      status: 'completed',
+      processedVideoUrl,
+      ...(body.feedbackJsonUrl?.trim() ? { feedbackJsonUrl: body.feedbackJsonUrl.trim() } : {}),
+      error: null
+    });
+
+    return res.status(200).json({
+      message: 'Recording processing completed.',
+      recording: completedRecording
+    });
+  } catch (err: any) {
+    logControllerError(req, err, 'completeRecordingProcessingController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to complete recording processing.');
   }
 }

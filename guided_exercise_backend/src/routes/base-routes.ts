@@ -10,6 +10,7 @@ import { uploadVideoController, getVideoUrlController } from '@/controllers/aws-
 import { createIvsTokenController } from '@/controllers/ivs-controller.js';
 import { addIvsTelemetryController } from '@/controllers/telemetry-controller.js';
 import {
+  completeRecordingProcessingController,
   getRecordingPlaybackController,
   listRecordingsBySessionController,
   listRecordingsByUserController,
@@ -37,6 +38,7 @@ router.post('/api/firebase/addRecording', addRecordingController);
 router.post('/api/firebase/getUserRecordings', getUserRecordingsController);
 router.post('/api/recordings/upsert', upsertRecordingController);
 router.post('/api/recordings/:recordingId/process', startRecordingProcessingController);
+router.post('/api/recordings/worker-complete', completeRecordingProcessingController);
 router.get('/api/recordings/session/:sessionId', listRecordingsBySessionController);
 router.get('/api/recordings/user/:userId', listRecordingsByUserController);
 router.get('/api/recordings/:recordingId/playback', getRecordingPlaybackController);
