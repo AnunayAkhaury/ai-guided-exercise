@@ -19,10 +19,12 @@ One-shot container for post-processing an IVS participant recording.
 ## Optional environment variables
 
 - `AWS_REGION`
+- `USER_ID`
+  - recommended; when present, processed files go under `processed/users/<USER_ID>/recordings/...`
 - `OUTPUT_BUCKET`
   - defaults to the input bucket
 - `OUTPUT_KEY`
-  - defaults to `processed/<RECORDING_ID>/final_fixed.mp4`
+  - overrides the default output key entirely
 - `WORKDIR`
   - defaults to `/tmp/video-worker`
 - `BACKEND_UPDATE_URL`
@@ -41,6 +43,7 @@ pip install -r requirements.txt
 export AWS_REGION=us-west-2
 export RECORDING_ID=test-recording
 export RAW_S3_PREFIX="move-together-ivs-bucket/gUiseWNvaUuJ/st-1tDGz7IKCfVhT/ehwqDXVtTuxH/2026-04-09T18-16-46Z"
+export USER_ID=test-user
 
 python main.py
 ```
@@ -57,6 +60,7 @@ Run one task per recording with environment overrides for:
 
 - `RECORDING_ID`
 - `RAW_S3_PREFIX`
+- `USER_ID`
 - `OUTPUT_BUCKET`
 - `OUTPUT_KEY`
 - `BACKEND_UPDATE_URL`

@@ -36,6 +36,13 @@ type UpsertRecordingInput = {
   source?: 'manual' | 'eventbridge' | 'worker';
 };
 
+type UpdateRecordingPatch = {
+  status?: RecordingStatus;
+  processedVideoUrl?: string | null;
+  feedbackJsonUrl?: string | null;
+  error?: string | null;
+};
+
 const RECORDINGS_COLLECTION = 'recordings_v2';
 
 function normalizePrefix(prefix: string): string {
@@ -125,6 +132,45 @@ export async function getRecordingById(recordingId: string): Promise<RecordingDo
   }
 
   return mapRecordingDoc(snapshot.id, snapshot.data());
+}
+
+export async function updateRecordingById(
+  recordingId: string,
+  patch: UpdateRecordingPatch
+): Promise<RecordingDocument> {
+  const normalizedRecordingId = recordingId.trim();
+  if (!normalizedRecordingId) {
+    throw new Error('recordingId is required.');
+  }
+
+  const ref = db.collection(RECORDINGS_COLLECTION).doc(normalizedRecordingId);
+  const existingSnapshot = await ref.get();
+  if (!existingSnapshot.exists) {
+    throw new Error('Recording not found.');
+  }
+
+  const existing = existingSnapshot.data();
+  const now = new Date();
+
+  await ref.set(
+    {
+      status: patch.status ?? existing?.status ?? 'queued',
+      processedVideoUrl:
+        patch.processedVideoUrl !== undefined ? patch.processedVideoUrl : existing?.processedVideoUrl ?? null,
+      feedbackJsonUrl:
+        patch.feedbackJsonUrl !== undefined ? patch.feedbackJsonUrl : existing?.feedbackJsonUrl ?? null,
+      error: patch.error !== undefined ? patch.error : existing?.error ?? null,
+      updatedAt: now
+    },
+    { merge: true }
+  );
+
+  const updatedSnapshot = await ref.get();
+  const mapped = mapRecordingDoc(updatedSnapshot.id, updatedSnapshot.data());
+  if (!mapped) {
+    throw new Error('Failed to read recording after update.');
+  }
+  return mapped;
 }
 
 function recordingSortTime(recording: RecordingDocument): number {

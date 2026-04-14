@@ -31,6 +31,18 @@ def parse_s3_prefix(raw_s3_prefix: str) -> Tuple[str, str]:
     return parts[0], parts[1].rstrip("/")
 
 
+def build_output_key(recording_id: str) -> str:
+    explicit_output_key = os.getenv("OUTPUT_KEY")
+    if explicit_output_key:
+        return explicit_output_key.lstrip("/")
+
+    user_id = os.getenv("USER_ID")
+    if user_id:
+        return f"processed/users/{user_id}/recordings/{recording_id}/final_fixed.mp4"
+
+    return f"processed/{recording_id}/final_fixed.mp4"
+
+
 def ensure_clean_dir(path: Path) -> None:
     if path.exists():
         shutil.rmtree(path)
@@ -127,7 +139,7 @@ def main() -> int:
 
     input_bucket, input_prefix = parse_s3_prefix(raw_s3_prefix)
     output_bucket = os.getenv("OUTPUT_BUCKET", input_bucket)
-    output_key = os.getenv("OUTPUT_KEY", f"processed/{recording_id}/final_fixed.mp4")
+    output_key = build_output_key(recording_id)
 
     workdir = Path(os.getenv("WORKDIR", "/tmp/video-worker"))
     hls_dir = workdir / "high"

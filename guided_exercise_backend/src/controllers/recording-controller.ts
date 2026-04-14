@@ -12,9 +12,11 @@ import {
   getRecordingById,
   listRecordingsBySessionId,
   listRecordingsByUserId,
+  updateRecordingById,
   upsertRecording
 } from '@/services/Firebase/firebase-recordings-v2.js';
-import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
+import { startRecordingWorkerTask } from '@/services/AWS/ecs.js';
+import { getRequestId, logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
 type UpsertRecordingRequest = {
   recordingId?: string;
@@ -207,5 +209,69 @@ export async function getRecordingPlaybackController(req: Request, res: Response
   } catch (err: any) {
     logControllerError(req, err, 'getRecordingPlaybackController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to get recording playback URL.');
+  }
+}
+
+export async function startRecordingProcessingController(req: Request, res: Response) {
+  try {
+    const recordingId = Array.isArray(req.params.recordingId) ? req.params.recordingId[0] : req.params.recordingId;
+    if (!recordingId?.trim()) {
+      return sendErrorResponse(req, res, 400, 'recordingId is required.');
+    }
+
+    const recording = await getRecordingById(recordingId);
+    if (!recording) {
+      return sendErrorResponse(req, res, 404, 'Recording not found.');
+    }
+
+    if (!recording.userId?.trim()) {
+      return sendErrorResponse(req, res, 400, 'Recording is missing userId and cannot be processed.');
+    }
+
+    if (!recording.rawS3Prefix?.trim()) {
+      return sendErrorResponse(req, res, 400, 'Recording is missing rawS3Prefix and cannot be processed.');
+    }
+
+    if (recording.status === 'processing') {
+      return sendErrorResponse(req, res, 409, 'Recording is already processing.');
+    }
+
+    if (recording.processedVideoUrl) {
+      return sendErrorResponse(req, res, 409, 'Recording has already been processed.');
+    }
+
+    const processingRecording = await updateRecordingById(recording.recordingId, {
+      status: 'processing',
+      error: null
+    });
+
+    try {
+      const taskArn = await startRecordingWorkerTask({
+        recordingId: processingRecording.recordingId,
+        rawS3Prefix: processingRecording.rawS3Prefix,
+        userId: processingRecording.userId!
+      });
+
+      return res.status(202).json({
+        message: 'Recording processing started.',
+        recording: processingRecording,
+        taskArn
+      });
+    } catch (err: any) {
+      const failedRecording = await updateRecordingById(recording.recordingId, {
+        status: 'failed',
+        error: err?.message || 'Failed to start recording worker task.'
+      });
+
+      logControllerError(req, err, 'startRecordingProcessingController failed to start ECS task');
+      return res.status(500).json({
+        message: failedRecording.error || 'Failed to start recording worker task.',
+        requestId: getRequestId(req),
+        recording: failedRecording
+      });
+    }
+  } catch (err: any) {
+    logControllerError(req, err, 'startRecordingProcessingController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to start recording processing.');
   }
 }

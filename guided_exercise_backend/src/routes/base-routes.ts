@@ -13,6 +13,7 @@ import {
   getRecordingPlaybackController,
   listRecordingsBySessionController,
   listRecordingsByUserController,
+  startRecordingProcessingController,
   upsertRecordingController
 } from '@/controllers/recording-controller.js';
 import {
@@ -35,6 +36,7 @@ router.post('/api/firebase/getProfile', getProfileController);
 router.post('/api/firebase/addRecording', addRecordingController);
 router.post('/api/firebase/getUserRecordings', getUserRecordingsController);
 router.post('/api/recordings/upsert', upsertRecordingController);
+router.post('/api/recordings/:recordingId/process', startRecordingProcessingController);
 router.get('/api/recordings/session/:sessionId', listRecordingsBySessionController);
 router.get('/api/recordings/user/:userId', listRecordingsByUserController);
 router.get('/api/recordings/:recordingId/playback', getRecordingPlaybackController);
