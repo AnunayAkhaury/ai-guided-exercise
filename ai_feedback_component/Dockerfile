@@ -2,9 +2,6 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-ARG LLM_API_KEY
-ENV GEMINI_API_KEY=${LLM_API_KEY}
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
