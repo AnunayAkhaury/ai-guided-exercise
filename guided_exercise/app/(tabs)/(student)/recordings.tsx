@@ -1,125 +1,171 @@
-import React, { useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
-import { fetchRecordings } from '@/src/api/AWS/aws-s3';
-import { useUserStore } from '@/src/store/userStore';
-import MountainClimbExercise from '@/src/assets/images/mountain-climb-exercise-img.jpg';
-import PushUpExercise from '@/src/assets/images/push-up-exercise-img.jpg';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, View, useWindowDimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import Typography from '@/src/components/ui/Typography';
-import Gradient from '@/src/assets/images/RecordingsGradient.jpeg'; 
+import { getIvsRecordingPlayback, listIvsRecordingsByUser, type IvsRecording } from '@/src/api/ivs';
+import { useUserStore } from '@/src/store/userStore';
 
+function formatDate(value: string | null) {
+  if (!value) return 'Unknown date';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Unknown date';
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+}
 
-type Recording = {
-  date: string; // e.g. ISO string from Firestore
-  link: string;
-  exercise: string;
-};
+function formatDuration(durationMs: number | null) {
+  if (!durationMs || durationMs < 1000) return '0s';
+  const totalSeconds = Math.round(durationMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes === 0) return `${seconds}s`;
+  return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+}
 
-const exerciseImages: Record<string, any> = {
-  'Mountain Climber': MountainClimbExercise,
-  'Push Up': PushUpExercise
-};
-
-export default function RecordingsScreen() {
+export default function StudentRecordingsScreen() {
   const { width, height } = useWindowDimensions();
   const isSmallPhone = width < 380 || height < 760;
-  const horizontalPadding = isSmallPhone ? 12 : 14;
-  const cardWidth = Math.max(148, Math.floor((width - horizontalPadding * 2 - 16) / 2));
-  const [recordings, setRecordings] = React.useState<Recording[]>([]);
-  const [loading, setLoading] = React.useState<boolean>(true);
+  const horizontalPadding = isSmallPhone ? 14 : 18;
   const uid = useUserStore((state) => state.uid);
+  const [recordings, setRecordings] = useState<IvsRecording[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
+
+  const loadRecordings = useCallback(async () => {
+    if (!uid) {
+      setRecordings([]);
+      return;
+    }
+    const data = await listIvsRecordingsByUser(uid);
+    setRecordings(data);
+  }, [uid]);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const run = async () => {
       try {
-        if (!uid) {
-          setRecordings([]);
-          setLoading(false);
-          return;
-        }
-        const userRecordings = await fetchRecordings(uid);
-        setRecordings(userRecordings);
-      } catch {
-        setRecordings([]);
-        setLoading(false);
+        await loadRecordings();
+      } catch (error: any) {
+        Alert.alert('Unable to load recordings', error?.message || 'Please try again.');
       } finally {
         setLoading(false);
       }
     };
+    void run();
+  }, [loadRecordings]);
 
-    fetchData();
-  }, [uid]);
+  const onRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      await loadRecordings();
+    } catch (error: any) {
+      Alert.alert('Refresh failed', error?.message || 'Please try again.');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadRecordings]);
 
-  // Group recordings by Month-Year and then by Day
-  const groupedByMonthYear = recordings.reduce(
-    (acc, rec) => {
-      const dateObj = new Date(rec.date);
-      const monthYear = dateObj.toLocaleString('default', { month: 'long', year: 'numeric' }); // e.g. "October 2025"
-      const day = dateObj.toLocaleDateString('default', { month: 'long', day: 'numeric', year: 'numeric' }); // e.g. "October 25, 2025"
-
-      if (!acc[monthYear]) acc[monthYear] = {};
-      if (!acc[monthYear][day]) acc[monthYear][day] = [];
-      acc[monthYear][day].push(rec);
+  const groupedRecordings = useMemo(() => {
+    return recordings.reduce<Record<string, IvsRecording[]>>((acc, recording) => {
+      const key = recording.recordingStart
+        ? new Date(recording.recordingStart).toLocaleString(undefined, { month: 'long', year: 'numeric' })
+        : 'Unknown';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(recording);
       return acc;
-    },
-    {} as Record<string, Record<string, Recording[]>>
-  );
+    }, {});
+  }, [recordings]);
+
+  const handlePlay = useCallback(async (recordingId: string) => {
+    try {
+      setPlayingRecordingId(recordingId);
+      const playback = await getIvsRecordingPlayback(recordingId);
+      router.push({
+        pathname: '/(extra)/recording-display',
+        params: { link: playback.playbackUrl }
+      });
+    } catch (error: any) {
+      Alert.alert('Playback failed', error?.message || 'Unable to load this recording.');
+    } finally {
+      setPlayingRecordingId(null);
+    }
+  }, []);
 
   return (
-    <View className='flex-grow bg-white'>
+    <View className="flex-1 bg-white">
       <Header title="Recordings" />
-
-      <View className='flex-grow'>
-        {loading && <Text>Loading...</Text>}
-        {!loading && recordings.length === 0 && <Text>No recordings found</Text>}
-        {!loading && recordings.length > 0 && (
-          <ScrollView contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
-            {/* Month-Year Sections */}
-            {Object.entries(groupedByMonthYear).map(([monthYear, days]) => (
-              <View key={monthYear} className='mb-3 pt-10' style={{ paddingLeft: horizontalPadding }}>
-                <View className='relative px-5 rounded-xl self-start overflow-hidden mb-4'>
-                  <Image
-                    source={Gradient}
-                    resizeMode="cover"
-                    className="absolute flex-grow inset-0"
-                  />
-                  <Typography font='inter-semibold' className='text-lg'>{monthYear}</Typography>
-                </View>
-
-                {/* Day Sections */}
-                {Object.entries(days).map(([day, dayRecordings]) => (
-                  <View key={day}>
-                    <Typography font='istokWeb' className='mb-2'>{day}</Typography>
-                    <View className='flex flex-row flex-wrap gap-3'>
-                      {dayRecordings.map((recording, index) => (
-                        <TouchableOpacity
-                          key={index}
-                          className='flex flex-col justify-center items-center'
-                          style={{ width: cardWidth }}
-                          onPress={() =>
-                            router.push({
-                              pathname: '/(extra)/recording-display',
-                              params: { link: recording.link }
-                            })
-                          }
-                        >
-                          <Image
-                            source={exerciseImages[recording.exercise]}
-                            resizeMode="cover"
-                            className='w-full h-28 shadow shadow-black bg-white'
-                          />
-                          <Typography className='text-sm mt-2'>{recording.exercise}</Typography>
-                        </TouchableOpacity>
-                      ))}
+      <ScrollView
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}
+        contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingBottom: 30, paddingTop: 16 }}
+      >
+        {loading ? (
+          <View className="items-center pt-12">
+            <ActivityIndicator color="#6155F5" />
+            <Typography className="mt-3 text-[#666]">Loading recordings...</Typography>
+          </View>
+        ) : recordings.length === 0 ? (
+          <View className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-6 items-center mt-3">
+            <Ionicons name="videocam-outline" size={24} color="#6155F5" />
+            <Typography font="inter-semibold" className="text-[#342F66] text-base mt-3">
+              No recordings yet
+            </Typography>
+            <Typography className="text-[#6C6896] text-center mt-2">
+              Your session recordings will appear here after class ends.
+            </Typography>
+          </View>
+        ) : (
+          Object.entries(groupedRecordings).map(([group, items]) => (
+            <View key={group} className="mb-6">
+              <Typography font="inter-semibold" className="text-[#3E3A67] text-base mb-3">
+                {group}
+              </Typography>
+              {items.map((recording) => (
+                <View
+                  key={recording.recordingId}
+                  className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-4 mb-3"
+                >
+                  <View className="flex-row items-center justify-between">
+                    <Typography font="inter-semibold" className="text-[#2F2A5A]">
+                      {formatDate(recording.recordingStart)}
+                    </Typography>
+                    <View className="px-2 py-1 rounded-full bg-[#E5DCFF]">
+                      <Typography font="inter-medium" className="text-[#6155F5] text-xs">
+                        {recording.status}
+                      </Typography>
                     </View>
                   </View>
-                ))}
-              </View>
-            ))}
-          </ScrollView>
+                  <Typography className="text-[#5B5685] mt-2">
+                    Duration: {formatDuration(recording.durationMs)}
+                  </Typography>
+                  <Pressable
+                    onPress={() => void handlePlay(recording.recordingId)}
+                    disabled={playingRecordingId === recording.recordingId}
+                    className="mt-4 rounded-xl bg-[#6155F5] px-4 py-3 flex-row items-center justify-center"
+                  >
+                    {playingRecordingId === recording.recordingId ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="play" size={18} color="#fff" />
+                        <Typography font="inter-semibold" className="text-white ml-2">
+                          Play Recording
+                        </Typography>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          ))
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 }

@@ -82,6 +82,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="(teacher)/recordings"
+        options={{
+          title: "Recordings",
+          tabBarIcon: ({ color, size }) => (
+            <Entypo name="folder-video" color={color} size={size} />
+          ),
+          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/recordings" : null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
         name="(teacher)/start-meeting"
         options={{
           title: "Start Meeting",
