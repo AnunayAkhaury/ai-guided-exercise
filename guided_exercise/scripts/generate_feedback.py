@@ -14,7 +14,7 @@ GEMINI_API_KEY = ""
 class Feedback(BaseModel):
     timestampStart: int = Field(description="First timestamp ms of grouped reps")
     timestampEnd: int = Field(description="Last timestamp ms of grouped reps")
-    feedback: str = Field(description="Feedback in few words made")
+    feedback: str = Field(description="Feedback in few words")
 
 class Response(BaseModel):
     data: List[Feedback]
