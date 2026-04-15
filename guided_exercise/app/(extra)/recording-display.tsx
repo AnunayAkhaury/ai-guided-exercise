@@ -2,12 +2,14 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { router, useLocalSearchParams } from 'expo-router';
+import useRecording from '@/src/hooks/useRecording';
 
 export default function RecordingDisplay() {
-  const { link } = useLocalSearchParams();
+  const { id } = useLocalSearchParams();
+  const { data, loading, error } = useRecording(id);
   const videoLink = Array.isArray(link) ? link[0] : link;
 
-  if (!videoLink) {
+  if (error) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <TouchableOpacity

@@ -12,7 +12,7 @@ import Gradient from '@/src/assets/images/RecordingsGradient.jpeg';
 
 type Recording = {
   date: string; // e.g. ISO string from Firestore
-  link: string;
+  id: string;
   exercise: string;
 };
 
@@ -41,9 +41,10 @@ export default function RecordingsScreen() {
         const userRecordings = await fetchRecordings(uid);
         setRecordings(userRecordings);
       } catch {
-        setRecordings([]);
+        setRecordings([{date: new Date().toISOString(), id: "", exercise: "Push Up" }]);
         setLoading(false);
       } finally {
+        setRecordings([{date: new Date().toISOString(), id: "", exercise: "Push Up" }]);
         setLoading(false);
       }
     };
@@ -100,7 +101,7 @@ export default function RecordingsScreen() {
                           onPress={() =>
                             router.push({
                               pathname: '/(extra)/recording-display',
-                              params: { link: recording.link }
+                              params: { id: recording.id }
                             })
                           }
                         >

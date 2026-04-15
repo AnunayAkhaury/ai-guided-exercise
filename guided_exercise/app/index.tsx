@@ -9,11 +9,12 @@ export default function Index() {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (user) {
-        router.replace('/(tabs)/classes');
-      } else {
-        router.replace('/(onboarding)/signup');
-      }
+      // if (user) {
+      //   router.replace('/(tabs)/classes');
+      // } else {
+      //   router.replace('/(onboarding)/signup');
+      // }
+      router.replace('/(tabs)/classes');
     }, 0);
 
     return () => clearTimeout(timeout);
