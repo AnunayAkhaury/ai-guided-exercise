@@ -65,6 +65,28 @@ function parseS3Prefix(rawS3Prefix: string): { bucket: string; keyPrefix: string
   };
 }
 
+function resolvePlaybackTarget(recording: RecordingDocument): { bucket: string; key: string; source: 'processed' | 'raw_hls' } | null {
+  const processed = recording.processedVideoUrl ? parseS3Prefix(recording.processedVideoUrl) : null;
+  if (processed) {
+    return {
+      bucket: processed.bucket,
+      key: processed.keyPrefix,
+      source: 'processed'
+    };
+  }
+
+  const raw = parseS3Prefix(recording.rawS3Prefix);
+  if (!raw) {
+    return null;
+  }
+
+  return {
+    bucket: raw.bucket,
+    key: `${raw.keyPrefix}/media/hls/high/playlist.m3u8`,
+    source: 'raw_hls'
+  };
+}
+
 function isAutoStartRecordingProcessingEnabled(): boolean {
   return process.env.AUTO_START_RECORDING_PROCESSING?.trim().toLowerCase() === 'true';
 }
@@ -264,16 +286,15 @@ export async function getRecordingPlaybackController(req: Request, res: Response
       return sendErrorResponse(req, res, 404, 'Recording not found.');
     }
 
-    const parsed = parseS3Prefix(recording.rawS3Prefix);
-    if (!parsed) {
-      return sendErrorResponse(req, res, 400, 'Invalid recording S3 prefix.');
+    const target = resolvePlaybackTarget(recording);
+    if (!target) {
+      return sendErrorResponse(req, res, 400, 'Invalid recording playback target.');
     }
 
-    const hlsPlaylistKey = `${parsed.keyPrefix}/media/hls/high/playlist.m3u8`;
     const s3Client = new S3Client({ region: DEFAULT_REGION });
     const command = new GetObjectCommand({
-      Bucket: parsed.bucket,
-      Key: hlsPlaylistKey
+      Bucket: target.bucket,
+      Key: target.key
     });
     const playbackUrl = await getSignedUrl(s3Client, command, { expiresIn: PLAYBACK_URL_TTL_SECONDS });
 
@@ -283,7 +304,8 @@ export async function getRecordingPlaybackController(req: Request, res: Response
       participantId: recording.participantId,
       playbackUrl,
       expiresInSeconds: PLAYBACK_URL_TTL_SECONDS,
-      hlsPlaylistKey
+      source: target.source,
+      objectKey: target.key
     });
   } catch (err: any) {
     logControllerError(req, err, 'getRecordingPlaybackController failed');

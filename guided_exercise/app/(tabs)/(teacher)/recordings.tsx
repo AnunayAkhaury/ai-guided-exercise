@@ -4,13 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import Typography from '@/src/components/ui/Typography';
-import {
-  getIvsRecordingPlayback,
-  listIvsRecordingsBySession,
-  listIvsSessions,
-  type IvsRecording,
-  type IvsSession
-} from '@/src/api/ivs';
+import { getIvsRecordingPlayback, listIvsRecordingsByUser, type IvsRecording } from '@/src/api/ivs';
+import { useUserStore } from '@/src/store/userStore';
 
 function formatDate(value: string | null) {
   if (!value) return 'Unknown date';
@@ -38,73 +33,57 @@ export default function TeacherRecordingsScreen() {
   const { width, height } = useWindowDimensions();
   const isSmallPhone = width < 380 || height < 760;
   const horizontalPadding = isSmallPhone ? 14 : 18;
-  const [sessions, setSessions] = useState<IvsSession[]>([]);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const uid = useUserStore((state) => state.uid);
   const [recordings, setRecordings] = useState<IvsRecording[]>([]);
-  const [loadingSessions, setLoadingSessions] = useState(true);
-  const [loadingRecordings, setLoadingRecordings] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
 
-  const selectedSession = useMemo(
-    () => sessions.find((session) => session.sessionId === selectedSessionId) ?? null,
-    [selectedSessionId, sessions]
-  );
-
-  const loadSessions = useCallback(async () => {
-    const data = await listIvsSessions(['live', 'scheduled', 'ended']);
-    setSessions(data);
-    if (!selectedSessionId && data.length > 0) {
-      setSelectedSessionId(data[0]?.sessionId ?? null);
+  const loadRecordings = useCallback(async () => {
+    if (!uid) {
+      setRecordings([]);
+      return;
     }
-  }, [selectedSessionId]);
 
-  const loadRecordingsForSession = useCallback(async (sessionId: string) => {
-    setLoadingRecordings(true);
-    try {
-      const data = await listIvsRecordingsBySession(sessionId);
-      setRecordings(data);
-    } finally {
-      setLoadingRecordings(false);
-    }
-  }, []);
+    const data = await listIvsRecordingsByUser(uid);
+    setRecordings(data);
+  }, [uid]);
 
   useEffect(() => {
     const run = async () => {
       try {
-        await loadSessions();
+        await loadRecordings();
       } catch (error: any) {
-        Alert.alert('Unable to load sessions', error?.message || 'Please try again.');
+        Alert.alert('Unable to load recordings', error?.message || 'Please try again.');
       } finally {
-        setLoadingSessions(false);
+        setLoading(false);
       }
     };
-    void run();
-  }, [loadSessions]);
 
-  useEffect(() => {
-    if (!selectedSessionId) {
-      setRecordings([]);
-      return;
-    }
-    void loadRecordingsForSession(selectedSessionId).catch((error: any) => {
-      Alert.alert('Unable to load recordings', error?.message || 'Please try again.');
-    });
-  }, [loadRecordingsForSession, selectedSessionId]);
+    void run();
+  }, [loadRecordings]);
 
   const onRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
-      await loadSessions();
-      if (selectedSessionId) {
-        await loadRecordingsForSession(selectedSessionId);
-      }
+      await loadRecordings();
     } catch (error: any) {
       Alert.alert('Refresh failed', error?.message || 'Please try again.');
     } finally {
       setRefreshing(false);
     }
-  }, [loadRecordingsForSession, loadSessions, selectedSessionId]);
+  }, [loadRecordings]);
+
+  const groupedRecordings = useMemo(() => {
+    return recordings.reduce<Record<string, IvsRecording[]>>((acc, recording) => {
+      const key = recording.recordingStart
+        ? new Date(recording.recordingStart).toLocaleString(undefined, { month: 'long', year: 'numeric' })
+        : 'Unknown';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(recording);
+      return acc;
+    }, {});
+  }, [recordings]);
 
   const handlePlay = useCallback(async (recordingId: string) => {
     try {
@@ -128,102 +107,74 @@ export default function TeacherRecordingsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}
         contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingBottom: 30, paddingTop: 16 }}
       >
-        <Typography font="inter-semibold" className="text-[#3E3A67] text-base mb-3">
-          Choose Session
-        </Typography>
-
-        {loadingSessions ? (
-          <View className="items-center py-6">
+        {loading ? (
+          <View className="items-center pt-12">
             <ActivityIndicator color="#6155F5" />
+            <Typography className="mt-3 text-[#666]">Loading recordings...</Typography>
           </View>
-        ) : sessions.length === 0 ? (
-          <View className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-5 mb-4">
-            <Typography font="inter-semibold" className="text-[#342F66]">
-              No sessions found
+        ) : recordings.length === 0 ? (
+          <View className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-6 items-center mt-3">
+            <Ionicons name="videocam-outline" size={24} color="#6155F5" />
+            <Typography font="inter-semibold" className="text-[#342F66] text-base mt-3">
+              No recordings yet
             </Typography>
-            <Typography className="text-[#6C6896] mt-1">Create or start a class to see recordings.</Typography>
+            <Typography className="text-[#6C6896] text-center mt-2">
+              Your processed class recordings will appear here after session recording completes.
+            </Typography>
           </View>
         ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
-            {sessions.map((session) => {
-              const isSelected = session.sessionId === selectedSessionId;
-              return (
-                <Pressable
-                  key={session.sessionId}
-                  onPress={() => setSelectedSessionId(session.sessionId)}
-                  className={`rounded-xl mr-2 px-4 py-3 border ${isSelected ? 'bg-[#6155F5] border-[#6155F5]' : 'bg-white border-[#D9CCFF]'}`}
-                  style={{ minWidth: Math.min(220, Math.max(150, width * 0.5)) }}
+          Object.entries(groupedRecordings).map(([group, items]) => (
+            <View key={group} className="mb-6">
+              <Typography font="inter-semibold" className="text-[#3E3A67] text-base mb-3">
+                {group}
+              </Typography>
+              {items.map((recording) => (
+                <View
+                  key={recording.recordingId}
+                  className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-4 mb-3"
                 >
-                  <Typography
-                    font="inter-semibold"
-                    className={isSelected ? 'text-white' : 'text-[#322D5D]'}
-                    numberOfLines={1}
-                  >
-                    {session.sessionName}
-                  </Typography>
-                  <Typography className={isSelected ? 'text-[#E8E3FF] mt-1 text-xs' : 'text-[#7A76A1] mt-1 text-xs'}>
-                    Code: {session.sessionCode}
-                  </Typography>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        )}
-
-        <View className="mt-4">
-          <Typography font="inter-semibold" className="text-[#3E3A67] text-base mb-3">
-            {selectedSession ? `${selectedSession.sessionName} Recordings` : 'Session Recordings'}
-          </Typography>
-
-          {!selectedSession ? (
-            <View className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-5">
-              <Typography className="text-[#6C6896]">Select a session to view recordings.</Typography>
-            </View>
-          ) : loadingRecordings ? (
-            <View className="items-center py-8">
-              <ActivityIndicator color="#6155F5" />
-            </View>
-          ) : recordings.length === 0 ? (
-            <View className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-5">
-              <Typography className="text-[#6C6896]">No recordings found for this session yet.</Typography>
-            </View>
-          ) : (
-            recordings.map((recording) => (
-              <View key={recording.recordingId} className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-4 mb-3">
-                <View className="flex-row items-center justify-between">
-                  <Typography font="inter-semibold" className="text-[#2F2A5A]">
-                    {recording.participantId}
-                  </Typography>
-                  <View className="px-2 py-1 rounded-full bg-[#E5DCFF]">
-                    <Typography font="inter-medium" className="text-[#6155F5] text-xs">
-                      {recording.status}
+                  <View className="flex-row items-center justify-between">
+                    <Typography font="inter-semibold" className="text-[#2F2A5A]">
+                      {formatDate(recording.recordingStart)}
                     </Typography>
-                  </View>
-                </View>
-
-                <Typography className="text-[#5B5685] mt-2">Start: {formatDate(recording.recordingStart)}</Typography>
-                <Typography className="text-[#5B5685] mt-1">Duration: {formatDuration(recording.durationMs)}</Typography>
-
-                <Pressable
-                  onPress={() => void handlePlay(recording.recordingId)}
-                  disabled={playingRecordingId === recording.recordingId}
-                  className="mt-4 rounded-xl bg-[#6155F5] px-4 py-3 flex-row items-center justify-center"
-                >
-                  {playingRecordingId === recording.recordingId ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <>
-                      <Ionicons name="play" size={18} color="#fff" />
-                      <Typography font="inter-semibold" className="text-white ml-2">
-                        Play Recording
+                    <View className="px-2 py-1 rounded-full bg-[#E5DCFF]">
+                      <Typography font="inter-medium" className="text-[#6155F5] text-xs">
+                        {recording.status}
                       </Typography>
-                    </>
-                  )}
-                </Pressable>
-              </View>
-            ))
-          )}
-        </View>
+                    </View>
+                  </View>
+
+                  <Typography className="text-[#5B5685] mt-2">
+                    Duration: {formatDuration(recording.durationMs)}
+                  </Typography>
+
+                  {recording.sessionId ? (
+                    <Typography className="text-[#5B5685] mt-1" numberOfLines={1}>
+                      Session: {recording.sessionId}
+                    </Typography>
+                  ) : null}
+
+                  <Pressable
+                    onPress={() => void handlePlay(recording.recordingId)}
+                    disabled={playingRecordingId === recording.recordingId}
+                    className="mt-4 rounded-xl bg-[#6155F5] px-4 py-3 flex-row items-center justify-center"
+                  >
+                    {playingRecordingId === recording.recordingId ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="play" size={18} color="#fff" />
+                        <Typography font="inter-semibold" className="text-white ml-2">
+                          Play Recording
+                        </Typography>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          ))
+        )}
       </ScrollView>
     </View>
   );
