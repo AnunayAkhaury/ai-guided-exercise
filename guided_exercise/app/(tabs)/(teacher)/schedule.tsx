@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import { createIvsSession } from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
+import { resolvePreferredDisplayName } from '@/src/utils/display-name';
 
 function withRoundedHour(date: Date) {
   const next = new Date(date);
@@ -35,7 +36,15 @@ export default function ScheduleScreen() {
     () => username?.trim() || fullname?.trim() || `instructor-${Date.now()}`,
     [fullname, username]
   );
-  const coachName = useMemo(() => fullname?.trim() || username?.trim() || 'Coach', [fullname, username]);
+  const coachName = useMemo(
+    () =>
+      resolvePreferredDisplayName({
+        fullname,
+        username,
+        fallback: 'Coach'
+      }),
+    [fullname, username]
+  );
 
   const [sessionName, setSessionName] = useState('');
   const [startAt, setStartAt] = useState(() => withRoundedHour(new Date()));

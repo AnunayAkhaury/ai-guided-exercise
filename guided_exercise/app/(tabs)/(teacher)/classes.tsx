@@ -5,7 +5,17 @@ import { useRouter } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import Typography from '@/src/components/ui/Typography';
 import TeacherActiveClassCard from '@/src/components/classes/TeacherActiveClassCard';
-import { endIvsSession, listIvsSessions, type IvsSession } from '@/src/api/ivs';
+import {
+  cacheIvsToken,
+  endIvsSession,
+  getIvsToken,
+  getReusableIvsToken,
+  listIvsSessions,
+  sendIvsTelemetry,
+  type IvsSession,
+  upsertIvsSessionParticipant
+} from '@/src/api/ivs';
+import { useUserStore } from '@/src/store/userStore';
 
 function toSessionWindow(session: IvsSession) {
   const start = session.scheduledStartAt ? new Date(session.scheduledStartAt) : new Date(session.createdAt);
@@ -30,6 +40,11 @@ export default function ClassesScreen() {
   const [sessions, setSessions] = useState<IvsSession[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [cancelingSessionId, setCancelingSessionId] = useState<string | null>(null);
+  const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
+  const role = useUserStore((state) => state.role);
+  const uid = useUserStore((state) => state.uid);
+  const username = useUserStore((state) => state.username);
+  const fullname = useUserStore((state) => state.fullname);
 
   const loadSessions = useCallback(async () => {
     const data = await listIvsSessions(['live', 'scheduled']);
@@ -48,8 +63,13 @@ export default function ClassesScreen() {
   }, [loadSessions]);
 
   useEffect(() => {
+    if (!role) return;
+    if (role !== 'instructor') {
+      router.replace(role === 'student' ? '/(tabs)/(student)/classes' : '/(tabs)/profile');
+      return;
+    }
     void refreshSessions();
-  }, [refreshSessions]);
+  }, [refreshSessions, role, router]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -79,6 +99,91 @@ export default function ClassesScreen() {
       Alert.alert('Cancel failed', error?.message || 'Unable to cancel this session.');
     } finally {
       setCancelingSessionId(null);
+    }
+  };
+
+  const handleOpenLiveSession = async (session: IvsSession) => {
+    const effectiveUid = uid?.trim();
+    const displayName = fullname?.trim() || username?.trim() || 'Instructor';
+
+    if (!effectiveUid) {
+      Alert.alert('Missing profile', 'Missing profile uid. Please log out and log in again.');
+      return;
+    }
+    if (joiningSessionId) return;
+
+    try {
+      setJoiningSessionId(session.sessionId);
+      const cached = getReusableIvsToken({
+        sessionId: session.sessionId,
+        stageArn: session.stageArn,
+        userId: effectiveUid,
+        role: 'instructor'
+      });
+
+      if (cached) {
+        void sendIvsTelemetry({
+          eventName: 'token_reused',
+          sessionId: session.sessionId,
+          stageArn: session.stageArn,
+          userId: effectiveUid,
+          role: 'instructor',
+          participantId: cached.participantId
+        });
+      }
+
+      const tokenResult =
+        cached ??
+        (await getIvsToken({
+          stageArn: session.stageArn,
+          userId: effectiveUid,
+          userName: displayName,
+          publish: true,
+          subscribe: true,
+          durationMinutes: 60,
+          attributes: {
+            displayName,
+            userId: effectiveUid,
+            role: 'instructor',
+            sessionId: session.sessionId,
+            sessionCode: session.sessionCode
+          }
+        }));
+
+      cacheIvsToken(
+        {
+          sessionId: session.sessionId,
+          stageArn: session.stageArn,
+          userId: effectiveUid,
+          role: 'instructor'
+        },
+        tokenResult
+      );
+
+      await upsertIvsSessionParticipant({
+        sessionId: session.sessionId,
+        participantId: tokenResult.participantId,
+        userId: effectiveUid,
+        displayName,
+        role: 'instructor'
+      });
+
+      router.push({
+        pathname: '/(tabs)/(teacher)/session',
+        params: {
+          sessionName: session.sessionName,
+          userName: displayName,
+          sessionCode: session.sessionCode,
+          sessionId: session.sessionId,
+          stageArn: session.stageArn,
+          participantId: tokenResult.participantId,
+          token: tokenResult.token
+        }
+      });
+    } catch (error: any) {
+      Alert.alert('Join failed', error?.message || 'Unable to join this live session.');
+    } finally {
+      setJoiningSessionId(null);
     }
   };
 
@@ -118,10 +223,14 @@ export default function ClassesScreen() {
                 desc={`${isLive ? 'Live' : 'Ready'} • Code: ${item.sessionCode}`}
                 active={isLive}
                 subtitle={`Coach: ${item.coachName || item.instructorUid}`}
-                startLabel={isLive ? 'Open Live' : 'Start Meeting'}
+                startLabel={isLive ? (joiningSessionId === item.sessionId ? 'Joining...' : 'Open Live') : 'Start Meeting'}
                 cancelLabel={cancelingSessionId === item.sessionId ? 'Canceling...' : 'Cancel'}
-                actionsDisabled={Boolean(cancelingSessionId)}
-                onStartPress={() =>
+                actionsDisabled={Boolean(cancelingSessionId) || Boolean(joiningSessionId)}
+                onStartPress={() => {
+                  if (isLive) {
+                    void handleOpenLiveSession(item);
+                    return;
+                  }
                   router.push({
                     pathname: '/(tabs)/(teacher)/start-meeting',
                     params: {
@@ -129,8 +238,8 @@ export default function ClassesScreen() {
                       sessionId: item.sessionId,
                       coachName: item.coachName || item.instructorUid
                     }
-                  })
-                }
+                  });
+                }}
                 onCancelPress={() => handleCancelScheduled(item.sessionId)}
               />
             );

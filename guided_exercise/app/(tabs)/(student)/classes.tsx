@@ -6,9 +6,12 @@ import Header from '@/src/components/ui/Header';
 import TeacherActiveClassCard from '@/src/components/classes/TeacherActiveClassCard';
 import Typography from '@/src/components/ui/Typography';
 import {
+  cacheIvsToken,
   getIvsToken,
+  getReusableIvsToken,
   joinIvsSessionByCode,
   listIvsSessions,
+  sendIvsTelemetry,
   type IvsSession,
   upsertIvsSessionParticipant
 } from '@/src/api/ivs';
@@ -24,6 +27,7 @@ export default function ClassesScreen() {
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
   const uid = useUserStore((state) => state.uid);
+  const role = useUserStore((state) => state.role);
   const [sessions, setSessions] = useState<IvsSession[]>([]);
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
   const fallbackDisplayName = username?.trim() || fullname?.trim() || 'Student Test';
@@ -38,8 +42,13 @@ export default function ClassesScreen() {
   }, []);
 
   useEffect(() => {
+    if (!role) return;
+    if (role !== 'student') {
+      router.replace(role === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/profile');
+      return;
+    }
     void loadSessions();
-  }, [loadSessions]);
+  }, [loadSessions, role, router]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -83,21 +92,48 @@ export default function ClassesScreen() {
       if (!effectiveUid) {
         throw new Error('Missing profile uid. Please log out and log in again.');
       }
-      const tokenResult = await getIvsToken({
+      const cached = getReusableIvsToken({
+        sessionId: joinedSession.sessionId,
         stageArn: joinedSession.stageArn,
         userId: effectiveUid,
-        userName: displayName,
-        publish: true,
-        subscribe: true,
-        durationMinutes: 60,
-        attributes: {
-          displayName,
+        role: 'student'
+      });
+      if (cached) {
+        void sendIvsTelemetry({
+          eventName: 'token_reused',
+          sessionId: joinedSession.sessionId,
+          stageArn: joinedSession.stageArn,
           userId: effectiveUid,
           role: 'student',
+          participantId: cached.participantId
+        });
+      }
+      const tokenResult =
+        cached ??
+        (await getIvsToken({
+          stageArn: joinedSession.stageArn,
+          userId: effectiveUid,
+          userName: displayName,
+          publish: true,
+          subscribe: true,
+          durationMinutes: 60,
+          attributes: {
+            displayName,
+            userId: effectiveUid,
+            role: 'student',
+            sessionId: joinedSession.sessionId,
+            sessionCode: joinedSession.sessionCode
+          }
+        }));
+      cacheIvsToken(
+        {
           sessionId: joinedSession.sessionId,
-          sessionCode: joinedSession.sessionCode
-        }
-      });
+          stageArn: joinedSession.stageArn,
+          userId: effectiveUid,
+          role: 'student'
+        },
+        tokenResult
+      );
       await upsertIvsSessionParticipant({
         sessionId: joinedSession.sessionId,
         participantId: tokenResult.participantId,
@@ -107,11 +143,14 @@ export default function ClassesScreen() {
       });
 
       router.push({
-        pathname: '/(tabs)/(student)/session',
+        pathname: '/(tabs)/session' as any,
         params: {
           sessionName: joinedSession.sessionName,
           sessionCode: joinedSession.sessionCode,
           sessionId: joinedSession.sessionId,
+          stageArn: joinedSession.stageArn,
+          participantId: tokenResult.participantId,
+          role: 'student',
           userName: displayName,
           token: tokenResult.token
         }

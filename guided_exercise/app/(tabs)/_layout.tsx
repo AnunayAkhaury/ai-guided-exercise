@@ -4,25 +4,14 @@ import { useUserStore } from "@/src/store/userStore";
 import { AntDesign, Entypo, Ionicons, Octicons } from "@expo/vector-icons";
 import { Alert } from "react-native";
 import { useCallStore } from "@/src/store/callStore";
-import { useEffect } from "react";
 
 export default function TabLayout() {
   const role = useUserStore((state) => state.role);
   const inCall = useCallStore((state) => state.inCall);
-  const setInCall = useCallStore((state) => state.setInCall);
   const pathname = usePathname();
   const skipAuth = __DEV__ && role == null;
   const normalizedPath = (pathname || "").toLowerCase();
-  const isSessionRoute =
-    normalizedPath.endsWith('/session') ||
-    normalizedPath.includes('/(teacher)/session') ||
-    normalizedPath.includes('/(student)/session');
-
-  useEffect(() => {
-    if (!isSessionRoute && inCall) {
-      setInCall(false);
-    }
-  }, [inCall, isSessionRoute, setInCall]);
+  const isSessionRoute = normalizedPath.endsWith('/session');
 
   return (
     <Tabs
@@ -40,12 +29,17 @@ export default function TabLayout() {
         tabBarStyle: {
           display: inCall || isSessionRoute ? "none" : "flex",
           backgroundColor: "#A980FE",
-          height: 80,
-          paddingTop: 13,
+          minHeight: 64,
+          height: 'auto',
+          paddingTop: 10,
+          paddingBottom: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 14,
+          fontSize: 13,
           fontFamily: "Inter_600SemiBold",
+        },
+        tabBarItemStyle: {
+          paddingVertical: 2,
         },
         tabBarActiveTintColor: "#6155F5",
         tabBarInactiveTintColor: "#000",
@@ -74,13 +68,6 @@ export default function TabLayout() {
           headerShown: false,
         }}
       />
-      <Tabs.Screen
-        name="(student)/session"
-        options={{
-          href: null,
-          headerShown: false
-        }}
-      />
 
       {/* Instructor tabs */}
       <Tabs.Screen
@@ -91,6 +78,17 @@ export default function TabLayout() {
             <AntDesign name="book" color={color} size={size} />
           ),
           href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/classes" : null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="(teacher)/recordings"
+        options={{
+          title: "Recordings",
+          tabBarIcon: ({ color, size }) => (
+            <Entypo name="folder-video" color={color} size={size} />
+          ),
+          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/recordings" : null,
           headerShown: false,
         }}
       />
@@ -124,6 +122,20 @@ export default function TabLayout() {
             <Ionicons name="people" color={color} size={size} />
           ),
           href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/students" : null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="session"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="(student)/session"
+        options={{
+          href: null,
           headerShown: false,
         }}
       />

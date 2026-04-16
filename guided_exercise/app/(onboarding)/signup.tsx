@@ -61,7 +61,7 @@ export default function Signup() {
       Alert.alert('Invalid username', 'Use letters, numbers, underscores, periods, or hyphens.');
       return;
     }
-    const defaultFullName = role === 'instructor' ? 'New Instructor' : 'New Student';
+    const defaultFullName = normalizedName;
     const routeByRole = () => {
       if (role === 'student') {
         router.replace('/(tabs)/(student)/classes');

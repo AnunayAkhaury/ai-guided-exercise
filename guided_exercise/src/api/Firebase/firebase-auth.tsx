@@ -105,29 +105,34 @@ export async function createProfile(uid: string, role: string, username: string,
 export async function login(email: string, password: string) {
   try {
     const userCredential: UserCredential = await signInWithEmailAndPassword(auth, email, password);
-
-    const data = await postBackendJson<{
-      role: string;
-      fullname: string;
-      username: string;
-      email?: string | null;
-    }>(
-      '/api/firebase/getProfile',
-      { uid: userCredential.user.uid },
-      'Failed to load profile from backend.'
-    );
-
-    useUserStore.setState({
-      uid: userCredential.user.uid,
-      role: data.role,
-      fullname: data.fullname,
-      username: data.username,
-      email: data.email ?? userCredential.user.email ?? null
-    });
+    await hydrateUserProfile(userCredential.user.uid, userCredential.user.email ?? null);
   } catch (err) {
     console.log(err);
     throw new Error(getErrorMessage(err, 'Failed to login.'));
   }
+}
+
+export async function hydrateUserProfile(uid: string, fallbackEmail?: string | null) {
+  const data = await postBackendJson<{
+    role: string;
+    fullname: string;
+    username: string;
+    email?: string | null;
+  }>(
+    '/api/firebase/getProfile',
+    { uid },
+    'Failed to load profile from backend.'
+  );
+
+  useUserStore.setState({
+    uid,
+    role: data.role,
+    fullname: data.fullname,
+    username: data.username,
+    email: data.email ?? fallbackEmail ?? null
+  });
+
+  return data;
 }
 
 export async function logout() {

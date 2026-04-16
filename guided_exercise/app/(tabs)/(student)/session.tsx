@@ -2,8 +2,17 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import IvsCall from '@/src/components/IvsCall';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getIvsSessionById, listIvsSessionParticipants } from '@/src/api/ivs';
+import {
+  cacheIvsToken,
+  getIvsSessionById,
+  getIvsToken,
+  listIvsSessionParticipants,
+  markIvsSessionParticipantLeft,
+  sendIvsTelemetry,
+  upsertIvsSessionParticipant
+} from '@/src/api/ivs';
 import { useCallStore } from '@/src/store/callStore';
+import { useUserStore } from '@/src/store/userStore';
 
 type SessionParams = {
   token?: string;
@@ -11,26 +20,45 @@ type SessionParams = {
   userName?: string;
   sessionCode?: string;
   sessionId?: string;
+  stageArn?: string;
+  participantId?: string;
 };
 
 export default function StudentSessionScreen() {
   const router = useRouter();
   const setInCall = useCallStore((state) => state.setInCall);
-  const { token, sessionName, userName, sessionCode, sessionId } = useLocalSearchParams<SessionParams>();
+  const uid = useUserStore((state) => state.uid);
+  const role = useUserStore((state) => state.role);
+  const { token, sessionName, userName, sessionCode, sessionId, stageArn, participantId } = useLocalSearchParams<SessionParams>();
   const hasHandledEndedSession = useRef(false);
   const normalizedSessionId = Array.isArray(sessionId) ? sessionId[0] : sessionId;
   const normalizedSessionName = Array.isArray(sessionName) ? sessionName[0] : sessionName;
   const normalizedUserName = Array.isArray(userName) ? userName[0] : userName;
   const normalizedSessionCode = Array.isArray(sessionCode) ? sessionCode[0] : sessionCode;
   const normalizedToken = Array.isArray(token) ? token[0] : token;
+  const normalizedStageArn = Array.isArray(stageArn) ? stageArn[0] : stageArn;
+  const normalizedParticipantId = Array.isArray(participantId) ? participantId[0] : participantId;
+  const [currentParticipantId, setCurrentParticipantId] = useState<string | undefined>(normalizedParticipantId);
   const [participantNameById, setParticipantNameById] = useState<Record<string, string>>({});
   const [participantRoleById, setParticipantRoleById] = useState<Record<string, string>>({});
   const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Student', [normalizedUserName]);
 
   useEffect(() => {
+    setCurrentParticipantId(normalizedParticipantId);
+  }, [normalizedParticipantId]);
+
+  useEffect(() => {
     setInCall(true);
     return () => setInCall(false);
   }, [setInCall]);
+
+  useEffect(() => {
+    if (!role) return;
+    if (role !== 'student') {
+      setInCall(false);
+      router.replace(role === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/profile');
+    }
+  }, [role, router, setInCall]);
 
   useEffect(() => {
     if (!normalizedSessionId) return;
@@ -81,9 +109,6 @@ export default function StudentSessionScreen() {
             if (participant.participantId) {
               acc[participant.participantId] = participant.displayName;
             }
-            if (participant.userId) {
-              acc[participant.userId] = participant.displayName;
-            }
           }
           return acc;
         }, {});
@@ -91,9 +116,6 @@ export default function StudentSessionScreen() {
           if (participant.role) {
             if (participant.participantId) {
               acc[participant.participantId] = participant.role;
-            }
-            if (participant.userId) {
-              acc[participant.userId] = participant.role;
             }
           }
           return acc;
@@ -133,7 +155,7 @@ export default function StudentSessionScreen() {
         <Pressable
           onPress={() => {
             setInCall(false);
-            router.back();
+            router.replace('/(tabs)/(student)/classes');
           }}
           style={styles.backButton}
         >
@@ -148,9 +170,121 @@ export default function StudentSessionScreen() {
       <IvsCall
         token={normalizedToken}
         publishOnJoin
-        onLeave={() => {
+        onLeave={async () => {
+          if (normalizedSessionId && currentParticipantId) {
+            try {
+              await markIvsSessionParticipantLeft({
+                sessionId: normalizedSessionId,
+                participantId: currentParticipantId
+              });
+              await sendIvsTelemetry({
+                eventName: 'participant_left_marked',
+                sessionId: normalizedSessionId,
+                stageArn: normalizedStageArn,
+                userId: uid?.trim() || undefined,
+                role: 'student',
+                participantId: currentParticipantId
+              });
+            } catch (error) {
+              console.log('[StudentSession] participant leave error', error);
+              await sendIvsTelemetry({
+                eventName: 'participant_left_mark_failed',
+                sessionId: normalizedSessionId,
+                stageArn: normalizedStageArn,
+                userId: uid?.trim() || undefined,
+                role: 'student',
+                participantId: currentParticipantId,
+                details: {
+                  message: String((error as any)?.message || 'unknown')
+                }
+              });
+            }
+          }
           setInCall(false);
-          router.back();
+          router.replace('/(tabs)/(student)/classes');
+        }}
+        onJoinAttempt={async () => {
+          await sendIvsTelemetry({
+            eventName: 'join_attempt',
+            sessionId: normalizedSessionId,
+            stageArn: normalizedStageArn,
+            userId: uid?.trim() || undefined,
+            role: 'student',
+            participantId: currentParticipantId
+          });
+        }}
+        onJoinFailed={async (message) => {
+          await sendIvsTelemetry({
+            eventName: 'join_failed',
+            sessionId: normalizedSessionId,
+            stageArn: normalizedStageArn,
+            userId: uid?.trim() || undefined,
+            role: 'student',
+            participantId: currentParticipantId,
+            details: { message }
+          });
+        }}
+        onRequestFreshToken={async () => {
+          const effectiveUid = uid?.trim();
+          if (!normalizedStageArn || !normalizedSessionId || !effectiveUid) {
+            return null;
+          }
+          try {
+            const refreshed = await getIvsToken({
+              stageArn: normalizedStageArn,
+              userId: effectiveUid,
+              userName: normalizedLocalLabel,
+              publish: true,
+              subscribe: true,
+              durationMinutes: 60,
+              attributes: {
+                displayName: normalizedLocalLabel,
+                userId: effectiveUid,
+                role: 'student',
+                sessionId: normalizedSessionId,
+                sessionCode: normalizedSessionCode || ''
+              }
+            });
+            cacheIvsToken(
+              {
+                stageArn: normalizedStageArn,
+                sessionId: normalizedSessionId,
+                userId: effectiveUid,
+                role: 'student'
+              },
+              refreshed
+            );
+            await upsertIvsSessionParticipant({
+              sessionId: normalizedSessionId,
+              participantId: refreshed.participantId,
+              userId: effectiveUid,
+              displayName: normalizedLocalLabel,
+              role: 'student'
+            });
+            setCurrentParticipantId(refreshed.participantId);
+            await sendIvsTelemetry({
+              eventName: 'token_refreshed',
+              sessionId: normalizedSessionId,
+              stageArn: normalizedStageArn,
+              userId: effectiveUid,
+              role: 'student',
+              participantId: refreshed.participantId
+            });
+            return refreshed;
+          } catch (error) {
+            await sendIvsTelemetry({
+              eventName: 'token_refresh_failed',
+              sessionId: normalizedSessionId,
+              stageArn: normalizedStageArn,
+              userId: effectiveUid,
+              role: 'student',
+              participantId: currentParticipantId,
+              details: {
+                message: String((error as any)?.message || 'unknown')
+              }
+            });
+            throw error;
+          }
         }}
         onInfoPress={handleInfoPress}
         localParticipantLabel={normalizedLocalLabel}

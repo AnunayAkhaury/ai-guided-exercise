@@ -12,9 +12,18 @@ import {
   useWindowDimensions
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { createIvsSession, getIvsToken, startIvsSession, upsertIvsSessionParticipant } from '@/src/api/ivs';
+import {
+  cacheIvsToken,
+  createIvsSession,
+  getIvsToken,
+  getReusableIvsToken,
+  sendIvsTelemetry,
+  startIvsSession,
+  upsertIvsSessionParticipant
+} from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { resolvePreferredDisplayName } from '@/src/utils/display-name';
 
 export default function StartMeeting() {
   const router = useRouter();
@@ -28,8 +37,14 @@ export default function StartMeeting() {
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
   const uid = useUserStore((state) => state.uid);
+  const role = useUserStore((state) => state.role);
   const instructorDisplayName = useMemo(
-    () => fullname?.trim() || username?.trim() || 'Instructor',
+    () =>
+      resolvePreferredDisplayName({
+        fullname,
+        username,
+        fallback: 'Instructor'
+      }),
     [fullname, username]
   );
   const normalizedParamSessionName = Array.isArray(paramSessionName) ? paramSessionName[0] : paramSessionName;
@@ -43,6 +58,13 @@ export default function StartMeeting() {
       setSessionName(normalizedParamSessionName);
     }
   }, [normalizedParamSessionName]);
+
+  useEffect(() => {
+    if (!role) return;
+    if (role !== 'instructor') {
+      router.replace(role === 'student' ? '/(tabs)/(student)/classes' : '/(tabs)/profile');
+    }
+  }, [role, router]);
 
   const handleStart = async () => {
     const trimmedSession = sessionName.trim();
@@ -68,21 +90,48 @@ export default function StartMeeting() {
             return startIvsSession(createdSession.sessionId);
           })();
 
-      const tokenResult = await getIvsToken({
+      const cached = getReusableIvsToken({
+        sessionId: liveSession.sessionId,
         stageArn: liveSession.stageArn,
         userId: effectiveUid,
-        userName: trimmedName,
-        publish: true,
-        subscribe: true,
-        durationMinutes: 60,
-        attributes: {
-          displayName: trimmedName,
+        role: 'instructor'
+      });
+      if (cached) {
+        void sendIvsTelemetry({
+          eventName: 'token_reused',
+          sessionId: liveSession.sessionId,
+          stageArn: liveSession.stageArn,
           userId: effectiveUid,
           role: 'instructor',
+          participantId: cached.participantId
+        });
+      }
+      const tokenResult =
+        cached ??
+        (await getIvsToken({
+          stageArn: liveSession.stageArn,
+          userId: effectiveUid,
+          userName: trimmedName,
+          publish: true,
+          subscribe: true,
+          durationMinutes: 60,
+          attributes: {
+            displayName: trimmedName,
+            userId: effectiveUid,
+            role: 'instructor',
+            sessionId: liveSession.sessionId,
+            sessionCode: liveSession.sessionCode
+          }
+        }));
+      cacheIvsToken(
+        {
           sessionId: liveSession.sessionId,
-          sessionCode: liveSession.sessionCode
-        }
-      });
+          stageArn: liveSession.stageArn,
+          userId: effectiveUid,
+          role: 'instructor'
+        },
+        tokenResult
+      );
       await upsertIvsSessionParticipant({
         sessionId: liveSession.sessionId,
         participantId: tokenResult.participantId,
@@ -92,12 +141,15 @@ export default function StartMeeting() {
       });
 
       router.push({
-        pathname: '/(tabs)/(teacher)/session',
+        pathname: '/(tabs)/session' as any,
         params: {
           sessionName: liveSession.sessionName,
           userName: trimmedName,
           sessionCode: liveSession.sessionCode,
           sessionId: liveSession.sessionId,
+          stageArn: liveSession.stageArn,
+          participantId: tokenResult.participantId,
+          role: 'instructor',
           token: tokenResult.token
         }
       });
