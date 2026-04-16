@@ -6,12 +6,13 @@ from pydantic import BaseModel, Field
 from typing import List
 
 class RepetitionFeedback(BaseModel):
-    repetition_num: int = Field(description="The repetition number feedback is for")
-    feedback: str = Field(description="Concise feedback for the reptition.")
+    timestamp_start: int = Field(description="Start timestamp of grouped reps")
+    timestamp_end: int = Field(description="End timestamp of grouped reps")
+    feedback: str = Field(description="Feedback in few words")
 
 class OutputFeedback(BaseModel):
-    exercise_name: str = Field(description="Exercise name as stated in prompt.")
     repetition_feedbacks: List[RepetitionFeedback]
+    summary: str = Field(description="Summary less than 2 sentences")
     score: int = Field(
         description="A score out of 10 for overall form",
         ge=1,
@@ -23,15 +24,31 @@ def llm_generate_feedback(exercise_name, base_name, data_dir="/app/data"):
     bad_reps_file_path = os.path.join(data_dir, f"{base_name}-bad-reps.json")
 
     client = genai.Client()
-    prompt = f"Based on the following JSON describing incorrectly performed {exercise_name} reptitions, identify the errors of each rep and create one repetition feedback entry per repetition."
     
+    prompt = f"""
+    You are given a JSON containing frame-by-frame discrepancies between a student’s {exercise_name} form and an ideal reference.
+    Generate concise, actionable feedback on how the student can improve their form. And generate a summary of feedback which is motivating or highlights benefits of improving form.
+
+    Group feedback by rep number, and combine frames into a single feedback point if they are consecutive in time and describe the same problem.
+    Make sure the final groupings do not overlap.
+
+    Keep feedback focused on key movement problems rather than listing every frame individually.
+
+    Rules:
+    - Use simple everyday language
+    - No anatomy or biomechanics terms (no “flexion”, “extension”, “activation”, “stability”)
+    - No gym jargon (no “lockout”, “peak contraction”, “engage core”)
+    - Use direct instructions like “keep your body straight”, “bend your elbows more”
+    - Keep each feedback under 2 short sentences
+    """
+
     with open(bad_reps_file_path, "r") as f:
         json_data = json.load(f)
         json_str = json.dumps(json_data, indent=2)
 
         print("LLM generating feedback...")
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3-flash-preview",
             contents=[
                 types.Content(
                     role="user",
