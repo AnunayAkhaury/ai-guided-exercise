@@ -27,7 +27,8 @@ def llm_generate_feedback(exercise_name, base_name, data_dir="/app/data"):
     
     prompt = f"""
     You are given a JSON containing frame-by-frame discrepancies between a student’s {exercise_name} form and an ideal reference.
-    Generate concise, actionable feedback on how the student can improve their form. And generate a summary of feedback which is motivating or highlights benefits of improving form.
+    Generate concise, actionable feedback on how the student can improve their form.
+    Additionally generate a summary for the feedback, which is motivating and highlights benefits of improving form.
 
     Group feedback by rep number, and combine frames into a single feedback point if they are consecutive in time and describe the same problem.
     Make sure the final groupings do not overlap.
