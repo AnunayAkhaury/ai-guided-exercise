@@ -1,13 +1,42 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { router, useLocalSearchParams } from 'expo-router';
 import useRecording from '@/src/hooks/useRecording';
+import captions from "../../src/assets/images/StudentPushup-feedback.json";
 
 export default function RecordingDisplay() {
   const { id } = useLocalSearchParams();
   const { data, loading, error } = useRecording(id);
-  const videoLink = Array.isArray(link) ? link[0] : link;
+  const [caption, setCaption] = useState("Empty");
+  // const videoLink = Array.isArray(link) ? link[0] : link;
+
+  const player = useVideoPlayer({
+    uri: "https://www.w3schools.com/html/mov_bbb.mp4",
+  });
+
+  useEffect(() => {
+    player.timeUpdateEventInterval = 0.25;
+
+    const subscription = player.addListener(
+      "timeUpdate",
+      (event) => {
+        const t = event.currentTime * 1000; // seconds
+        console.log("Timestamp found ", t)
+
+        const active = captions.data.find(
+          (c) => t >= c.timestampStart - 1000 && t < c.timestampEnd + 1000
+        );
+
+        setCaption(active?.feedback ?? "Empty");
+      }
+    );
+
+
+    return () => {
+      subscription?.remove?.();
+    };
+  }, [player]);
 
   if (error) {
     return (
@@ -26,9 +55,7 @@ export default function RecordingDisplay() {
         <Text>Unable to load recording.</Text>
       </View>
     );
-  }
-
-  const player = useVideoPlayer(videoLink, (p) => p.play());
+  }  
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
@@ -44,7 +71,27 @@ export default function RecordingDisplay() {
         <Text style={{ color: '#000', fontWeight: 'bold' }}>← Back</Text>
       </TouchableOpacity>
 
-      <VideoView player={player} allowsFullscreen style={{ width: '100%', height: 250, backgroundColor: 'black' }} />
+      <VideoView
+        player={player}
+        style={{ width: '100%', height: 250 }}
+        allowsFullscreen
+        onLayout={() => {
+          console.log("READY FOR DISPLAY");
+          player.play();
+          
+        }}
+      />
+
+      <Text
+        style={{
+          marginBottom: 20,
+          padding: 10,
+          backgroundColor: '#C3F5FF',
+          borderRadius: 8,
+          alignSelf: 'flex-start'
+        }}
+      >{caption}
+      </Text>
     </View>
   );
 }

@@ -8,7 +8,7 @@ export default function useRecording(id: string) {
 
     useEffect(() => {
         async function fetchRecording () {
-            setData(await getRecording(id) ?? []);
+            // setData(await getRecording(id) ?? []);
             setLoading(false);
         }
         

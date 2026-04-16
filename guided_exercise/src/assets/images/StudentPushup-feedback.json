@@ -1,0 +1,50 @@
+{
+    "data": [
+        {
+            "timestampStart": 1333,
+            "timestampEnd": 3000,
+            "feedback": "Keep your body straight from head to heels. Lower your chest closer to the floor."
+        },
+        {
+            "timestampStart": 3333,
+            "timestampEnd": 5333,
+            "feedback": "Bend your elbows more to go deeper. Keep your hips level with your shoulders."
+        },
+        {
+            "timestampStart": 5667,
+            "timestampEnd": 9000,
+            "feedback": "Lower your body further toward the ground. Keep your feet and ankles still."
+        },
+        {
+            "timestampStart": 9333,
+            "timestampEnd": 12667,
+            "feedback": "Focus on keeping a straight line through your legs. Bend your arms more as you lower down."
+        },
+        {
+            "timestampStart": 13333,
+            "timestampEnd": 18333,
+            "feedback": "Lower your chest more during each pushup. Keep your legs straight and steady."
+        },
+        {
+            "timestampStart": 18667,
+            "timestampEnd": 20667,
+            "feedback": "Go lower toward the floor. Keep your body in a straight line."
+        },
+        {
+            "timestampStart": 21000,
+            "timestampEnd": 21667,
+            "feedback": "Bend your elbows more to get closer to the ground. Keep your legs straight."
+        },
+        {
+            "timestampStart": 22000,
+            "timestampEnd": 24333,
+            "feedback": "Keep your feet from shifting. Lower your body closer to the floor."
+        },
+        {
+            "timestampStart": 24667,
+            "timestampEnd": 26667,
+            "feedback": "Bend your arms fully. Keep your whole body straight like a board."
+        }
+    ],
+    "summary": "Great effort on these reps! Keeping a straight body and going deeper will help you build strength much faster."
+}
