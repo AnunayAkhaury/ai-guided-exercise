@@ -5,13 +5,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   cacheIvsToken,
   endIvsSession,
-  getIvsSessionById,
   getIvsToken,
-  listIvsSessionParticipants,
   markIvsSessionParticipantLeft,
   sendIvsTelemetry,
   upsertIvsSessionParticipant
 } from '@/src/api/ivs';
+import { useFirestoreSession, useFirestoreSessionParticipants } from '@/src/hooks/use-ivs-firestore';
 import { useCallStore } from '@/src/store/callStore';
 import { useUserStore } from '@/src/store/userStore';
 
@@ -53,8 +52,6 @@ export default function SharedSessionScreen() {
 
   const hasHandledEndedSession = useRef(false);
   const [ending, setEnding] = useState(false);
-  const [participantNameById, setParticipantNameById] = useState<Record<string, string>>({});
-  const [participantRoleById, setParticipantRoleById] = useState<Record<string, string>>({});
   const normalizedSessionId = Array.isArray(sessionId) ? sessionId[0] : sessionId;
   const normalizedSessionName = Array.isArray(sessionName) ? sessionName[0] : sessionName;
   const normalizedUserName = Array.isArray(userName) ? userName[0] : userName;
@@ -68,6 +65,28 @@ export default function SharedSessionScreen() {
     [normalizedRole, normalizedUserName]
   );
   const classesRoute = normalizedRole === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/(student)/classes';
+  const { data: session, loading: sessionLoading, error: sessionError } = useFirestoreSession(normalizedSessionId, Boolean(normalizedSessionId));
+  const { data: participants, error: participantsError } = useFirestoreSessionParticipants(normalizedSessionId, Boolean(normalizedSessionId));
+  const participantNameById = useMemo(
+    () =>
+      participants.reduce<Record<string, string>>((acc, participant) => {
+        if (participant.displayName && participant.participantId) {
+          acc[participant.participantId] = participant.displayName;
+        }
+        return acc;
+      }, {}),
+    [participants]
+  );
+  const participantRoleById = useMemo(
+    () =>
+      participants.reduce<Record<string, string>>((acc, participant) => {
+        if (participant.role && participant.participantId) {
+          acc[participant.participantId] = participant.role;
+        }
+        return acc;
+      }, {}),
+    [participants]
+  );
 
   useEffect(() => {
     setCurrentParticipantId(normalizedParticipantId);
@@ -79,79 +98,26 @@ export default function SharedSessionScreen() {
   }, [setInCall]);
 
   useEffect(() => {
-    if (!normalizedSessionId) return;
-    let active = true;
-
-    const checkSessionStatus = async () => {
-      try {
-        const session = await getIvsSessionById(normalizedSessionId);
-        if (active && session.status === 'ended' && !hasHandledEndedSession.current) {
-          hasHandledEndedSession.current = true;
-          Alert.alert('Session ended', 'This session has ended.');
-          setInCall(false);
-          router.replace(classesRoute as any);
-        }
-      } catch (error) {
-        const message = String((error as any)?.message || '');
-        if (active && !hasHandledEndedSession.current && (message.includes('Session not found') || message.includes('404'))) {
-          hasHandledEndedSession.current = true;
-          Alert.alert('Session ended', 'This session has ended.');
-          setInCall(false);
-          router.replace(classesRoute as any);
-          return;
-        }
-        console.log('[SharedSession] polling error', error);
-      }
-    };
-
-    void checkSessionStatus();
-    const interval = setInterval(() => {
-      void checkSessionStatus();
-    }, 3000);
-
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [classesRoute, normalizedSessionId, router, setInCall]);
+    if (!normalizedSessionId || sessionLoading || sessionError || hasHandledEndedSession.current) return;
+    if (!session || session.status === 'ended') {
+      hasHandledEndedSession.current = true;
+      Alert.alert('Session ended', 'This session has ended.');
+      setInCall(false);
+      router.replace(classesRoute as any);
+    }
+  }, [classesRoute, normalizedSessionId, router, session, sessionError, sessionLoading, setInCall]);
 
   useEffect(() => {
-    if (!normalizedSessionId) return;
-    let active = true;
+    if (sessionError) {
+      console.log('[SharedSession] Firestore session listener error', sessionError);
+    }
+  }, [sessionError]);
 
-    const loadParticipants = async () => {
-      try {
-        const participants = await listIvsSessionParticipants(normalizedSessionId);
-        if (!active) return;
-        const nextMap = participants.reduce<Record<string, string>>((acc, participant) => {
-          if (participant.displayName && participant.participantId) {
-            acc[participant.participantId] = participant.displayName;
-          }
-          return acc;
-        }, {});
-        const nextRoleMap = participants.reduce<Record<string, string>>((acc, participant) => {
-          if (participant.role && participant.participantId) {
-            acc[participant.participantId] = participant.role;
-          }
-          return acc;
-        }, {});
-        setParticipantNameById(nextMap);
-        setParticipantRoleById(nextRoleMap);
-      } catch (error) {
-        console.log('[SharedSession] participant list error', error);
-      }
-    };
-
-    void loadParticipants();
-    const interval = setInterval(() => {
-      void loadParticipants();
-    }, 3000);
-
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [normalizedSessionId]);
+  useEffect(() => {
+    if (participantsError) {
+      console.log('[SharedSession] Firestore participants listener error', participantsError);
+    }
+  }, [participantsError]);
 
   const handleEndSession = async () => {
     if (!normalizedSessionId) {

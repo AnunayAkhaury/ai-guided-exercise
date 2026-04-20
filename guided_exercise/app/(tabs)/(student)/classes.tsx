@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, FlatList, Alert, useWindowDimensions } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -10,11 +10,11 @@ import {
   getIvsToken,
   getReusableIvsToken,
   joinIvsSessionByCode,
-  listIvsSessions,
   sendIvsTelemetry,
   type IvsSession,
   upsertIvsSessionParticipant
 } from '@/src/api/ivs';
+import { useFirestoreSessions } from '@/src/hooks/use-ivs-firestore';
 import { useUserStore } from '@/src/store/userStore';
 
 export default function ClassesScreen() {
@@ -28,18 +28,12 @@ export default function ClassesScreen() {
   const fullname = useUserStore((state) => state.fullname);
   const uid = useUserStore((state) => state.uid);
   const role = useUserStore((state) => state.role);
-  const [sessions, setSessions] = useState<IvsSession[]>([]);
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
   const fallbackDisplayName = username?.trim() || fullname?.trim() || 'Student Test';
-
-  const loadSessions = useCallback(async () => {
-    try {
-      const data = await listIvsSessions(['live', 'scheduled']);
-      setSessions(data);
-    } catch (error: any) {
-      Alert.alert('Session list error', error?.message || 'Unable to load sessions.');
-    }
-  }, []);
+  const { data: sessions, loading: sessionsLoading, error: sessionsError } = useFirestoreSessions(
+    ['live', 'scheduled'],
+    role === 'student'
+  );
 
   useEffect(() => {
     if (!role) return;
@@ -47,15 +41,13 @@ export default function ClassesScreen() {
       router.replace(role === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/profile');
       return;
     }
-    void loadSessions();
-  }, [loadSessions, role, router]);
+  }, [role, router]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      void loadSessions();
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [loadSessions]);
+    if (sessionsError) {
+      console.log('[StudentClasses] Firestore sessions listener error', sessionsError);
+    }
+  }, [sessionsError]);
 
   const liveSessions = useMemo(() => sessions.filter((item) => item.status === 'live'), [sessions]);
   const scheduledSessions = useMemo(() => sessions.filter((item) => item.status === 'scheduled'), [sessions]);
@@ -175,7 +167,15 @@ export default function ClassesScreen() {
         <FlatList
           data={topSessions}
           keyExtractor={(item) => item.sessionId}
-          ListEmptyComponent={<Typography className="text-[#7a7a7a]">No live or ready sessions right now.</Typography>}
+          ListEmptyComponent={
+            <Typography className="text-[#7a7a7a]">
+              {sessionsLoading
+                ? 'Loading sessions...'
+                : sessionsError
+                  ? 'Unable to load sessions right now.'
+                  : 'No live or ready sessions right now.'}
+            </Typography>
+          }
           renderItem={({ item }) => {
             const { start, end } = getSessionWindow(item);
             const isLive = item.status === 'live';
@@ -214,7 +214,11 @@ export default function ClassesScreen() {
         <FlatList
           data={upcomingScheduledSessions}
           keyExtractor={(item) => item.sessionId}
-          ListEmptyComponent={<Typography className="text-[#7a7a7a]">No upcoming sessions.</Typography>}
+          ListEmptyComponent={
+            <Typography className="text-[#7a7a7a]">
+              {sessionsError ? 'Unable to load upcoming sessions right now.' : 'No upcoming sessions.'}
+            </Typography>
+          }
           renderItem={({ item }) => {
             const { start, end } = getSessionWindow(item);
             return (
