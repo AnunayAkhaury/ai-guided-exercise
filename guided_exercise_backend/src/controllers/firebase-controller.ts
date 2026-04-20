@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { createProfile, getProfile } from '@/services/Firebase/firebase-auth.js';
+import { createProfile, getProfile, listProfilesByRole } from '@/services/Firebase/firebase-auth.js';
 import { addRecording, getUserRecordings } from '@/services/Firebase/firebase-recording.js';
 import { getRequestId, logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
@@ -28,6 +28,17 @@ export async function getProfileController(req: Request, res: Response) {
     return res.status(200).json({ ...user });
   } catch (err: any) {
     logControllerError(req, err, 'getProfileController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
+  }
+}
+
+export async function listProfilesController(req: Request, res: Response) {
+  const role = typeof req.query.role === 'string' ? req.query.role : undefined;
+  try {
+    const users = await listProfilesByRole(role);
+    return res.status(200).json(users);
+  } catch (err: any) {
+    logControllerError(req, err, 'listProfilesController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
   }
 }

@@ -1,6 +1,7 @@
 import { auth, db } from './firebase-service.js';
 
 type UserProfile = {
+  uid?: string;
   role: string;
   username: string;
   fullname: string;
@@ -68,6 +69,39 @@ export async function getProfile(uid: string) {
       createdAt: user?.createdAt?.toDate ? user.createdAt.toDate() : user?.createdAt ?? null,
       updatedAt: user?.updatedAt?.toDate ? user.updatedAt.toDate() : user?.updatedAt ?? null
     };
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function listProfilesByRole(role?: string) {
+  try {
+    let query: FirebaseFirestore.Query = db.collection('users');
+    if (role?.trim()) {
+      query = query.where('role', '==', role.trim());
+    }
+
+    const snapshot = await query.get();
+    const profiles = snapshot.docs.map((doc) => {
+      const user = doc.data();
+      return {
+        uid: doc.id,
+        role: user?.role ?? '',
+        username: user?.username ?? '',
+        fullname: user?.fullname ?? '',
+        email: user?.email ?? null,
+        createdAt: user?.createdAt?.toDate ? user.createdAt.toDate() : user?.createdAt ?? null,
+        updatedAt: user?.updatedAt?.toDate ? user.updatedAt.toDate() : user?.updatedAt ?? null
+      };
+    });
+
+    profiles.sort((a, b) => {
+      const aName = `${a.fullname || ''} ${a.username || ''}`.trim().toLowerCase();
+      const bName = `${b.fullname || ''} ${b.username || ''}`.trim().toLowerCase();
+      return aName.localeCompare(bName);
+    });
+
+    return profiles;
   } catch (error) {
     throw error;
   }

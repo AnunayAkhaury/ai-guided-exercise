@@ -65,6 +65,40 @@ async function postBackendJson<T>(path: string, body: Record<string, unknown>, f
   return (await response.json()) as T;
 }
 
+async function getBackendJson<T>(path: string, fallback: string): Promise<T> {
+  const base = getApiBaseUrl();
+  const endpoint = `${base}${path}`;
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+  } catch {
+    throw new Error(toBackendUnavailableMessage(endpoint));
+  }
+
+  if (!response.ok) {
+    const message = await parseApiError(response, fallback);
+    throw new Error(message || fallback);
+  }
+
+  return (await response.json()) as T;
+}
+
+export type AppUserProfile = {
+  uid: string;
+  role: string;
+  username: string;
+  fullname: string;
+  email?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export async function createAccount(email: string, password: string) {
   try {
     const userCredential: UserCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -144,4 +178,12 @@ export async function logout() {
   } finally {
     useUserStore.getState().reset();
   }
+}
+
+export async function listProfiles(role?: string) {
+  const query = role?.trim() ? `?role=${encodeURIComponent(role.trim())}` : '';
+  return getBackendJson<AppUserProfile[]>(
+    `/api/firebase/users${query}`,
+    'Failed to load user profiles.'
+  );
 }

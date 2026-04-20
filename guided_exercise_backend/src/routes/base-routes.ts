@@ -3,7 +3,8 @@ import {
   helloWorldController,
   createProfileController,
   getProfileController,
-  getUserRecordingsController
+  getUserRecordingsController,
+  listProfilesController
 } from '@/controllers/firebase-controller.js';
 import { addRecordingController } from '@/controllers/firebase-controller.js';
 import { uploadVideoController, getVideoUrlController } from '@/controllers/aws-controller.js';
@@ -34,6 +35,7 @@ router.get('/', helloWorldController);
 router.get('/health', helloWorldController);
 router.post('/api/firebase/createProfile', createProfileController);
 router.post('/api/firebase/getProfile', getProfileController);
+router.get('/api/firebase/users', listProfilesController);
 router.post('/api/firebase/addRecording', addRecordingController);
 router.post('/api/firebase/getUserRecordings', getUserRecordingsController);
 router.post('/api/recordings/upsert', upsertRecordingController);
