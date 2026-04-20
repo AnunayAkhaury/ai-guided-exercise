@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { createProfile, getProfile, listProfilesByRole } from '@/services/Firebase/firebase-auth.js';
+import { createProfile, getProfile, listProfilesByRole, updateProfile } from '@/services/Firebase/firebase-auth.js';
 import { addRecording, getUserRecordings } from '@/services/Firebase/firebase-recording.js';
 import { getRequestId, logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
@@ -40,6 +40,26 @@ export async function listProfilesController(req: Request, res: Response) {
   } catch (err: any) {
     logControllerError(req, err, 'listProfilesController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
+  }
+}
+
+export async function updateProfileController(req: Request, res: Response) {
+  const { uid, username, fullname } = req.body;
+  if (!uid) {
+    return sendErrorResponse(req, res, 400, 'uid is required.');
+  }
+
+  try {
+    const profile = await updateProfile(uid, { username, fullname });
+    if (!profile) {
+      return sendErrorResponse(req, res, 404, 'User not found');
+    }
+    return res.status(200).json(profile);
+  } catch (err: any) {
+    const message = err instanceof Error ? err.message : 'Internal Server Error';
+    const statusCode = message === 'username is required' || message === 'fullname is required' ? 400 : 500;
+    logControllerError(req, err, 'updateProfileController failed');
+    return sendErrorResponse(req, res, statusCode, message);
   }
 }
 

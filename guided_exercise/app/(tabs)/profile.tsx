@@ -7,10 +7,11 @@ import Typography from "@/src/components/ui/Typography";
 import { ReactNode, useState } from "react";
 import { logout } from "@/src/api/Firebase/firebase-auth";
 import { router } from "expo-router";
+import { resolvePreferredDisplayName } from "@/src/utils/display-name";
 
-function Button({ icon, title }: { icon: ReactNode, title: string, }) {
+function Button({ icon, title, onPress }: { icon: ReactNode, title: string, onPress?: () => void }) {
     return (
-        <TouchableOpacity className="w-full flex flex-row p-5 justify-between items-center bg-[#EDEDED]">
+        <TouchableOpacity className="w-full flex flex-row p-5 justify-between items-center bg-[#EDEDED]" onPress={onPress}>
             <View className="flex flex-row gap-4 justify-center items-center flex-1 pr-2">
                 {icon}
                 <Typography font='inter-medium' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} className="text-base flex-1">{title}</Typography>
@@ -30,7 +31,16 @@ export default function Profile() {
     const horizontalPadding = isSmallPhone ? 20 : 32;
 
     const username = useUserStore((state) => state.username);
+    const fullname = useUserStore((state) => state.fullname);
+    const role = useUserStore((state) => state.role);
+    const email = useUserStore((state) => state.email);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const displayName = resolvePreferredDisplayName({
+        fullname,
+        username,
+        fallback: 'User'
+    });
 
     const handleLogout = () => {
         if (isLoggingOut) return;
@@ -83,12 +93,20 @@ export default function Profile() {
                 />
 
                 <Typography font='inter-medium' className={isSmallPhone ? "mt-16 text-3xl" : "mt-20 text-4xl"}>
-                    {username ?? 'user'}
+                    {displayName}
                 </Typography>
+                <Typography font='inter-medium' className="text-[#666] mt-2">
+                    {role === 'instructor' ? 'Instructor' : 'Student'}
+                </Typography>
+                {email ? (
+                    <Typography font='inter-medium' className="text-[#888] mt-1 text-sm">
+                        {email}
+                    </Typography>
+                ) : null}
 
                 <Typography font='inter-medium' className="w-full text-start text-base mt-6 mb-3">Personal</Typography>
                 <View className="w-full rounded-3xl overflow-hidden">
-                    <Button icon={<MaterialIcons name="edit" size={17} color="black" />} title="Edit Profile" />
+                    <Button icon={<MaterialIcons name="edit" size={17} color="black" />} title="Edit Profile" onPress={() => router.push('/edit-profile')} />
                     <View className="w-full h-[1px] bg-[#dadada]" />
                     <Button icon={<Ionicons name="ribbon-sharp" size={17} color="black" />} title="Achievements" />
                 </View>

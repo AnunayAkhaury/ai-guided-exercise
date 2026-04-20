@@ -106,3 +106,49 @@ export async function listProfilesByRole(role?: string) {
     throw error;
   }
 }
+
+export async function updateProfile(uid: string, input: {
+  username?: string;
+  fullname?: string;
+}) {
+  try {
+    const userRef = db.collection('users').doc(uid);
+    const snapshot = await userRef.get();
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    const existingData = snapshot.data() ?? {};
+    const now = new Date();
+    const nextUsername = input.username?.trim() ?? existingData.username ?? '';
+    const nextFullname = input.fullname?.trim() ?? existingData.fullname ?? '';
+
+    if (!nextUsername) {
+      throw new Error('username is required');
+    }
+    if (!nextFullname) {
+      throw new Error('fullname is required');
+    }
+
+    await userRef.set(
+      {
+        username: nextUsername,
+        fullname: nextFullname,
+        updatedAt: now
+      },
+      { merge: true }
+    );
+
+    return {
+      uid,
+      role: existingData.role ?? '',
+      username: nextUsername,
+      fullname: nextFullname,
+      email: existingData.email ?? null,
+      createdAt: existingData.createdAt?.toDate ? existingData.createdAt.toDate() : existingData.createdAt ?? null,
+      updatedAt: now
+    };
+  } catch (error) {
+    throw error;
+  }
+}

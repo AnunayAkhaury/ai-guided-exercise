@@ -187,3 +187,33 @@ export async function listProfiles(role?: string) {
     'Failed to load user profiles.'
   );
 }
+
+export async function updateUserProfile(uid: string, username: string, fullname: string) {
+  try {
+    const data = await postBackendJson<{
+      uid: string;
+      role: string;
+      username: string;
+      fullname: string;
+      email?: string | null;
+    }>(
+      '/api/firebase/updateProfile',
+      { uid, username, fullname },
+      'Failed to update profile.'
+    );
+
+    useUserStore.setState((state) => ({
+      ...state,
+      uid: data.uid,
+      role: data.role,
+      username: data.username,
+      fullname: data.fullname,
+      email: data.email ?? state.email
+    }));
+
+    return data;
+  } catch (err) {
+    console.log(err);
+    throw new Error(getErrorMessage(err, 'Failed to update profile.'));
+  }
+}
