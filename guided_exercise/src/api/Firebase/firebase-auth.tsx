@@ -65,6 +65,40 @@ async function postBackendJson<T>(path: string, body: Record<string, unknown>, f
   return (await response.json()) as T;
 }
 
+async function getBackendJson<T>(path: string, fallback: string): Promise<T> {
+  const base = getApiBaseUrl();
+  const endpoint = `${base}${path}`;
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+  } catch {
+    throw new Error(toBackendUnavailableMessage(endpoint));
+  }
+
+  if (!response.ok) {
+    const message = await parseApiError(response, fallback);
+    throw new Error(message || fallback);
+  }
+
+  return (await response.json()) as T;
+}
+
+export type AppUserProfile = {
+  uid: string;
+  role: string;
+  username: string;
+  fullname: string;
+  email?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export async function createAccount(email: string, password: string) {
   try {
     const userCredential: UserCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -143,5 +177,43 @@ export async function logout() {
     throw new Error(getErrorMessage(err, 'Failed to logout.'));
   } finally {
     useUserStore.getState().reset();
+  }
+}
+
+export async function listProfiles(role?: string) {
+  const query = role?.trim() ? `?role=${encodeURIComponent(role.trim())}` : '';
+  return getBackendJson<AppUserProfile[]>(
+    `/api/firebase/users${query}`,
+    'Failed to load user profiles.'
+  );
+}
+
+export async function updateUserProfile(uid: string, username: string, fullname: string) {
+  try {
+    const data = await postBackendJson<{
+      uid: string;
+      role: string;
+      username: string;
+      fullname: string;
+      email?: string | null;
+    }>(
+      '/api/firebase/updateProfile',
+      { uid, username, fullname },
+      'Failed to update profile.'
+    );
+
+    useUserStore.setState((state) => ({
+      ...state,
+      uid: data.uid,
+      role: data.role,
+      username: data.username,
+      fullname: data.fullname,
+      email: data.email ?? state.email
+    }));
+
+    return data;
+  } catch (err) {
+    console.log(err);
+    throw new Error(getErrorMessage(err, 'Failed to update profile.'));
   }
 }

@@ -45,6 +45,14 @@ const PARTICIPANTS_SUBCOLLECTION = 'participants';
 const SESSION_CODE_LENGTH = 6;
 const SESSION_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const SESSION_CODE_MAX_RETRIES = 20;
+const PARTICIPANT_STALE_MS = 90 * 1000;
+
+function isParticipantFresh(lastSeenAt: Date | null | undefined) {
+  if (!lastSeenAt) {
+    return false;
+  }
+  return Date.now() - lastSeenAt.getTime() <= PARTICIPANT_STALE_MS;
+}
 
 function randomSessionCode(length: number) {
   let code = '';
@@ -363,7 +371,7 @@ export async function listSessionParticipants(sessionId: string): Promise<Sessio
   };
 
   return participants
-    .filter((participant) => participant.active)
+    .filter((participant) => participant.active && isParticipantFresh(participant.lastSeenAt))
     .sort((a, b) => {
       const roleDelta = rolePriority(a.role) - rolePriority(b.role);
       if (roleDelta !== 0) return roleDelta;
@@ -371,6 +379,49 @@ export async function listSessionParticipants(sessionId: string): Promise<Sessio
       if (nameDelta !== 0) return nameDelta;
       return a.participantId.localeCompare(b.participantId);
     });
+}
+
+export async function heartbeatSessionParticipant(
+  sessionId: string,
+  participantId: string
+): Promise<SessionParticipantDocument | null> {
+  const normalizedParticipantId = participantId.trim();
+  const participantRef = db
+    .collection(SESSIONS_COLLECTION)
+    .doc(sessionId)
+    .collection(PARTICIPANTS_SUBCOLLECTION)
+    .doc(normalizedParticipantId);
+
+  const snapshot = await participantRef.get();
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  const now = new Date();
+  const data = snapshot.data();
+  if (!data) {
+    return null;
+  }
+
+  await participantRef.set(
+    {
+      lastSeenAt: now,
+      updatedAt: now
+    },
+    { merge: true }
+  );
+
+  return {
+    participantId: data.participantId ?? normalizedParticipantId,
+    userId: data.userId ?? null,
+    displayName: data.displayName ?? '',
+    role: data.role ?? null,
+    active: data.active === true,
+    joinedAt: data.joinedAt?.toDate ? data.joinedAt.toDate() : data.joinedAt,
+    leftAt: data.leftAt?.toDate ? data.leftAt.toDate() : data.leftAt ?? null,
+    lastSeenAt: now,
+    updatedAt: now
+  } as SessionParticipantDocument;
 }
 
 export async function getSessionParticipantById(

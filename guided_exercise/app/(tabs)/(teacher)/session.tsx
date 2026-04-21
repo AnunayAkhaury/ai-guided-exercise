@@ -1,16 +1,17 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import IvsCall from '@/src/components/IvsCall';
 import {
   endIvsSession,
   getIvsToken,
-  listIvsSessionParticipants,
   markIvsSessionParticipantLeft,
   upsertIvsSessionParticipant,
   cacheIvsToken,
   sendIvsTelemetry
 } from '@/src/api/ivs';
+import { useFirestoreSession, useFirestoreSessionParticipants } from '@/src/hooks/use-ivs-firestore';
+import { useSessionParticipantHeartbeat } from '@/src/hooks/use-session-participant-heartbeat';
 import { useCallStore } from '@/src/store/callStore';
 import { useUserStore } from '@/src/store/userStore';
 
@@ -30,9 +31,8 @@ export default function TeacherSessionScreen() {
   const uid = useUserStore((state) => state.uid);
   const role = useUserStore((state) => state.role);
   const { token, sessionName, userName, sessionCode, sessionId, stageArn, participantId } = useLocalSearchParams<SessionParams>();
+  const hasHandledEndedSession = useRef(false);
   const [ending, setEnding] = useState(false);
-  const [participantNameById, setParticipantNameById] = useState<Record<string, string>>({});
-  const [participantRoleById, setParticipantRoleById] = useState<Record<string, string>>({});
   const normalizedSessionId = Array.isArray(sessionId) ? sessionId[0] : sessionId;
   const normalizedSessionName = Array.isArray(sessionName) ? sessionName[0] : sessionName;
   const normalizedUserName = Array.isArray(userName) ? userName[0] : userName;
@@ -41,7 +41,30 @@ export default function TeacherSessionScreen() {
   const normalizedStageArn = Array.isArray(stageArn) ? stageArn[0] : stageArn;
   const normalizedParticipantId = Array.isArray(participantId) ? participantId[0] : participantId;
   const [currentParticipantId, setCurrentParticipantId] = useState<string | undefined>(normalizedParticipantId);
+  const [isInStage, setIsInStage] = useState(false);
   const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Instructor', [normalizedUserName]);
+  const { data: session, loading: sessionLoading, error: sessionError } = useFirestoreSession(normalizedSessionId, Boolean(normalizedSessionId));
+  const { data: participants, error: participantsError } = useFirestoreSessionParticipants(normalizedSessionId, Boolean(normalizedSessionId));
+  const participantNameById = useMemo(
+    () =>
+      participants.reduce<Record<string, string>>((acc, participant) => {
+        if (participant.displayName && participant.participantId) {
+          acc[participant.participantId] = participant.displayName;
+        }
+        return acc;
+      }, {}),
+    [participants]
+  );
+  const participantRoleById = useMemo(
+    () =>
+      participants.reduce<Record<string, string>>((acc, participant) => {
+        if (participant.role && participant.participantId) {
+          acc[participant.participantId] = participant.role;
+        }
+        return acc;
+      }, {}),
+    [participants]
+  );
 
   useEffect(() => {
     setCurrentParticipantId(normalizedParticipantId);
@@ -61,46 +84,33 @@ export default function TeacherSessionScreen() {
   }, [role, router, setInCall]);
 
   useEffect(() => {
-    if (!normalizedSessionId) return;
-    let active = true;
+    if (!normalizedSessionId || sessionLoading || sessionError || hasHandledEndedSession.current) return;
+    if (!session || session.status === 'ended') {
+      hasHandledEndedSession.current = true;
+      Alert.alert('Session ended', 'This class has ended.');
+      setInCall(false);
+      router.replace('/(tabs)/(teacher)/classes');
+    }
+  }, [normalizedSessionId, router, session, sessionError, sessionLoading, setInCall]);
 
-    const loadParticipants = async () => {
-      try {
-        const participants = await listIvsSessionParticipants(normalizedSessionId);
-        if (!active) return;
-        const nextMap = participants.reduce<Record<string, string>>((acc, participant) => {
-          if (participant.displayName) {
-            if (participant.participantId) {
-              acc[participant.participantId] = participant.displayName;
-            }
-          }
-          return acc;
-        }, {});
-        const nextRoleMap = participants.reduce<Record<string, string>>((acc, participant) => {
-          if (participant.role) {
-            if (participant.participantId) {
-              acc[participant.participantId] = participant.role;
-            }
-          }
-          return acc;
-        }, {});
-        setParticipantNameById(nextMap);
-        setParticipantRoleById(nextRoleMap);
-      } catch (error) {
-        console.log('[TeacherSession] participant list error', error);
-      }
-    };
+  useEffect(() => {
+    if (sessionError) {
+      console.log('[TeacherSession] Firestore session listener error', sessionError);
+    }
+  }, [sessionError]);
 
-    void loadParticipants();
-    const interval = setInterval(() => {
-      void loadParticipants();
-    }, 3000);
+  useEffect(() => {
+    if (participantsError) {
+      console.log('[TeacherSession] Firestore participants listener error', participantsError);
+    }
+  }, [participantsError]);
 
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [normalizedSessionId]);
+  useSessionParticipantHeartbeat({
+    enabled: isInStage && Boolean(normalizedSessionId) && Boolean(currentParticipantId) && session?.status === 'live',
+    sessionId: normalizedSessionId,
+    participantId: currentParticipantId,
+    logPrefix: '[TeacherSession]'
+  });
 
   const handleEndSession = async () => {
     if (!normalizedSessionId) {
@@ -268,6 +278,7 @@ export default function TeacherSessionScreen() {
           }
         }}
         onInfoPress={handleInfoPress}
+        onInStageChange={setIsInStage}
         onEndSession={handleEndSession}
         endSessionLabel={ending ? 'Ending...' : 'End Session'}
         endSessionDisabled={ending}

@@ -2,16 +2,26 @@ import { Tabs, usePathname } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useUserStore } from "@/src/store/userStore";
 import { AntDesign, Entypo, Ionicons, Octicons } from "@expo/vector-icons";
-import { Alert } from "react-native";
+import { Alert, useWindowDimensions } from "react-native";
 import { useCallStore } from "@/src/store/callStore";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabLayout() {
   const role = useUserStore((state) => state.role);
   const inCall = useCallStore((state) => state.inCall);
   const pathname = usePathname();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const skipAuth = __DEV__ && role == null;
   const normalizedPath = (pathname || "").toLowerCase();
   const isSessionRoute = normalizedPath.endsWith('/session');
+  const isCompactPhone = width < 390 || height < 760;
+  const tabBarTopPadding = isCompactPhone ? 8 : 10;
+  const tabBarBottomPadding = Math.max(insets.bottom, isCompactPhone ? 8 : 10);
+  const tabBarHeight = (isCompactPhone ? 54 : 60) + tabBarBottomPadding;
+  const tabBarLabelFontSize = isCompactPhone ? 11 : 12;
+  const recordingsTitle = isCompactPhone ? "Videos" : "Recordings";
+  const startMeetingTitle = isCompactPhone ? "Start" : "Start";
 
   return (
     <Tabs
@@ -29,18 +39,28 @@ export default function TabLayout() {
         tabBarStyle: {
           display: inCall || isSessionRoute ? "none" : "flex",
           backgroundColor: "#A980FE",
-          minHeight: 64,
-          height: 'auto',
-          paddingTop: 10,
-          paddingBottom: 8,
+          borderTopWidth: 0,
+          elevation: 0,
+          height: tabBarHeight,
+          paddingTop: tabBarTopPadding,
+          paddingBottom: tabBarBottomPadding,
+          paddingHorizontal: isCompactPhone ? 4 : 8,
         },
         tabBarLabelStyle: {
-          fontSize: 13,
+          fontSize: tabBarLabelFontSize,
+          lineHeight: tabBarLabelFontSize + 2,
           fontFamily: "Inter_600SemiBold",
         },
         tabBarItemStyle: {
-          paddingVertical: 2,
+          minWidth: 0,
+          paddingVertical: isCompactPhone ? 1 : 2,
         },
+        tabBarIconStyle: {
+          marginBottom: isCompactPhone ? 1 : 3,
+        },
+        tabBarLabelPosition: 'below-icon',
+        tabBarHideOnKeyboard: true,
+        tabBarAllowFontScaling: false,
         tabBarActiveTintColor: "#6155F5",
         tabBarInactiveTintColor: "#000",
       }}
@@ -60,7 +80,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(student)/recordings"
         options={{
-          title: "Recordings",
+          title: recordingsTitle,
           tabBarIcon: ({ color, size }) => (
             <Entypo name="folder-video" color={color} size={size} />
           ),
@@ -84,7 +104,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(teacher)/recordings"
         options={{
-          title: "Recordings",
+          title: recordingsTitle,
           tabBarIcon: ({ color, size }) => (
             <Entypo name="folder-video" color={color} size={size} />
           ),
@@ -95,7 +115,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(teacher)/start-meeting"
         options={{
-          title: "Start Meeting",
+          title: startMeetingTitle,
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="screenshot-monitor" color={color} size={size} />
           ),
@@ -110,7 +130,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <AntDesign name="schedule" color={color} size={size} />
           ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/schedule" : null,
+          // Keep schedule reachable from the Classes screen CTA instead of overcrowding bottom navigation.
+          href: null,
           headerShown: false,
         }}
       />

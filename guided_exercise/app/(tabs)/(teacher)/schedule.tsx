@@ -30,11 +30,12 @@ export default function ScheduleScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
   const isSmallPhone = width < 380 || height < 760;
+  const uid = useUserStore((state) => state.uid);
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
   const instructorId = useMemo(
-    () => username?.trim() || fullname?.trim() || `instructor-${Date.now()}`,
-    [fullname, username]
+    () => uid?.trim() || `instructor-${Date.now()}`,
+    [uid]
   );
   const coachName = useMemo(
     () =>
@@ -91,6 +92,10 @@ export default function ScheduleScreen() {
     const trimmedSessionName = sessionName.trim();
     if (!trimmedSessionName) {
       Alert.alert('Missing title', 'Please enter a session title.');
+      return;
+    }
+    if (!uid?.trim()) {
+      Alert.alert('Missing profile', 'Missing instructor profile uid. Please log out and log in again.');
       return;
     }
 

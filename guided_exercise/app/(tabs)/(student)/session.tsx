@@ -4,13 +4,13 @@ import IvsCall from '@/src/components/IvsCall';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   cacheIvsToken,
-  getIvsSessionById,
   getIvsToken,
-  listIvsSessionParticipants,
   markIvsSessionParticipantLeft,
   sendIvsTelemetry,
   upsertIvsSessionParticipant
 } from '@/src/api/ivs';
+import { useFirestoreSession, useFirestoreSessionParticipants } from '@/src/hooks/use-ivs-firestore';
+import { useSessionParticipantHeartbeat } from '@/src/hooks/use-session-participant-heartbeat';
 import { useCallStore } from '@/src/store/callStore';
 import { useUserStore } from '@/src/store/userStore';
 
@@ -39,9 +39,30 @@ export default function StudentSessionScreen() {
   const normalizedStageArn = Array.isArray(stageArn) ? stageArn[0] : stageArn;
   const normalizedParticipantId = Array.isArray(participantId) ? participantId[0] : participantId;
   const [currentParticipantId, setCurrentParticipantId] = useState<string | undefined>(normalizedParticipantId);
-  const [participantNameById, setParticipantNameById] = useState<Record<string, string>>({});
-  const [participantRoleById, setParticipantRoleById] = useState<Record<string, string>>({});
+  const [isInStage, setIsInStage] = useState(false);
   const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Student', [normalizedUserName]);
+  const { data: session, loading: sessionLoading, error: sessionError } = useFirestoreSession(normalizedSessionId, Boolean(normalizedSessionId));
+  const { data: participants, error: participantsError } = useFirestoreSessionParticipants(normalizedSessionId, Boolean(normalizedSessionId));
+  const participantNameById = useMemo(
+    () =>
+      participants.reduce<Record<string, string>>((acc, participant) => {
+        if (participant.displayName && participant.participantId) {
+          acc[participant.participantId] = participant.displayName;
+        }
+        return acc;
+      }, {}),
+    [participants]
+  );
+  const participantRoleById = useMemo(
+    () =>
+      participants.reduce<Record<string, string>>((acc, participant) => {
+        if (participant.role && participant.participantId) {
+          acc[participant.participantId] = participant.role;
+        }
+        return acc;
+      }, {}),
+    [participants]
+  );
 
   useEffect(() => {
     setCurrentParticipantId(normalizedParticipantId);
@@ -61,82 +82,33 @@ export default function StudentSessionScreen() {
   }, [role, router, setInCall]);
 
   useEffect(() => {
-    if (!normalizedSessionId) return;
-    let active = true;
-    const checkSessionStatus = async () => {
-      try {
-        const session = await getIvsSessionById(normalizedSessionId);
-        if (active && session.status === 'ended' && !hasHandledEndedSession.current) {
-          hasHandledEndedSession.current = true;
-          Alert.alert('Session ended', 'The instructor ended this session.');
-          setInCall(false);
-          router.replace('/(tabs)/(student)/classes');
-        }
-      } catch (error) {
-        const message = String((error as any)?.message || '');
-        if (active && !hasHandledEndedSession.current && (message.includes('Session not found') || message.includes('404'))) {
-          hasHandledEndedSession.current = true;
-          Alert.alert('Session ended', 'The instructor ended this session.');
-          setInCall(false);
-          router.replace('/(tabs)/(student)/classes');
-          return;
-        }
-        console.log('[StudentSession] polling error', error);
-      }
-    };
-
-    void checkSessionStatus();
-    const interval = setInterval(() => {
-      void checkSessionStatus();
-    }, 3000);
-
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [normalizedSessionId, router, setInCall]);
+    if (!normalizedSessionId || sessionLoading || sessionError || hasHandledEndedSession.current) return;
+    if (!session || session.status === 'ended') {
+      hasHandledEndedSession.current = true;
+      Alert.alert('Session ended', 'The instructor ended this session.');
+      setInCall(false);
+      router.replace('/(tabs)/(student)/classes');
+    }
+  }, [normalizedSessionId, router, session, sessionError, sessionLoading, setInCall]);
 
   useEffect(() => {
-    if (!normalizedSessionId) return;
-    let active = true;
+    if (sessionError) {
+      console.log('[StudentSession] Firestore session listener error', sessionError);
+    }
+  }, [sessionError]);
 
-    const loadParticipants = async () => {
-      try {
-        const participants = await listIvsSessionParticipants(normalizedSessionId);
-        if (!active) return;
-        const nextMap = participants.reduce<Record<string, string>>((acc, participant) => {
-          if (participant.displayName) {
-            if (participant.participantId) {
-              acc[participant.participantId] = participant.displayName;
-            }
-          }
-          return acc;
-        }, {});
-        const nextRoleMap = participants.reduce<Record<string, string>>((acc, participant) => {
-          if (participant.role) {
-            if (participant.participantId) {
-              acc[participant.participantId] = participant.role;
-            }
-          }
-          return acc;
-        }, {});
-        setParticipantNameById(nextMap);
-        setParticipantRoleById(nextRoleMap);
-      } catch (error) {
-        console.log('[StudentSession] participant list error', error);
-      }
-    };
+  useEffect(() => {
+    if (participantsError) {
+      console.log('[StudentSession] Firestore participants listener error', participantsError);
+    }
+  }, [participantsError]);
 
-    void loadParticipants();
-    const interval = setInterval(() => {
-      void loadParticipants();
-    }, 3000);
-
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [normalizedSessionId]);
+  useSessionParticipantHeartbeat({
+    enabled: isInStage && Boolean(normalizedSessionId) && Boolean(currentParticipantId) && session?.status === 'live',
+    sessionId: normalizedSessionId,
+    participantId: currentParticipantId,
+    logPrefix: '[StudentSession]'
+  });
 
   const handleInfoPress = () => {
     Alert.alert(
@@ -287,6 +259,7 @@ export default function StudentSessionScreen() {
           }
         }}
         onInfoPress={handleInfoPress}
+        onInStageChange={setIsInStage}
         localParticipantLabel={normalizedLocalLabel}
         participantNamesById={participantNameById}
         participantRolesById={participantRoleById}
