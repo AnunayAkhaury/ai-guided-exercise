@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, doc, onSnapshot, query, where, type DocumentData, type Query } from 'firebase/firestore';
 import { db } from '@/src/api/Firebase/firebase-config';
-import type { IvsSession, IvsSessionParticipant, IvsSessionStatus } from '@/src/api/ivs';
+import {
+  getIvsSessionById,
+  listIvsSessionParticipants,
+  listIvsSessions,
+  type IvsSession,
+  type IvsSessionParticipant,
+  type IvsSessionStatus
+} from '@/src/api/ivs';
 
 const SESSIONS_COLLECTION = 'sessions';
 const PARTICIPANTS_SUBCOLLECTION = 'participants';
 const EPOCH_ISO = new Date(0).toISOString();
+const CLASS_LIST_FALLBACK_POLL_MS = 15000;
+const SESSION_DETAIL_FALLBACK_POLL_MS = 3000;
+const PARTICIPANTS_FALLBACK_POLL_MS = 3000;
 
 type ListenerState<T> = {
   data: T;
@@ -89,6 +99,13 @@ function sortParticipants(participants: IvsSessionParticipant[]) {
     });
 }
 
+function toLogMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
 export function useFirestoreSessions(statuses?: IvsSessionStatus[], enabled = true): ListenerState<IvsSession[]> {
   const [state, setState] = useState<ListenerState<IvsSession[]>>({ data: [], loading: enabled, error: null });
 
@@ -103,9 +120,58 @@ export function useFirestoreSessions(statuses?: IvsSessionStatus[], enabled = tr
       return;
     }
 
+    let cancelled = false;
+    let fallbackStarted = false;
+    let fallbackInterval: ReturnType<typeof setInterval> | null = null;
+
     const normalizedStatuses = normalizedStatusesKey
       ? (normalizedStatusesKey.split(',') as IvsSessionStatus[])
       : [];
+
+    const loadFallbackSessions = async () => {
+      try {
+        const sessions = sortSessions(await listIvsSessions(normalizedStatuses));
+        console.log('[useFirestoreSessions] REST fallback success', {
+          statuses: normalizedStatuses,
+          count: sessions.length
+        });
+        if (!cancelled) {
+          setState({ data: sessions, loading: false, error: null });
+        }
+      } catch (error) {
+        console.log('[useFirestoreSessions] REST fallback failed', {
+          statuses: normalizedStatuses,
+          message: toLogMessage(error)
+        });
+        if (!cancelled) {
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            error: error instanceof Error ? error : new Error(String(error))
+          }));
+        }
+      }
+    };
+
+    const startFallback = (error: unknown) => {
+      if (fallbackStarted) return;
+      fallbackStarted = true;
+      console.log('[useFirestoreSessions] Firestore listener failed, starting REST fallback', {
+        statuses: normalizedStatuses,
+        message: toLogMessage(error)
+      });
+      if (!cancelled) {
+        setState((prev) => ({
+          ...prev,
+          loading: true,
+          error: error instanceof Error ? error : new Error(String(error))
+        }));
+      }
+      void loadFallbackSessions();
+      fallbackInterval = setInterval(() => {
+        void loadFallbackSessions();
+      }, CLASS_LIST_FALLBACK_POLL_MS);
+    };
 
     let sessionsQuery: Query<DocumentData> = collection(db, SESSIONS_COLLECTION);
     if (normalizedStatuses.length === 1) {
@@ -115,19 +181,32 @@ export function useFirestoreSessions(statuses?: IvsSessionStatus[], enabled = tr
     }
 
     setState((prev) => ({ ...prev, loading: true, error: null }));
+    console.log('[useFirestoreSessions] starting Firestore listener', {
+      statuses: normalizedStatuses
+    });
 
     const unsubscribe = onSnapshot(
       sessionsQuery,
       (snapshot) => {
         const sessions = sortSessions(snapshot.docs.map((sessionDoc) => mapSessionDoc(sessionDoc.id, sessionDoc.data())));
+        console.log('[useFirestoreSessions] Firestore listener success', {
+          statuses: normalizedStatuses,
+          count: sessions.length
+        });
         setState({ data: sessions, loading: false, error: null });
       },
       (error) => {
-        setState((prev) => ({ ...prev, loading: false, error }));
+        startFallback(error);
       }
     );
 
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe();
+      if (fallbackInterval) {
+        clearInterval(fallbackInterval);
+      }
+    };
   }, [enabled, normalizedStatusesKey]);
 
   return state;
@@ -142,23 +221,90 @@ export function useFirestoreSession(sessionId?: string, enabled = true): Listene
       return;
     }
 
+    const normalizedSessionId = sessionId.trim();
+    let cancelled = false;
+    let fallbackStarted = false;
+    let fallbackInterval: ReturnType<typeof setInterval> | null = null;
+
+    const loadFallbackSession = async () => {
+      try {
+        const session = await getIvsSessionById(normalizedSessionId);
+        console.log('[useFirestoreSession] REST fallback success', {
+          sessionId: normalizedSessionId,
+          status: session.status
+        });
+        if (!cancelled) {
+          setState({ data: session, loading: false, error: null });
+        }
+      } catch (error) {
+        console.log('[useFirestoreSession] REST fallback failed', {
+          sessionId: normalizedSessionId,
+          message: toLogMessage(error)
+        });
+        if (!cancelled) {
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            error: error instanceof Error ? error : new Error(String(error))
+          }));
+        }
+      }
+    };
+
+    const startFallback = (error: unknown) => {
+      if (fallbackStarted) return;
+      fallbackStarted = true;
+      console.log('[useFirestoreSession] Firestore listener failed, starting REST fallback', {
+        sessionId: normalizedSessionId,
+        message: toLogMessage(error)
+      });
+      if (!cancelled) {
+        setState((prev) => ({
+          ...prev,
+          loading: true,
+          error: error instanceof Error ? error : new Error(String(error))
+        }));
+      }
+      void loadFallbackSession();
+      fallbackInterval = setInterval(() => {
+        void loadFallbackSession();
+      }, SESSION_DETAIL_FALLBACK_POLL_MS);
+    };
+
     setState((prev) => ({ ...prev, loading: true, error: null }));
+    console.log('[useFirestoreSession] starting Firestore listener', {
+      sessionId: normalizedSessionId
+    });
 
     const unsubscribe = onSnapshot(
-      doc(db, SESSIONS_COLLECTION, sessionId.trim()),
+      doc(db, SESSIONS_COLLECTION, normalizedSessionId),
       (snapshot) => {
         if (!snapshot.exists()) {
+          console.log('[useFirestoreSession] Firestore listener success (missing doc)', {
+            sessionId: normalizedSessionId
+          });
           setState({ data: null, loading: false, error: null });
           return;
         }
-        setState({ data: mapSessionDoc(snapshot.id, snapshot.data()), loading: false, error: null });
+        const session = mapSessionDoc(snapshot.id, snapshot.data());
+        console.log('[useFirestoreSession] Firestore listener success', {
+          sessionId: normalizedSessionId,
+          status: session.status
+        });
+        setState({ data: session, loading: false, error: null });
       },
       (error) => {
-        setState((prev) => ({ ...prev, loading: false, error }));
+        startFallback(error);
       }
     );
 
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe();
+      if (fallbackInterval) {
+        clearInterval(fallbackInterval);
+      }
+    };
   }, [enabled, sessionId]);
 
   return state;
@@ -173,25 +319,88 @@ export function useFirestoreSessionParticipants(sessionId?: string, enabled = tr
       return;
     }
 
+    const normalizedSessionId = sessionId.trim();
+    let cancelled = false;
+    let fallbackStarted = false;
+    let fallbackInterval: ReturnType<typeof setInterval> | null = null;
+
+    const loadFallbackParticipants = async () => {
+      try {
+        const participants = sortParticipants(await listIvsSessionParticipants(normalizedSessionId));
+        console.log('[useFirestoreSessionParticipants] REST fallback success', {
+          sessionId: normalizedSessionId,
+          count: participants.length
+        });
+        if (!cancelled) {
+          setState({ data: participants, loading: false, error: null });
+        }
+      } catch (error) {
+        console.log('[useFirestoreSessionParticipants] REST fallback failed', {
+          sessionId: normalizedSessionId,
+          message: toLogMessage(error)
+        });
+        if (!cancelled) {
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            error: error instanceof Error ? error : new Error(String(error))
+          }));
+        }
+      }
+    };
+
+    const startFallback = (error: unknown) => {
+      if (fallbackStarted) return;
+      fallbackStarted = true;
+      console.log('[useFirestoreSessionParticipants] Firestore listener failed, starting REST fallback', {
+        sessionId: normalizedSessionId,
+        message: toLogMessage(error)
+      });
+      if (!cancelled) {
+        setState((prev) => ({
+          ...prev,
+          loading: true,
+          error: error instanceof Error ? error : new Error(String(error))
+        }));
+      }
+      void loadFallbackParticipants();
+      fallbackInterval = setInterval(() => {
+        void loadFallbackParticipants();
+      }, PARTICIPANTS_FALLBACK_POLL_MS);
+    };
+
     const participantsQuery = query(
-      collection(db, SESSIONS_COLLECTION, sessionId.trim(), PARTICIPANTS_SUBCOLLECTION),
+      collection(db, SESSIONS_COLLECTION, normalizedSessionId, PARTICIPANTS_SUBCOLLECTION),
       where('active', '==', true)
     );
 
     setState((prev) => ({ ...prev, loading: true, error: null }));
+    console.log('[useFirestoreSessionParticipants] starting Firestore listener', {
+      sessionId: normalizedSessionId
+    });
 
     const unsubscribe = onSnapshot(
       participantsQuery,
       (snapshot) => {
         const participants = sortParticipants(snapshot.docs.map((participantDoc) => mapParticipantDoc(participantDoc.id, participantDoc.data())));
+        console.log('[useFirestoreSessionParticipants] Firestore listener success', {
+          sessionId: normalizedSessionId,
+          count: participants.length
+        });
         setState({ data: participants, loading: false, error: null });
       },
       (error) => {
-        setState((prev) => ({ ...prev, loading: false, error }));
+        startFallback(error);
       }
     );
 
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe();
+      if (fallbackInterval) {
+        clearInterval(fallbackInterval);
+      }
+    };
   }, [enabled, sessionId]);
 
   return state;
