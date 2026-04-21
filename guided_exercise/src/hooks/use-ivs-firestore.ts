@@ -16,6 +16,8 @@ const EPOCH_ISO = new Date(0).toISOString();
 const CLASS_LIST_FALLBACK_POLL_MS = 15000;
 const SESSION_DETAIL_FALLBACK_POLL_MS = 3000;
 const PARTICIPANTS_FALLBACK_POLL_MS = 3000;
+const PARTICIPANT_STALE_MS = 90 * 1000;
+const PARTICIPANT_STALENESS_RECHECK_MS = 15 * 1000;
 
 type ListenerState<T> = {
   data: T;
@@ -44,6 +46,17 @@ function rolePriority(role: string | null) {
   if (role === 'instructor') return 0;
   if (role === 'student') return 1;
   return 2;
+}
+
+function isParticipantFresh(lastSeenAtIso: string | null) {
+  if (!lastSeenAtIso) {
+    return false;
+  }
+  const lastSeenAtMs = new Date(lastSeenAtIso).getTime();
+  if (!Number.isFinite(lastSeenAtMs)) {
+    return false;
+  }
+  return Date.now() - lastSeenAtMs <= PARTICIPANT_STALE_MS;
 }
 
 function mapSessionDoc(id: string, data: DocumentData): IvsSession {
@@ -89,7 +102,7 @@ function sortSessions(sessions: IvsSession[]) {
 
 function sortParticipants(participants: IvsSessionParticipant[]) {
   return [...participants]
-    .filter((participant) => participant.active)
+    .filter((participant) => participant.active && isParticipantFresh(participant.lastSeenAt))
     .sort((a, b) => {
       const roleDelta = rolePriority(a.role) - rolePriority(b.role);
       if (roleDelta !== 0) return roleDelta;
@@ -312,6 +325,35 @@ export function useFirestoreSession(sessionId?: string, enabled = true): Listene
 
 export function useFirestoreSessionParticipants(sessionId?: string, enabled = true): ListenerState<IvsSessionParticipant[]> {
   const [state, setState] = useState<ListenerState<IvsSessionParticipant[]>>({ data: [], loading: enabled && Boolean(sessionId), error: null });
+
+  useEffect(() => {
+    if (!enabled || !sessionId?.trim()) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setState((prev) => {
+        if (prev.data.length === 0) {
+          return prev;
+        }
+        const nextParticipants = sortParticipants(prev.data);
+        const unchanged =
+          nextParticipants.length === prev.data.length &&
+          nextParticipants.every((participant, index) => participant.participantId === prev.data[index]?.participantId);
+        if (unchanged) {
+          return prev;
+        }
+        return {
+          ...prev,
+          data: nextParticipants
+        };
+      });
+    }, PARTICIPANT_STALENESS_RECHECK_MS);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [enabled, sessionId]);
 
   useEffect(() => {
     if (!enabled || !sessionId?.trim()) {

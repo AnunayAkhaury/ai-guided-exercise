@@ -23,6 +23,7 @@ import {
   createSessionController,
   endSessionController,
   getSessionByIdController,
+  heartbeatSessionParticipantController,
   joinSessionByCodeController,
   leaveSessionParticipantController,
   listSessionParticipantsController,
@@ -55,6 +56,7 @@ router.post('/api/ivs/sessions/end', endSessionController);
 router.get('/api/ivs/sessions', listSessionsController);
 router.get('/api/ivs/sessions/:sessionId', getSessionByIdController);
 router.post('/api/ivs/sessions/participants/upsert', upsertSessionParticipantController);
+router.post('/api/ivs/sessions/participants/heartbeat', heartbeatSessionParticipantController);
 router.post('/api/ivs/sessions/participants/leave', leaveSessionParticipantController);
 router.get('/api/ivs/sessions/:sessionId/participants', listSessionParticipantsController);
 router.post('/api/aws/uploadVideo', uploadVideoController);

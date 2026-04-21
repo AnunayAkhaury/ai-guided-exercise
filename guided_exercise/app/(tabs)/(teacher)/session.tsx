@@ -11,6 +11,7 @@ import {
   sendIvsTelemetry
 } from '@/src/api/ivs';
 import { useFirestoreSession, useFirestoreSessionParticipants } from '@/src/hooks/use-ivs-firestore';
+import { useSessionParticipantHeartbeat } from '@/src/hooks/use-session-participant-heartbeat';
 import { useCallStore } from '@/src/store/callStore';
 import { useUserStore } from '@/src/store/userStore';
 
@@ -40,6 +41,7 @@ export default function TeacherSessionScreen() {
   const normalizedStageArn = Array.isArray(stageArn) ? stageArn[0] : stageArn;
   const normalizedParticipantId = Array.isArray(participantId) ? participantId[0] : participantId;
   const [currentParticipantId, setCurrentParticipantId] = useState<string | undefined>(normalizedParticipantId);
+  const [isInStage, setIsInStage] = useState(false);
   const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Instructor', [normalizedUserName]);
   const { data: session, loading: sessionLoading, error: sessionError } = useFirestoreSession(normalizedSessionId, Boolean(normalizedSessionId));
   const { data: participants, error: participantsError } = useFirestoreSessionParticipants(normalizedSessionId, Boolean(normalizedSessionId));
@@ -102,6 +104,13 @@ export default function TeacherSessionScreen() {
       console.log('[TeacherSession] Firestore participants listener error', participantsError);
     }
   }, [participantsError]);
+
+  useSessionParticipantHeartbeat({
+    enabled: isInStage && Boolean(normalizedSessionId) && Boolean(currentParticipantId) && session?.status === 'live',
+    sessionId: normalizedSessionId,
+    participantId: currentParticipantId,
+    logPrefix: '[TeacherSession]'
+  });
 
   const handleEndSession = async () => {
     if (!normalizedSessionId) {
@@ -269,6 +278,7 @@ export default function TeacherSessionScreen() {
           }
         }}
         onInfoPress={handleInfoPress}
+        onInStageChange={setIsInStage}
         onEndSession={handleEndSession}
         endSessionLabel={ending ? 'Ending...' : 'End Session'}
         endSessionDisabled={ending}

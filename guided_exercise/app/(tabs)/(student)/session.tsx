@@ -10,6 +10,7 @@ import {
   upsertIvsSessionParticipant
 } from '@/src/api/ivs';
 import { useFirestoreSession, useFirestoreSessionParticipants } from '@/src/hooks/use-ivs-firestore';
+import { useSessionParticipantHeartbeat } from '@/src/hooks/use-session-participant-heartbeat';
 import { useCallStore } from '@/src/store/callStore';
 import { useUserStore } from '@/src/store/userStore';
 
@@ -38,6 +39,7 @@ export default function StudentSessionScreen() {
   const normalizedStageArn = Array.isArray(stageArn) ? stageArn[0] : stageArn;
   const normalizedParticipantId = Array.isArray(participantId) ? participantId[0] : participantId;
   const [currentParticipantId, setCurrentParticipantId] = useState<string | undefined>(normalizedParticipantId);
+  const [isInStage, setIsInStage] = useState(false);
   const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Student', [normalizedUserName]);
   const { data: session, loading: sessionLoading, error: sessionError } = useFirestoreSession(normalizedSessionId, Boolean(normalizedSessionId));
   const { data: participants, error: participantsError } = useFirestoreSessionParticipants(normalizedSessionId, Boolean(normalizedSessionId));
@@ -100,6 +102,13 @@ export default function StudentSessionScreen() {
       console.log('[StudentSession] Firestore participants listener error', participantsError);
     }
   }, [participantsError]);
+
+  useSessionParticipantHeartbeat({
+    enabled: isInStage && Boolean(normalizedSessionId) && Boolean(currentParticipantId) && session?.status === 'live',
+    sessionId: normalizedSessionId,
+    participantId: currentParticipantId,
+    logPrefix: '[StudentSession]'
+  });
 
   const handleInfoPress = () => {
     Alert.alert(
@@ -250,6 +259,7 @@ export default function StudentSessionScreen() {
           }
         }}
         onInfoPress={handleInfoPress}
+        onInStageChange={setIsInStage}
         localParticipantLabel={normalizedLocalLabel}
         participantNamesById={participantNameById}
         participantRolesById={participantRoleById}

@@ -97,6 +97,11 @@ type SessionParticipantLeaveRequest = {
   participantId: string;
 };
 
+type SessionParticipantHeartbeatRequest = {
+  sessionId: string;
+  participantId: string;
+};
+
 type SessionTokenCacheKey = {
   sessionId: string;
   stageArn: string;
@@ -287,6 +292,12 @@ export function markIvsSessionParticipantLeft(
   request: SessionParticipantLeaveRequest
 ): Promise<{ success: boolean; sessionId: string; participantId: string }> {
   return postJson('/api/ivs/sessions/participants/leave', request as Record<string, unknown>);
+}
+
+export function heartbeatIvsSessionParticipant(
+  request: SessionParticipantHeartbeatRequest
+): Promise<{ success: boolean; sessionId: string; participantId: string; active: boolean; lastSeenAt: string }> {
+  return postJson('/api/ivs/sessions/participants/heartbeat', request as Record<string, unknown>);
 }
 
 export function listIvsSessionParticipants(sessionId: string): Promise<IvsSessionParticipant[]> {
