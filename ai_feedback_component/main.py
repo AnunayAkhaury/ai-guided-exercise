@@ -12,13 +12,13 @@ def generate_ideal(base_name):
     print(f"\n--- Starting Ideal Baseline Generation for: {base_name} ---")
     
     # 1. Extract Landmarks from Video
-    extract_landmarks(base_name)
+    extract_landmarks(base_name, './data')
     
     # 2. Calculate Angles from Landmarks
-    calculate_joint_angles(base_name)
+    calculate_joint_angles(base_name, './data')
     
     # 3. Analyze periodicity to create the Ideal Baseline
-    generate_ideal_baseline(base_name)
+    generate_ideal_baseline(base_name, './data')
     
     print(f"--- Ideal Baseline Complete: {base_name}-ideal.json ---\n")
 
@@ -31,19 +31,18 @@ def generate_comparison(exercise_name, test_video_name, ideal_baseline_name):
     print(f"--- Using Baseline: {ideal_baseline_name} ---")
 
     # 1. Extract Landmarks from the test video
-    extract_landmarks(test_video_name)
+    extract_landmarks(test_video_name, './data')
     
     # 2. Calculate Angles for the test video
-    calculate_joint_angles(test_video_name)
+    calculate_joint_angles(test_video_name, './data')
     
     # 3. Compare test angles against the specified ideal baseline
-    run_form_analysis(test_video_name, ideal_baseline_name)
+    run_form_analysis(test_video_name, ideal_baseline_name, './data')
 
     # 4. Generate feedback using LLM
-    result = llm_generate_feedback(exercise_name, test_video_name)
+    result = llm_generate_feedback(exercise_name, test_video_name, './data')
 
     print(f"--- Analysis Complete: {test_video_name}-bad_reps.json ---\n")
-
     return result
 
 # NOTE: Not used in flask app, only for testing. Generate_ideal and generate_comparison functions are used directly in flask app
