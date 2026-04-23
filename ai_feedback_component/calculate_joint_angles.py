@@ -40,7 +40,7 @@ def angle_3pt(a: dict, b: dict, c: dict) -> float | None:
     return round(math.degrees(math.acos(cos_val)), 4)
 
 def landmarks_to_dict(landmarks: list) -> dict:
-    return {lm["name"]: {"x": lm["x"], "y": lm["y"], "z": lm["z"]} for lm in landmarks}
+    return {lm["name"]: {"x": lm["x"], "y": lm["y"], "z": lm["z"], "confident": lm["confident"]} for lm in landmarks}
 
 def is_significant(deltas: dict) -> bool:
     vals = [abs(v) for v in deltas.values() if v is not None]
@@ -48,12 +48,15 @@ def is_significant(deltas: dict) -> bool:
 
 def compute_angles(lm_dict: dict) -> dict:
     angles = {}
+    usable_dict = {}
     for joint, (a_name, b_name, c_name) in JOINTS.items():
         if all(k in lm_dict for k in (a_name, b_name, c_name)):
             angles[joint] = angle_3pt(lm_dict[a_name], lm_dict[b_name], lm_dict[c_name])
+            usable_dict[joint] = True if lm_dict[a_name]["confident"] and lm_dict[b_name]["confident"] and lm_dict[c_name]["confident"] else False
         else:
             angles[joint] = None
-    return angles
+            usable_dict[joint] = None
+    return angles, usable_dict
 
 def calculate_joint_angles(base_name, data_dir="/app/data"):
     """
@@ -80,32 +83,38 @@ def calculate_joint_angles(base_name, data_dir="/app/data"):
         poses = frame.get("poses", [])
         if poses:
             lm_dict = landmarks_to_dict(poses[0]["worldLandmarks"])
-            angles = compute_angles(lm_dict)
+            angles, usable_dict = compute_angles(lm_dict)
         else:
             angles = {j: None for j in JOINT_NAMES}
+            usable_dict = {j: None for j in JOINT_NAMES}
 
         angle_frames.append({
             "frameIndex": frame["frameIndex"],
             "timestampMs": frame["timestampMs"],
             "angles": angles,
+            "usableDict": usable_dict,
         })
 
     # Pass 2: Calculate frame-to-frame deltas
     delta_frames = []
     for i in range(len(angle_frames) - 1):
-        prev = angle_frames[i]["angles"]
-        curr = angle_frames[i + 1]["angles"]
+        prev = angle_frames[i]
+        curr = angle_frames[i + 1]
+        
 
         deltas = {}
+        usable_dict = {}
         for joint in JOINT_NAMES:
-            p, c = prev[joint], curr[joint]
+            p, c = prev["angles"][joint], curr["angles"][joint]
             deltas[joint] = round(c - p, 4) if (p is not None and c is not None) else None
+            usable_dict[joint] = True if prev["usableDict"][joint] and curr["usableDict"][joint] else False
 
         delta_frames.append({
             "fromFrame": angle_frames[i]["frameIndex"],
             "toFrame": angle_frames[i + 1]["frameIndex"],
             "timestampMs": angle_frames[i + 1]["timestampMs"],
             "deltas": deltas,
+            "usableDict": usable_dict,
         })
 
     # Pass 3: Filter significance

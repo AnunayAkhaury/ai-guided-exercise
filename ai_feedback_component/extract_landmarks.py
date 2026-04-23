@@ -28,16 +28,19 @@ ALL_LANDMARKS = [
 
 BODY_LANDMARK_NAMES = [ALL_LANDMARKS[i] for i in KEEP_INDICES]
 
+CONFIDENCE_THRES = 0.5
+
 def filter_pose(landmarks):
     result = []
     for i in KEEP_INDICES:
         lm = landmarks[i]
+        confidence = lm.visibility * 0.6 + lm.presence * 0.4
         result.append({
             "name": ALL_LANDMARKS[i],
             "x": round(lm.x, 6),
             "y": round(lm.y, 6),
             "z": round(lm.z, 6),
-            "visibility": round(lm.visibility, 6)
+            "confident": True if confidence > CONFIDENCE_THRES else False,
         })
     return {"worldLandmarks": result}
 

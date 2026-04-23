@@ -3,11 +3,16 @@ import sys
 import os
 import bisect
 import numpy as np
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, savgol_filter
 
 # Threshold for flagging deviations (percent)
 DEVIATION_THRESHOLD = 25.0   # percent — deviations beyond this are flagged
 MIN_REP_GAP_MS      = 500    # ms — valley timestamps closer than this are merged into one boundary
+
+# Savgol Smoothing Parameters
+# Window length must be odd. polyorder must be less than window_length.
+SAVGOL_WINDOW = 11
+SAVGOL_POLY   = 2
 
 def load_angles(path: str) -> list[dict]:
     with open(path, "r") as f:
@@ -15,7 +20,32 @@ def load_angles(path: str) -> list[dict]:
     return data["frames"]
 
 def _series(frames: list[dict], joint: str) -> np.ndarray:
-    return np.array([f["angles"][joint] for f in frames])
+    """
+    Extracts joint angles, applying smoothing and dropping invalid points.
+    """
+
+    raw_values = []
+    for f in frames:
+        is_valid = f["usableDict"].get(joint, False)
+        val = f["angles"].get(joint)
+        
+        # If not valid or None, use NaN to represent a 'dropped' point
+        raw_values.append(val if (is_valid and val is not None) else np.nan)
+    
+    series = np.array(raw_values, dtype=float)
+
+    # Handle missing data (Interpolate over NaNs so Savgol can run)
+    # Savgol cannot handle NaNs directly. We interpolate to bridge the 'dropped' gaps.
+    nans = np.isnan(series)
+    if np.all(nans):
+        return series
+    
+    series[nans] = np.interp(np.flatnonzero(nans), np.flatnonzero(~nans), series[~nans])
+
+    if len(series) > SAVGOL_WINDOW:
+        series = savgol_filter(series, window_length=SAVGOL_WINDOW, polyorder=SAVGOL_POLY)
+    
+    return series
 
 def load_baseline(path: str) -> dict:
     """Load the ideal baseline JSON written by analyze-ideal.py."""
