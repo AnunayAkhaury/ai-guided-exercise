@@ -41,9 +41,9 @@ export default function TabLayout() {
   const effectiveRole = role ?? (__DEV__ ? devRoleOverride : null);
   const showStudentTabs = effectiveRole === 'student';
   const showInstructorTabs = effectiveRole === 'instructor';
-  const tabBarTopPadding = isWeb ? 10 : (isCompactPhone ? 8 : 10);
+  const tabBarTopPadding = isWeb ? 8 : (isCompactPhone ? 8 : 10);
   const tabBarBottomPadding = isWeb ? 12 : Math.max(insets.bottom, isCompactPhone ? 8 : 10);
-  const tabBarHeight = (isWeb ? 64 : (isCompactPhone ? 54 : 60)) + tabBarBottomPadding;
+  const tabBarHeight = (isWeb ? 70 : (isCompactPhone ? 54 : 60)) + tabBarBottomPadding;
   const tabBarLabelFontSize = isWeb ? 12 : (isCompactPhone ? 11 : 12);
   const recordingsTitle = isCompactPhone ? "Videos" : "Recordings";
   const startMeetingTitle = isCompactPhone ? "Start" : "Start";
@@ -73,17 +73,16 @@ export default function TabLayout() {
         },
         tabBarLabelStyle: {
           fontSize: tabBarLabelFontSize,
-          lineHeight: tabBarLabelFontSize + 2,
           fontFamily: "Inter_600SemiBold",
           textAlign: 'center',
         },
         tabBarItemStyle: {
           flex: 1,
           minWidth: 0,
-          paddingVertical: isCompactPhone ? 1 : 2,
+          paddingVertical: isWeb ? 0 : (isCompactPhone ? 1 : 2),
         },
         tabBarIconStyle: {
-          marginBottom: isWeb ? 4 : (isCompactPhone ? 1 : 3),
+          marginBottom: isWeb ? 2 : (isCompactPhone ? 1 : 3),
         },
         tabBarLabelPosition: 'below-icon',
         tabBarHideOnKeyboard: true,
