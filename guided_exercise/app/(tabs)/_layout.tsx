@@ -1,8 +1,9 @@
-import { Tabs, usePathname } from "expo-router";
+import { useEffect, useState } from "react";
+import { Tabs, usePathname, useSegments } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useUserStore } from "@/src/store/userStore";
 import { AntDesign, Entypo, Ionicons, Octicons } from "@expo/vector-icons";
-import { Alert, useWindowDimensions } from "react-native";
+import { Alert, Platform, useWindowDimensions } from "react-native";
 import { useCallStore } from "@/src/store/callStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -10,16 +11,40 @@ export default function TabLayout() {
   const role = useUserStore((state) => state.role);
   const inCall = useCallStore((state) => state.inCall);
   const pathname = usePathname();
+  const segments = useSegments();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const skipAuth = __DEV__ && role == null;
   const normalizedPath = (pathname || "").toLowerCase();
   const isSessionRoute = normalizedPath.endsWith('/session');
+  const isWeb = Platform.OS === 'web';
   const isCompactPhone = width < 390 || height < 760;
-  const tabBarTopPadding = isCompactPhone ? 8 : 10;
-  const tabBarBottomPadding = Math.max(insets.bottom, isCompactPhone ? 8 : 10);
-  const tabBarHeight = (isCompactPhone ? 54 : 60) + tabBarBottomPadding;
-  const tabBarLabelFontSize = isCompactPhone ? 11 : 12;
+  const routeRole = segments.includes('(teacher)')
+    ? 'instructor'
+    : segments.includes('(student)')
+      ? 'student'
+      : null;
+  const [devRoleOverride, setDevRoleOverride] = useState<'student' | 'instructor' | null>(
+    routeRole ?? (__DEV__ ? 'instructor' : null)
+  );
+
+  useEffect(() => {
+    if (role === 'student' || role === 'instructor') {
+      setDevRoleOverride(role);
+      return;
+    }
+
+    if (routeRole === 'student' || routeRole === 'instructor') {
+      setDevRoleOverride(routeRole);
+    }
+  }, [role, routeRole]);
+
+  const effectiveRole = role ?? (__DEV__ ? devRoleOverride : null);
+  const showStudentTabs = effectiveRole === 'student';
+  const showInstructorTabs = effectiveRole === 'instructor';
+  const tabBarTopPadding = isWeb ? 10 : (isCompactPhone ? 8 : 10);
+  const tabBarBottomPadding = isWeb ? 12 : Math.max(insets.bottom, isCompactPhone ? 8 : 10);
+  const tabBarHeight = (isWeb ? 64 : (isCompactPhone ? 54 : 60)) + tabBarBottomPadding;
+  const tabBarLabelFontSize = isWeb ? 12 : (isCompactPhone ? 11 : 12);
   const recordingsTitle = isCompactPhone ? "Videos" : "Recordings";
   const startMeetingTitle = isCompactPhone ? "Start" : "Start";
 
@@ -44,25 +69,27 @@ export default function TabLayout() {
           height: tabBarHeight,
           paddingTop: tabBarTopPadding,
           paddingBottom: tabBarBottomPadding,
-          paddingHorizontal: isCompactPhone ? 4 : 8,
+          paddingHorizontal: isWeb ? 8 : (isCompactPhone ? 4 : 8),
         },
         tabBarLabelStyle: {
           fontSize: tabBarLabelFontSize,
           lineHeight: tabBarLabelFontSize + 2,
           fontFamily: "Inter_600SemiBold",
+          textAlign: 'center',
         },
         tabBarItemStyle: {
+          flex: 1,
           minWidth: 0,
           paddingVertical: isCompactPhone ? 1 : 2,
         },
         tabBarIconStyle: {
-          marginBottom: isCompactPhone ? 1 : 3,
+          marginBottom: isWeb ? 4 : (isCompactPhone ? 1 : 3),
         },
         tabBarLabelPosition: 'below-icon',
         tabBarHideOnKeyboard: true,
         tabBarAllowFontScaling: false,
-        tabBarActiveTintColor: "#6155F5",
-        tabBarInactiveTintColor: "#000",
+        tabBarActiveTintColor: "#FFFFFF",
+        tabBarInactiveTintColor: "#000000",
       }}
     >
       {/* Student tabs */}
@@ -73,7 +100,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <AntDesign name="book" color={color} size={size} />
           ),
-          href: role === 'student' || skipAuth ? "/(tabs)/(student)/classes" : null,
+          href: showStudentTabs ? "/(tabs)/(student)/classes" : null,
           headerShown: false,
         }}
       />
@@ -84,7 +111,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Entypo name="folder-video" color={color} size={size} />
           ),
-          href: role === 'student' || skipAuth ? "/(tabs)/(student)/recordings" : null,
+          href: showStudentTabs ? "/(tabs)/(student)/recordings" : null,
           headerShown: false,
         }}
       />
@@ -97,7 +124,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <AntDesign name="book" color={color} size={size} />
           ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/classes" : null,
+          href: showInstructorTabs ? "/(tabs)/(teacher)/classes" : null,
           headerShown: false,
         }}
       />
@@ -108,7 +135,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Entypo name="folder-video" color={color} size={size} />
           ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/recordings" : null,
+          href: showInstructorTabs ? "/(tabs)/(teacher)/recordings" : null,
           headerShown: false,
         }}
       />
@@ -119,7 +146,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="screenshot-monitor" color={color} size={size} />
           ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/start-meeting" : null,
+          href: showInstructorTabs ? "/(tabs)/(teacher)/start-meeting" : null,
           headerShown: false,
         }}
       />
@@ -142,7 +169,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people" color={color} size={size} />
           ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/students" : null,
+          href: showInstructorTabs ? "/(tabs)/(teacher)/students" : null,
           headerShown: false,
         }}
       />
