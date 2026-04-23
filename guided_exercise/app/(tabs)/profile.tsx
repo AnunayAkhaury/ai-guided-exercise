@@ -1,7 +1,7 @@
 import { Alert, Image, TouchableOpacity, View, ActivityIndicator, ScrollView, useWindowDimensions } from "react-native";
 import BgImage from '@/src/assets/images/profile-background.png'; 
 import ProfileImage from '@/src/assets/images/default-profile.jpg';
-import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { AntDesign, Entypo, Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { useUserStore } from "@/src/store/userStore";
 import Typography from "@/src/components/ui/Typography";
 import { ReactNode, useState } from "react";
@@ -11,7 +11,7 @@ import { resolvePreferredDisplayName } from "@/src/utils/display-name";
 
 function Button({ icon, title, onPress }: { icon: ReactNode, title: string, onPress?: () => void }) {
     return (
-        <TouchableOpacity className="w-full flex flex-row p-5 justify-between items-center bg-[#EDEDED]" onPress={onPress}>
+        <TouchableOpacity className="w-full flex flex-row p-5 justify-between items-center bg-[#F6F5F5]" onPress={onPress}>
             <View className="flex flex-row gap-4 justify-center items-center flex-1 pr-2">
                 {icon}
                 <Typography font='inter-medium' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} className="text-base flex-1">{title}</Typography>
@@ -63,6 +63,10 @@ export default function Profile() {
             }
         ]);
     };
+
+    const handleComingSoon = (title: string) => {
+        Alert.alert(title, 'This page is not wired up yet.');
+    };
     
     return (
         <View className="relative flex-1">
@@ -108,25 +112,55 @@ export default function Profile() {
                 <View className="w-full rounded-3xl overflow-hidden">
                     <Button icon={<MaterialIcons name="edit" size={17} color="black" />} title="Edit Profile" onPress={() => router.push('/edit-profile')} />
                     <View className="w-full h-[1px] bg-[#dadada]" />
-                    <Button icon={<Ionicons name="ribbon-sharp" size={17} color="black" />} title="Achievements" />
+                    <Button
+                        icon={<Ionicons name="ribbon-sharp" size={17} color="black" />}
+                        title="Achievements"
+                        onPress={() => router.push('/(tabs)/profile/achievements')}
+                    />
+                    <View className="w-full h-[1px] bg-[#dadada]" />
+                    <Button
+                        icon={<Ionicons name="notifications-outline" size={17} color="black" />}
+                        title="Notifications"
+                        onPress={() => handleComingSoon('Notifications')}
+                    />
                 </View>
 
                 <Typography font='inter-medium' className="w-full text-start text-base mt-6 mb-3">Other</Typography>
                 <View className="w-full rounded-3xl overflow-hidden">
-                    <Button icon={<Ionicons name="heart" size={17} color="black" />} title="Donate Page" />
+                    <Button
+                        icon={<MaterialCommunityIcons name="hand-heart-outline" size={17} color="black" />}
+                        title="Donate Page"
+                        onPress={() => handleComingSoon('Donate Page')}
+                    />
+                    <View className="w-full h-[1px] bg-[#dadada]" />
+                    <Button
+                        icon={<AntDesign name="filetext1" size={17} color="black" />}
+                        title="Terms and Conditions"
+                        onPress={() => handleComingSoon('Terms and Conditions')}
+                    />
+                    <View className="w-full h-[1px] bg-[#dadada]" />
+                    <Button
+                        icon={<Entypo name="star-outlined" size={18} color="black" />}
+                        title="Rate App"
+                        onPress={() => handleComingSoon('Rate App')}
+                    />
                 </View>
 
-                <TouchableOpacity
-                    className={isSmallPhone ? "mt-12 mb-8 min-h-8 justify-center" : "mt-24 mb-10 min-h-8 justify-center"}
-                    onPress={handleLogout}
-                    disabled={isLoggingOut}
-                >
-                    {isLoggingOut ? (
-                        <ActivityIndicator color="#FF0000" />
-                    ) : (
-                        <Typography font='inter-bold' className="text-[#FF0000] text-lg">Logout</Typography>
-                    )}
-                </TouchableOpacity>
+                <View className="w-full rounded-3xl overflow-hidden mt-8">
+                    <TouchableOpacity className="w-full flex flex-row p-5 justify-between items-center bg-[#F6F5F5]" onPress={handleLogout} disabled={isLoggingOut}>
+                        <View className="flex flex-row gap-4 justify-center items-center flex-1 pr-2">
+                            <MaterialCommunityIcons name="logout" size={18} color="#FF0000" />
+                            {isLoggingOut ? (
+                                <ActivityIndicator color="#FF0000" />
+                            ) : (
+                                <Typography font='inter-medium' className="text-base flex-1 text-[#FF0000]">Logout</Typography>
+                            )}
+                        </View>
+                        {!isLoggingOut ? <AntDesign name="right" size={12} color="#868686" /> : null}
+                    </TouchableOpacity>
+                </View>
+
+                <View className={isSmallPhone ? "h-8" : "h-10"} />
             </View>
             </ScrollView>
             

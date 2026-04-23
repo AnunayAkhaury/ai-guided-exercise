@@ -1,12 +1,8 @@
-// Import the functions you need from the SDKs you need
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAuth, getReactNativePersistence, initializeAuth } from 'firebase/auth';
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: 'AIzaSyAQNGH2BNurUfZlPn2mWgkHcQb5kbD3QX8',
   authDomain: 'ai-guided-exercise-feedback.firebaseapp.com',
@@ -16,7 +12,6 @@ const firebaseConfig = {
   appId: '1:396997576150:web:751cdf7ad7849f36e35077'
 };
 
-// Initialize Firebase exactly once for both dev and release runtimes.
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = (() => {
   try {

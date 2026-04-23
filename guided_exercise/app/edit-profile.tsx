@@ -19,6 +19,10 @@ export default function EditProfile() {
   const [username, setUsername] = useState(storedUsername ?? '');
   const [isSaving, setIsSaving] = useState(false);
 
+  const navigateBackToProfile = () => {
+    router.replace('/(tabs)/profile');
+  };
+
   const hasChanges = useMemo(() => {
     return fullname.trim() !== (storedFullname ?? '').trim()
       || username.trim() !== (storedUsername ?? '').trim();
@@ -45,7 +49,7 @@ export default function EditProfile() {
     try {
       setIsSaving(true);
       await updateUserProfile(uid, trimmedUsername, trimmedFullname);
-      router.back();
+      navigateBackToProfile();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unable to update your profile.';
       Alert.alert('Update failed', message);
@@ -118,7 +122,7 @@ export default function EditProfile() {
           <View className="flex flex-row gap-3 mt-4">
             <TouchableOpacity
               className="flex-1 rounded-2xl bg-[#E9E9E9] py-4 items-center"
-              onPress={() => router.back()}
+              onPress={navigateBackToProfile}
               disabled={isSaving}
             >
               <Typography font='inter-semibold'>Cancel</Typography>
