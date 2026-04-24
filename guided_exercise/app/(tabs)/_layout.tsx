@@ -18,9 +18,10 @@ export default function TabLayout() {
   const isSessionRoute = normalizedPath.endsWith('/session');
   const isWeb = Platform.OS === 'web';
   const isCompactPhone = width < 390 || height < 760;
-  const routeRole = segments.includes('(teacher)')
+  const routeSegments = segments as string[];
+  const routeRole = routeSegments.includes('(teacher)')
     ? 'instructor'
-    : segments.includes('(student)')
+    : routeSegments.includes('(student)')
       ? 'student'
       : null;
   const [devRoleOverride, setDevRoleOverride] = useState<'student' | 'instructor' | null>(

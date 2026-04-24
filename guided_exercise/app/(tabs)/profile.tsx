@@ -134,7 +134,7 @@ export default function Profile() {
                     />
                     <View className="w-full h-[1px] bg-[#dadada]" />
                     <Button
-                        icon={<AntDesign name="filetext1" size={17} color="black" />}
+                        icon={<AntDesign name="file-text" size={17} color="black" />}
                         title="Terms and Conditions"
                         onPress={() => handleComingSoon('Terms and Conditions')}
                     />

@@ -108,7 +108,7 @@ export default function ProfileWeb() {
                 />
                 <View style={styles.divider} />
                 <ActionRow
-                  icon={<AntDesign name="filetext1" size={18} color="#111" />}
+                  icon={<AntDesign name="file-text" size={18} color="#111" />}
                   title="Terms and Conditions"
                   onPress={() => handleComingSoon('Terms and Conditions')}
                 />
