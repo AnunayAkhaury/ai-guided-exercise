@@ -112,6 +112,7 @@ export default function IvsCall({
 
   const [isInStage, setIsInStage] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [error, setError] = useState('');
@@ -322,10 +323,16 @@ export default function IvsCall({
   };
 
   const handleLeave = async () => {
-    hasJoinAttemptRef.current = false;
-    await leaveStage();
-    if (onLeave) {
-      await Promise.resolve(onLeave());
+    setIsLeaving(true);
+    try {
+      hasJoinAttemptRef.current = false;
+      await leaveStage();
+      if (onLeave) {
+        await Promise.resolve(onLeave());
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to leave the session.');
+      setIsLeaving(false);
     }
   };
 
@@ -354,6 +361,17 @@ export default function IvsCall({
   };
 
   // not in session yet, show join screen
+  if (isLeaving) {
+    return (
+      <View style={[styles.preJoinContainer, isSmallPhone && styles.preJoinContainerCompact]}>
+        <View style={styles.joinCard}>
+          <Text style={styles.joinTitle}>Leaving Class</Text>
+          <Text style={styles.joinSubtitle}>Returning you to classes...</Text>
+        </View>
+      </View>
+    );
+  }
+
   if (!isInStage) {
     return (
       <View style={[styles.preJoinContainer, isSmallPhone && styles.preJoinContainerCompact]}>

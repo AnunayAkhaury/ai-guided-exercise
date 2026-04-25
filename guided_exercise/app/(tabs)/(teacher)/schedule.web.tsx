@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, Text
 import { useRouter } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import { createIvsSession } from '@/src/api/ivs';
+import { auth } from '@/src/api/Firebase/firebase-config';
 import { useUserStore } from '@/src/store/userStore';
 import { resolvePreferredDisplayName } from '@/src/utils/display-name';
 
@@ -53,7 +54,16 @@ export default function ScheduleScreenWeb() {
   const uid = useUserStore((state) => state.uid);
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
-  const instructorId = useMemo(() => uid?.trim() || `instructor-${Date.now()}`, [uid]);
+  const role = useUserStore((state) => state.role);
+  const instructorId = useMemo(
+    () =>
+      uid?.trim() ||
+      auth.currentUser?.uid ||
+      username?.trim() ||
+      fullname?.trim() ||
+      `instructor-${Date.now()}`,
+    [fullname, uid, username]
+  );
   const coachName = useMemo(
     () =>
       resolvePreferredDisplayName({
@@ -68,6 +78,14 @@ export default function ScheduleScreenWeb() {
   const [startAt, setStartAt] = useState(() => withRoundedHour(new Date()));
   const [durationMinutes, setDurationMinutes] = useState('60');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const showAlert = (title: string, message: string) => {
+    if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+      window.alert(`${title}\n\n${message}`);
+      return;
+    }
+    Alert.alert(title, message);
+  };
 
   const formattedDate = useMemo(
     () =>
@@ -92,17 +110,17 @@ export default function ScheduleScreenWeb() {
   const handleCreateScheduled = async () => {
     const trimmedSessionName = sessionName.trim();
     if (!trimmedSessionName) {
-      Alert.alert('Missing title', 'Please enter a session title.');
+      showAlert('Missing title', 'Please enter a session title.');
       return;
     }
-    if (!uid?.trim()) {
-      Alert.alert('Missing profile', 'Missing instructor profile uid. Please log out and log in again.');
+    if (role && role !== 'instructor') {
+      showAlert('Not allowed', 'Only instructors can schedule classes.');
       return;
     }
 
     const parsedDuration = Number(durationMinutes);
     if (!Number.isInteger(parsedDuration) || parsedDuration < 15 || parsedDuration > 240) {
-      Alert.alert('Invalid duration', 'Duration must be between 15 and 240 minutes.');
+      showAlert('Invalid duration', 'Duration must be between 15 and 240 minutes.');
       return;
     }
     if (isSubmitting) return;
@@ -119,17 +137,17 @@ export default function ScheduleScreenWeb() {
         scheduledEndAt: endAt.toISOString()
       });
       if (!created.scheduledStartAt || !created.scheduledEndAt) {
-        Alert.alert(
+        showAlert(
           'Backend update needed',
           'Scheduled time was not saved by backend. Deploy latest backend changes and try again.'
         );
         return;
       }
-      Alert.alert('Scheduled', 'Your class was added to upcoming sessions.');
+      showAlert('Scheduled', 'Your class was added to upcoming sessions.');
       setSessionName('');
       router.replace('/(tabs)/(teacher)/classes');
     } catch (error: any) {
-      Alert.alert('Unable to schedule', error?.message || 'Please try again.');
+      showAlert('Unable to schedule', error?.message || 'Please try again.');
     } finally {
       setIsSubmitting(false);
     }

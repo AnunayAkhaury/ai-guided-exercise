@@ -16,6 +16,7 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useRouter } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import { createIvsSession } from '@/src/api/ivs';
+import { auth } from '@/src/api/Firebase/firebase-config';
 import { useUserStore } from '@/src/store/userStore';
 import { resolvePreferredDisplayName } from '@/src/utils/display-name';
 
@@ -33,9 +34,18 @@ export default function ScheduleScreen() {
   const uid = useUserStore((state) => state.uid);
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
+  const effectiveInstructorId = useMemo(
+    () =>
+      uid?.trim() ||
+      auth.currentUser?.uid ||
+      username?.trim() ||
+      fullname?.trim() ||
+      `instructor-${Date.now()}`,
+    [fullname, uid, username]
+  );
   const instructorId = useMemo(
-    () => uid?.trim() || `instructor-${Date.now()}`,
-    [uid]
+    () => effectiveInstructorId,
+    [effectiveInstructorId]
   );
   const coachName = useMemo(
     () =>
@@ -94,11 +104,6 @@ export default function ScheduleScreen() {
       Alert.alert('Missing title', 'Please enter a session title.');
       return;
     }
-    if (!uid?.trim()) {
-      Alert.alert('Missing profile', 'Missing instructor profile uid. Please log out and log in again.');
-      return;
-    }
-
     const parsedDuration = Number(durationMinutes);
     if (!Number.isInteger(parsedDuration) || parsedDuration < 15 || parsedDuration > 240) {
       Alert.alert('Invalid duration', 'Duration must be between 15 and 240 minutes.');

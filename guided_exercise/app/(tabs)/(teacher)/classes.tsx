@@ -152,7 +152,7 @@ export default function ClassesScreen() {
       });
 
       router.push({
-        pathname: '/(tabs)/(teacher)/session',
+        pathname: '/(tabs)/session' as any,
         params: {
           sessionName: session.sessionName,
           userName: displayName,
@@ -160,6 +160,7 @@ export default function ClassesScreen() {
           sessionId: session.sessionId,
           stageArn: session.stageArn,
           participantId: tokenResult.participantId,
+          role: 'instructor',
           token: tokenResult.token
         }
       });

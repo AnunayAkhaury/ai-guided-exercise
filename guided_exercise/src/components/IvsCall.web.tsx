@@ -429,6 +429,7 @@ export default function IvsCallWeb({
   const [sdkReady, setSdkReady] = useState(false);
   const [isInStage, setIsInStage] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [status, setStatus] = useState('Loading browser call runtime...');
@@ -844,27 +845,33 @@ export default function IvsCallWeb({
   };
 
   const handleLeave = async () => {
-    teardownStageRuntime({
-      stageRef,
-      registeredStageListenersRef,
-      localMediaStreamRef,
-      localAudioStageStreamRef,
-      localVideoStageStreamRef,
-      setLocalPreviewStream,
-      setRemoteParticipantsById,
-      setIsInStage,
-      setIsJoining,
-      setStatus,
-      setError,
-      leaveStage: true,
-      stopLocalMedia: true,
-      preserveStatus: false,
-      preserveError: false,
-      updateState: true
-    });
+    setIsLeaving(true);
+    try {
+      teardownStageRuntime({
+        stageRef,
+        registeredStageListenersRef,
+        localMediaStreamRef,
+        localAudioStageStreamRef,
+        localVideoStageStreamRef,
+        setLocalPreviewStream,
+        setRemoteParticipantsById,
+        setIsInStage,
+        setIsJoining,
+        setStatus,
+        setError,
+        leaveStage: true,
+        stopLocalMedia: true,
+        preserveStatus: false,
+        preserveError: false,
+        updateState: true
+      });
 
-    if (onLeave) {
-      await Promise.resolve(onLeave());
+      if (onLeave) {
+        await Promise.resolve(onLeave());
+      }
+    } catch (leaveError: any) {
+      setError(leaveError?.message || 'Failed to leave the session.');
+      setIsLeaving(false);
     }
   };
 
@@ -889,6 +896,18 @@ export default function IvsCallWeb({
     localVideoStageStreamRef.current.setMuted(willMute);
     setIsVideoMuted(willMute);
   };
+
+  if (isLeaving) {
+    return (
+      <div style={shellStyle}>
+        <div style={joinCardStyle}>
+          <div style={joinEyebrowStyle}>Leaving Class</div>
+          <h1 style={joinTitleStyle}>Returning to classes...</h1>
+          <p style={joinSubtitleStyle}>The session stays live unless the instructor explicitly ends it.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isInStage) {
     return (
