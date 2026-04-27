@@ -12,6 +12,11 @@ export default function RecordingDisplayNative() {
   const { link } = useLocalSearchParams();
   const role = useUserStore((state) => state.role);
   const videoLink = Array.isArray(link) ? link[0] : link;
+  const player = useVideoPlayer(videoLink ?? '', (p) => {
+    if (videoLink) {
+      p.play();
+    }
+  });
 
   const goBackToRecordings = () => {
     if (router.canGoBack()) {
@@ -56,7 +61,6 @@ export default function RecordingDisplayNative() {
     );
   }
 
-  const player = useVideoPlayer(videoLink, (p) => p.play());
   const maxWidth = Math.min(width - 32, 900);
   const maxHeight = Math.min(height - insets.top - insets.bottom - 160, 720);
   const playerHeight = Math.max(280, Math.min(maxHeight, Math.round(maxWidth * 0.5625)));

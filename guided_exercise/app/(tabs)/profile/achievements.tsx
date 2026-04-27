@@ -5,7 +5,7 @@ import useUserAchievements from "@/src/hooks/useUserAchievements";
 import { FlatList, View } from "react-native";
 
 export default function AchievementsPage() {
-    const { data, loading } = useUserAchievements();
+    const { data } = useUserAchievements();
     console.log("Achievements ", data)
     return (
     <View className="bg-white flex-grow">

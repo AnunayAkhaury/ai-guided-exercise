@@ -180,20 +180,6 @@ export default function TabLayout() {
           headerShown: false,
         }}
       />
-      <Tabs.Screen
-        name="(student)/session"
-        options={{
-          href: null,
-          headerShown: false,
-        }}
-      />
-      <Tabs.Screen
-        name="(teacher)/session"
-        options={{
-          href: null,
-          headerShown: false,
-        }}
-      />
 
       {/* Common tabs */}
       <Tabs.Screen
