@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Header from '@/src/components/ui/Header';
@@ -33,6 +33,7 @@ function canStartSession(session: IvsSession) {
 export default function ClassesScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
   const isSmallPhone = width < 380 || height < 760;
   const horizontalPadding = isSmallPhone ? 14 : 20;
   const topPadding = isSmallPhone ? 16 : 24;
@@ -172,42 +173,60 @@ export default function ClassesScreen() {
   };
 
   return (
-    <View className="bg-white flex-grow">
+    <View style={styles.page}>
       <Header title="Classes" />
 
-      <View style={{ paddingHorizontal: horizontalPadding, paddingTop: topPadding }} className="flex-1">
-        <View className="pb-6 flex flex-row items-center justify-between">
-          <View className="flex flex-row items-center gap-2">
-            <Typography font="inter-semibold">Live / Ready to Start</Typography>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: isWeb ? 32 : horizontalPadding,
+            paddingTop: isWeb ? 30 : topPadding
+          }
+        ]}
+      >
+        <View style={styles.contentShell}>
+          <View style={styles.topBar}>
+            <View style={styles.headingRow}>
+              <Typography font="inter-bold" style={styles.pageTitle}>Classes</Typography>
+              <Typography font="inter" style={styles.pageSubtitle}>
+                Manage live classes and upcoming scheduled sessions.
+              </Typography>
+            </View>
+            <TouchableOpacity
+              style={styles.scheduleButton}
+              onPress={() => router.push('/(tabs)/(teacher)/schedule')}
+            >
+              <Typography font="inter-semibold" style={styles.scheduleButtonText}>
+                + Schedule
+              </Typography>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.sectionHeader}>
+            <Typography font="inter-semibold" style={styles.sectionTitle}>Live / Ready to Start</Typography>
             <FontAwesome6 name="dumbbell" size={16} color="black" className="-rotate-45" />
           </View>
-          <TouchableOpacity
-            className="px-3 py-2 rounded-lg bg-[#6155F5]"
-            onPress={() => router.push('/(tabs)/(teacher)/schedule')}
-          >
-            <Typography font="inter-semibold" className="text-white text-sm">
-              + Schedule
-            </Typography>
-          </TouchableOpacity>
-        </View>
 
-        <FlatList
-          data={topSessions}
-          keyExtractor={(item) => item.sessionId}
-          ListEmptyComponent={
-            <Typography className="text-[#7a7a7a]">
+          {topSessions.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Typography font="inter" style={styles.emptyText}>
               {sessionsLoading
                 ? 'Loading classes...'
                 : sessionsError
                   ? 'Unable to load classes right now.'
                   : 'No live or ready classes right now.'}
-            </Typography>
-          }
-          renderItem={({ item }) => {
+              </Typography>
+            </View>
+          ) : (
+            <View style={styles.cardGrid}>
+              {topSessions.map((item) => {
             const { start, end } = toSessionWindow(item);
             const isLive = item.status === 'live';
             return (
               <TeacherActiveClassCard
+                key={item.sessionId}
                 start={start}
                 end={end}
                 title={item.sessionName}
@@ -216,7 +235,8 @@ export default function ClassesScreen() {
                 subtitle={`Coach: ${item.coachName || item.instructorUid}`}
                 startLabel={isLive ? (joiningSessionId === item.sessionId ? 'Joining...' : 'Open Live') : 'Start Meeting'}
                 cancelLabel={cancelingSessionId === item.sessionId ? 'Canceling...' : 'Cancel'}
-                actionsDisabled={Boolean(cancelingSessionId) || Boolean(joiningSessionId)}
+                startDisabled={Boolean(cancelingSessionId) || Boolean(joiningSessionId)}
+                cancelDisabled={Boolean(cancelingSessionId) || Boolean(joiningSessionId)}
                 onStartPress={() => {
                   if (isLive) {
                     void handleOpenLiveSession(item);
@@ -234,26 +254,28 @@ export default function ClassesScreen() {
                 onCancelPress={() => handleCancelScheduled(item.sessionId)}
               />
             );
-          }}
-        />
+              })}
+            </View>
+          )}
 
-        <View style={{ paddingTop: scheduledTopPadding }} className="pb-6 flex flex-row items-center gap-2">
-          <Typography font="inter-semibold">Scheduled</Typography>
+          <View style={[styles.sectionHeader, { paddingTop: isWeb ? 22 : scheduledTopPadding }]}>
+          <Typography font="inter-semibold" style={styles.sectionTitle}>Scheduled</Typography>
           <Ionicons name="radio" size={17} color="#6155F5" />
-        </View>
+          </View>
 
-        <FlatList
-          data={upcomingScheduledSessions}
-          keyExtractor={(item) => `scheduled-${item.sessionId}`}
-          ListEmptyComponent={
-            <Typography className="text-[#7a7a7a]">
+          {upcomingScheduledSessions.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Typography font="inter" style={styles.emptyText}>
               {sessionsError ? 'Unable to load scheduled classes right now.' : 'No upcoming scheduled sessions.'}
-            </Typography>
-          }
-          renderItem={({ item }) => {
+              </Typography>
+            </View>
+          ) : (
+            <View style={styles.cardGrid}>
+              {upcomingScheduledSessions.map((item) => {
             const { start, end } = toSessionWindow(item);
             return (
               <TeacherActiveClassCard
+                key={`scheduled-${item.sessionId}`}
                 start={start}
                 end={end}
                 title={item.sessionName}
@@ -262,14 +284,92 @@ export default function ClassesScreen() {
                 subtitle={`Coach: ${item.coachName || item.instructorUid}`}
                 startLabel="Available 5 min before"
                 cancelLabel={cancelingSessionId === item.sessionId ? 'Canceling...' : 'Cancel'}
-                actionsDisabled
+                startDisabled
+                cancelDisabled={Boolean(cancelingSessionId) || Boolean(joiningSessionId)}
                 onCancelPress={() => handleCancelScheduled(item.sessionId)}
               />
             );
-          }}
-          ListFooterComponent={<View className="h-8" />}
-        />
-      </View>
+              })}
+            </View>
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  page: {
+    flex: 1,
+    backgroundColor: '#F7F5FF'
+  },
+  scrollContent: {
+    paddingBottom: 42
+  },
+  contentShell: {
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? 1120 : undefined,
+    alignSelf: 'center'
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 26
+  },
+  headingRow: {
+    flex: 1,
+    minWidth: 0
+  },
+  pageTitle: {
+    fontSize: Platform.OS === 'web' ? 32 : 24,
+    color: '#17142B'
+  },
+  pageSubtitle: {
+    marginTop: 6,
+    fontSize: 15,
+    color: '#6B6594'
+  },
+  scheduleButton: {
+    minHeight: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: '#6155F5',
+    paddingHorizontal: 16,
+    paddingVertical: 10
+  },
+  scheduleButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 14
+  },
+  sectionTitle: {
+    fontSize: 17,
+    color: '#18152E'
+  },
+  cardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 18,
+    alignItems: 'flex-start'
+  },
+  emptyState: {
+    borderWidth: 1,
+    borderColor: '#E1DBF5',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    marginBottom: 10
+  },
+  emptyText: {
+    color: '#6F698E'
+  }
+});

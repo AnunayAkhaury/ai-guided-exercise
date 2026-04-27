@@ -181,7 +181,8 @@ export default function ScheduleScreenWeb() {
                   min={toDateInputValue(new Date())}
                   value={toDateInputValue(startAt)}
                   onChange={(event) => {
-                    setStartAt((current) => applyDatePart(current, event.currentTarget.value));
+                    const nextDate = event.currentTarget.value;
+                    setStartAt((current) => applyDatePart(current, nextDate));
                   }}
                   style={htmlInputStyle}
                 />
@@ -195,7 +196,8 @@ export default function ScheduleScreenWeb() {
                   type="time"
                   value={toTimeInputValue(startAt)}
                   onChange={(event) => {
-                    setStartAt((current) => applyTimePart(current, event.currentTarget.value));
+                    const nextTime = event.currentTarget.value;
+                    setStartAt((current) => applyTimePart(current, nextTime));
                   }}
                   style={htmlInputStyle}
                 />
