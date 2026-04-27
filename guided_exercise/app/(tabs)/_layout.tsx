@@ -1,17 +1,19 @@
-import { Tabs, usePathname } from "expo-router";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useUserStore } from "@/src/store/userStore";
-import { AntDesign, Entypo, Ionicons, Octicons } from "@expo/vector-icons";
-import { Alert } from "react-native";
-import { useCallStore } from "@/src/store/callStore";
+import { Tabs, usePathname } from 'expo-router';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useUserStore } from '@/src/store/userStore';
+import { AntDesign, Entypo, Ionicons, Octicons } from '@expo/vector-icons';
+import { Alert } from 'react-native';
+import { useCallStore } from '@/src/store/callStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const role = useUserStore((state) => state.role);
   const inCall = useCallStore((state) => state.inCall);
   const pathname = usePathname();
   const skipAuth = __DEV__ && role == null;
-  const normalizedPath = (pathname || "").toLowerCase();
+  const normalizedPath = (pathname || '').toLowerCase();
   const isSessionRoute = normalizedPath.endsWith('/session');
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -19,53 +21,45 @@ export default function TabLayout() {
         tabPress: (event) => {
           if (!inCall && !isSessionRoute) return;
           event.preventDefault();
-          Alert.alert(
-            "Call in progress",
-            "Leave or end the current session before switching tabs."
-          );
-        },
+          Alert.alert('Call in progress', 'Leave or end the current session before switching tabs.');
+        }
       }}
       screenOptions={{
         tabBarStyle: {
-          display: inCall || isSessionRoute ? "none" : "flex",
-          backgroundColor: "#A980FE",
+          display: inCall || isSessionRoute ? 'none' : 'flex',
+          backgroundColor: '#A980FE',
           minHeight: 64,
-          height: 'auto',
+          height: 64 + insets.bottom,
           paddingTop: 10,
-          paddingBottom: 8,
+          paddingBottom: insets.bottom + 8
         },
         tabBarLabelStyle: {
           fontSize: 13,
-          fontFamily: "Inter_600SemiBold",
+          fontFamily: 'Inter_600SemiBold'
         },
         tabBarItemStyle: {
-          paddingVertical: 2,
+          paddingVertical: 2
         },
-        tabBarActiveTintColor: "#6155F5",
-        tabBarInactiveTintColor: "#000",
-      }}
-    >
+        tabBarActiveTintColor: '#6155F5',
+        tabBarInactiveTintColor: '#000'
+      }}>
       {/* Student tabs */}
       <Tabs.Screen
         name="(student)/classes"
         options={{
-          title: "Classes",
-          tabBarIcon: ({ color, size }) => (
-            <AntDesign name="book" color={color} size={size} />
-          ),
-          href: role === 'student' || skipAuth ? "/(tabs)/(student)/classes" : null,
-          headerShown: false,
+          title: 'Classes',
+          tabBarIcon: ({ color, size }) => <AntDesign name="book" color={color} size={size} />,
+          href: role === 'student' || skipAuth ? '/(tabs)/(student)/classes' : null,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="(student)/recordings"
         options={{
-          title: "Recordings",
-          tabBarIcon: ({ color, size }) => (
-            <Entypo name="folder-video" color={color} size={size} />
-          ),
-          href: role === 'student' || skipAuth ? "/(tabs)/(student)/recordings" : null,
-          headerShown: false,
+          title: 'Recordings',
+          tabBarIcon: ({ color, size }) => <Entypo name="folder-video" color={color} size={size} />,
+          href: role === 'student' || skipAuth ? '/(tabs)/(student)/recordings' : null,
+          headerShown: false
         }}
       />
 
@@ -73,77 +67,67 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(teacher)/classes"
         options={{
-          title: "Classes",
-          tabBarIcon: ({ color, size }) => (
-            <AntDesign name="book" color={color} size={size} />
-          ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/classes" : null,
-          headerShown: false,
+          title: 'Classes',
+          tabBarIcon: ({ color, size }) => <AntDesign name="book" color={color} size={size} />,
+          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/classes' : null,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="(teacher)/recordings"
         options={{
-          title: "Recordings",
-          tabBarIcon: ({ color, size }) => (
-            <Entypo name="folder-video" color={color} size={size} />
-          ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/recordings" : null,
-          headerShown: false,
+          title: 'Recordings',
+          tabBarIcon: ({ color, size }) => <Entypo name="folder-video" color={color} size={size} />,
+          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/recordings' : null,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="(teacher)/start-meeting"
         options={{
-          title: "Start Meeting",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="screenshot-monitor" color={color} size={size} />
-          ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/start-meeting" : null,
-          headerShown: false,
+          title: 'Start Meeting',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="screenshot-monitor" color={color} size={size} />,
+          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/start-meeting' : null,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="(teacher)/schedule"
         options={{
-          title: "Schedule",
-          tabBarIcon: ({ color, size }) => (
-            <AntDesign name="schedule" color={color} size={size} />
-          ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/schedule" : null,
-          headerShown: false,
+          title: 'Schedule',
+          tabBarIcon: ({ color, size }) => <AntDesign name="schedule" color={color} size={size} />,
+          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/schedule' : null,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="(teacher)/students"
         options={{
-          title: "Students",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" color={color} size={size} />
-          ),
-          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/students" : null,
-          headerShown: false,
+          title: 'Students',
+          tabBarIcon: ({ color, size }) => <Ionicons name="people" color={color} size={size} />,
+          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/students' : null,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="session"
         options={{
           href: null,
-          headerShown: false,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="(student)/session"
         options={{
           href: null,
-          headerShown: false,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="(teacher)/session"
         options={{
           href: null,
-          headerShown: false,
+          headerShown: false
         }}
       />
 
@@ -151,30 +135,26 @@ export default function TabLayout() {
       <Tabs.Screen
         name="video-ui-test"
         options={{
-          title: "UI Test",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="flask-outline" color={color} size={size} />
-          ),
+          title: 'UI Test',
+          tabBarIcon: ({ color, size }) => <Ionicons name="flask-outline" color={color} size={size} />,
           href: null,
-          headerShown: false,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Octicons name="person" color={color} size={size} />
-          ),
-          headerShown: false,
+          title: 'Profile',
+          tabBarIcon: ({ color, size }) => <Octicons name="person" color={color} size={size} />,
+          headerShown: false
         }}
       />
       <Tabs.Screen
         name="profile/achievements"
         options={{
-          title: "Achievements",
+          title: 'Achievements',
           href: null,
-          headerShown: false,
+          headerShown: false
         }}
       />
     </Tabs>
