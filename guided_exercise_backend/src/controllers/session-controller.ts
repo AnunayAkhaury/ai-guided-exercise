@@ -2,12 +2,12 @@ import type { Request, Response } from 'express';
 import { DisconnectParticipantCommand, IVSRealTimeClient } from '@aws-sdk/client-ivs-realtime';
 import {
   createSession,
-  deleteSessionById,
   endOtherLiveSessions,
   getSessionByCode,
   getSessionById,
   listSessionParticipants,
   listSessions,
+  markSessionParticipantLeft,
   upsertSessionParticipant,
   updateSessionStatus
 } from '@/services/Firebase/firebase-session.js';
@@ -34,8 +34,14 @@ type SessionIdRequest = {
 type UpsertParticipantRequest = {
   sessionId?: string;
   participantId?: string;
+  userId?: string;
   displayName?: string;
   role?: string;
+};
+
+type LeaveParticipantRequest = {
+  sessionId?: string;
+  participantId?: string;
 };
 
 const VALID_STATUSES: SessionStatus[] = ['scheduled', 'live', 'ended'];
@@ -238,8 +244,9 @@ export async function endSessionController(req: Request, res: Response) {
     if (existing.status === 'live') {
       await disconnectKnownParticipantsForSession(existing);
     }
-    await deleteSessionById(sessionId);
-    return res.status(200).json({ ...existing, status: 'ended', deleted: true });
+    await updateSessionStatus(sessionId, 'ended');
+    const updated = await getSessionById(sessionId);
+    return res.status(200).json(updated ?? { ...existing, status: 'ended' });
   } catch (err: any) {
     logControllerError(req, err, 'endSessionController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to end session.');
@@ -248,7 +255,7 @@ export async function endSessionController(req: Request, res: Response) {
 
 export async function upsertSessionParticipantController(req: Request, res: Response) {
   try {
-    const { sessionId, participantId, displayName, role } = req.body as UpsertParticipantRequest;
+    const { sessionId, participantId, userId, displayName, role } = req.body as UpsertParticipantRequest;
     if (!sessionId?.trim()) {
       return sendErrorResponse(req, res, 400, 'sessionId is required.');
     }
@@ -264,7 +271,7 @@ export async function upsertSessionParticipantController(req: Request, res: Resp
       return sendErrorResponse(req, res, 404, 'Session not found.');
     }
 
-    const participant = await upsertSessionParticipant(sessionId, participantId, displayName, role);
+    const participant = await upsertSessionParticipant(sessionId, participantId, displayName, role, userId);
     return res.status(200).json(participant);
   } catch (err: any) {
     logControllerError(req, err, 'upsertSessionParticipantController failed');
@@ -289,5 +296,36 @@ export async function listSessionParticipantsController(req: Request, res: Respo
   } catch (err: any) {
     logControllerError(req, err, 'listSessionParticipantsController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to list session participants.');
+  }
+}
+
+export async function leaveSessionParticipantController(req: Request, res: Response) {
+  try {
+    const { sessionId, participantId } = req.body as LeaveParticipantRequest;
+    if (!sessionId?.trim()) {
+      return sendErrorResponse(req, res, 400, 'sessionId is required.');
+    }
+    if (!participantId?.trim()) {
+      return sendErrorResponse(req, res, 400, 'participantId is required.');
+    }
+
+    const existing = await getSessionById(sessionId);
+    if (!existing) {
+      return sendErrorResponse(req, res, 404, 'Session not found.');
+    }
+
+    const participant = await markSessionParticipantLeft(sessionId, participantId);
+    if (!participant) {
+      return sendErrorResponse(req, res, 404, 'Participant not found.');
+    }
+
+    return res.status(200).json({
+      success: true,
+      sessionId,
+      participantId: participant.participantId
+    });
+  } catch (err: any) {
+    logControllerError(req, err, 'leaveSessionParticipantController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to mark participant as left.');
   }
 }

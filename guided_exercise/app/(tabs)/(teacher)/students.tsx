@@ -1,4 +1,4 @@
-import { Image, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, ScrollView, TextInput, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import DefaultImage from '@/src/assets/images/default-profile.jpg'; 
 import { AntDesign, Ionicons } from "@expo/vector-icons";
 import Header from "@/src/components/ui/Header";
@@ -12,13 +12,19 @@ const students = [
 ]
 
 export default function Students() {
+    const { width, height } = useWindowDimensions();
+    const isSmallPhone = width < 380 || height < 760;
     return (
         <View className="flex-grow bg-white">
             <Header title="Students" />
 
-            <View className="w-full p-8">
+            <ScrollView
+                contentContainerStyle={{ paddingHorizontal: isSmallPhone ? 14 : 20, paddingVertical: isSmallPhone ? 14 : 20 }}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+            >
                 <View className="flex flex-row justify-between items-center">
-                    <View className="flex flex-row items-center bg-[#E6E6E6] w-80 h-11 rounded-xl gap-1 pl-3">
+                    <View className="flex flex-row items-center bg-[#E6E6E6] flex-1 h-11 rounded-xl gap-1 pl-3 mr-2">
                         <Ionicons name="search-sharp" size={12} color="black" />
                         <TextInput
                             editable placeholder="Search name..."
@@ -62,7 +68,7 @@ export default function Students() {
                         </View>
                     </View>
                 )}
-            </View>
+            </ScrollView>
         </View>
     )
 }

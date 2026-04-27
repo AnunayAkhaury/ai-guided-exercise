@@ -1,14 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, FlatList, Alert } from 'react-native';
+import { View, FlatList, Alert, useWindowDimensions } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import TeacherActiveClassCard from '@/src/components/classes/TeacherActiveClassCard';
 import Typography from '@/src/components/ui/Typography';
 import {
+  cacheIvsToken,
   getIvsToken,
+  getReusableIvsToken,
   joinIvsSessionByCode,
   listIvsSessions,
+  sendIvsTelemetry,
   type IvsSession,
   upsertIvsSessionParticipant
 } from '@/src/api/ivs';
@@ -16,8 +19,15 @@ import { useUserStore } from '@/src/store/userStore';
 
 export default function ClassesScreen() {
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const isSmallPhone = width < 380 || height < 760;
+  const horizontalPadding = isSmallPhone ? 14 : 20;
+  const topPadding = isSmallPhone ? 16 : 24;
+  const upcomingTopPadding = isSmallPhone ? 28 : 80;
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
+  const uid = useUserStore((state) => state.uid);
+  const role = useUserStore((state) => state.role);
   const [sessions, setSessions] = useState<IvsSession[]>([]);
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
   const fallbackDisplayName = username?.trim() || fullname?.trim() || 'Student Test';
@@ -32,8 +42,13 @@ export default function ClassesScreen() {
   }, []);
 
   useEffect(() => {
+    if (!role) return;
+    if (role !== 'student') {
+      router.replace(role === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/profile');
+      return;
+    }
     void loadSessions();
-  }, [loadSessions]);
+  }, [loadSessions, role, router]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -73,32 +88,69 @@ export default function ClassesScreen() {
       setJoiningSessionId(sessionId);
       const joinedSession = await joinIvsSessionByCode(sessionCode);
       const displayName = fallbackDisplayName;
-      const tokenResult = await getIvsToken({
+      const effectiveUid = uid?.trim();
+      if (!effectiveUid) {
+        throw new Error('Missing profile uid. Please log out and log in again.');
+      }
+      const cached = getReusableIvsToken({
+        sessionId: joinedSession.sessionId,
         stageArn: joinedSession.stageArn,
-        userId: displayName,
-        userName: displayName,
-        publish: true,
-        subscribe: true,
-        durationMinutes: 60,
-        attributes: {
-          role: 'student',
-          sessionId: joinedSession.sessionId,
-          sessionCode: joinedSession.sessionCode
-        }
+        userId: effectiveUid,
+        role: 'student'
       });
+      if (cached) {
+        void sendIvsTelemetry({
+          eventName: 'token_reused',
+          sessionId: joinedSession.sessionId,
+          stageArn: joinedSession.stageArn,
+          userId: effectiveUid,
+          role: 'student',
+          participantId: cached.participantId
+        });
+      }
+      const tokenResult =
+        cached ??
+        (await getIvsToken({
+          stageArn: joinedSession.stageArn,
+          userId: effectiveUid,
+          userName: displayName,
+          publish: true,
+          subscribe: true,
+          durationMinutes: 60,
+          attributes: {
+            displayName,
+            userId: effectiveUid,
+            role: 'student',
+            sessionId: joinedSession.sessionId,
+            sessionCode: joinedSession.sessionCode
+          }
+        }));
+      cacheIvsToken(
+        {
+          sessionId: joinedSession.sessionId,
+          stageArn: joinedSession.stageArn,
+          userId: effectiveUid,
+          role: 'student'
+        },
+        tokenResult
+      );
       await upsertIvsSessionParticipant({
         sessionId: joinedSession.sessionId,
         participantId: tokenResult.participantId,
+        userId: effectiveUid,
         displayName,
         role: 'student'
       });
 
       router.push({
-        pathname: '/(tabs)/(student)/session',
+        pathname: '/(tabs)/session' as any,
         params: {
           sessionName: joinedSession.sessionName,
           sessionCode: joinedSession.sessionCode,
           sessionId: joinedSession.sessionId,
+          stageArn: joinedSession.stageArn,
+          participantId: tokenResult.participantId,
+          role: 'student',
           userName: displayName,
           token: tokenResult.token
         }
@@ -114,7 +166,7 @@ export default function ClassesScreen() {
     <View className="bg-white flex-grow">
       <Header title="Classes" />
 
-      <View className="px-5 pt-9">
+      <View style={{ paddingHorizontal: horizontalPadding, paddingTop: topPadding }}>
         <View className="pb-6 flex flex-row items-center gap-2">
           <Typography font="inter-semibold">Live / Starting Soon</Typography>
           <FontAwesome6 name="dumbbell" size={16} color="black" className="-rotate-45" />
@@ -154,7 +206,7 @@ export default function ClassesScreen() {
           }}
         />
 
-        <View className="pt-20 pb-6 flex flex-row items-center gap-2">
+        <View style={{ paddingTop: upcomingTopPadding }} className="pb-6 flex flex-row items-center gap-2">
           <Typography font="inter-semibold">Upcoming Sessions</Typography>
           <Ionicons name="calendar-clear-sharp" size={17} color="black" />
         </View>

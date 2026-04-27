@@ -29,7 +29,7 @@ function formatDuration(durationMs: number | null) {
   return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
 }
 
-export default function StudentRecordingsScreen() {
+export default function TeacherRecordingsScreen() {
   const { width, height } = useWindowDimensions();
   const isSmallPhone = width < 380 || height < 760;
   const horizontalPadding = isSmallPhone ? 14 : 18;
@@ -44,6 +44,7 @@ export default function StudentRecordingsScreen() {
       setRecordings([]);
       return;
     }
+
     const data = await listIvsRecordingsByUser(uid);
     setRecordings(data);
   }, [uid]);
@@ -58,6 +59,7 @@ export default function StudentRecordingsScreen() {
         setLoading(false);
       }
     };
+
     void run();
   }, [loadRecordings]);
 
@@ -117,7 +119,7 @@ export default function StudentRecordingsScreen() {
               No recordings yet
             </Typography>
             <Typography className="text-[#6C6896] text-center mt-2">
-              Your session recordings will appear here after class ends.
+              Your processed class recordings will appear here after session recording completes.
             </Typography>
           </View>
         ) : (
@@ -141,9 +143,17 @@ export default function StudentRecordingsScreen() {
                       </Typography>
                     </View>
                   </View>
+
                   <Typography className="text-[#5B5685] mt-2">
                     Duration: {formatDuration(recording.durationMs)}
                   </Typography>
+
+                  {recording.sessionId ? (
+                    <Typography className="text-[#5B5685] mt-1" numberOfLines={1}>
+                      Session: {recording.sessionId}
+                    </Typography>
+                  ) : null}
+
                   <Pressable
                     onPress={() => void handlePlay(recording.recordingId)}
                     disabled={playingRecordingId === recording.recordingId}

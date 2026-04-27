@@ -1,15 +1,16 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useEffect, useMemo, useState } from 'react';
 import IvsCall from '@/src/components/IvsCall';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  cacheIvsToken,
   endIvsSession,
+  getIvsSessionById,
   getIvsToken,
   listIvsSessionParticipants,
   markIvsSessionParticipantLeft,
-  upsertIvsSessionParticipant,
-  cacheIvsToken,
-  sendIvsTelemetry
+  sendIvsTelemetry,
+  upsertIvsSessionParticipant
 } from '@/src/api/ivs';
 import { useCallStore } from '@/src/store/callStore';
 import { useUserStore } from '@/src/store/userStore';
@@ -22,14 +23,35 @@ type SessionParams = {
   sessionId?: string;
   stageArn?: string;
   participantId?: string;
+  role?: 'student' | 'instructor';
 };
 
-export default function TeacherSessionScreen() {
+function normalizeRole(value: unknown): 'student' | 'instructor' {
+  return value === 'instructor' ? 'instructor' : 'student';
+}
+
+export default function SharedSessionScreen() {
   const router = useRouter();
   const setInCall = useCallStore((state) => state.setInCall);
+  const storeRole = useUserStore((state) => state.role);
   const uid = useUserStore((state) => state.uid);
-  const role = useUserStore((state) => state.role);
-  const { token, sessionName, userName, sessionCode, sessionId, stageArn, participantId } = useLocalSearchParams<SessionParams>();
+  const {
+    token,
+    sessionName,
+    userName,
+    sessionCode,
+    sessionId,
+    stageArn,
+    participantId,
+    role
+  } = useLocalSearchParams<SessionParams>();
+
+  const normalizedRole = useMemo(
+    () => normalizeRole((Array.isArray(role) ? role[0] : role) ?? storeRole),
+    [role, storeRole]
+  );
+
+  const hasHandledEndedSession = useRef(false);
   const [ending, setEnding] = useState(false);
   const [participantNameById, setParticipantNameById] = useState<Record<string, string>>({});
   const [participantRoleById, setParticipantRoleById] = useState<Record<string, string>>({});
@@ -41,7 +63,11 @@ export default function TeacherSessionScreen() {
   const normalizedStageArn = Array.isArray(stageArn) ? stageArn[0] : stageArn;
   const normalizedParticipantId = Array.isArray(participantId) ? participantId[0] : participantId;
   const [currentParticipantId, setCurrentParticipantId] = useState<string | undefined>(normalizedParticipantId);
-  const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Instructor', [normalizedUserName]);
+  const normalizedLocalLabel = useMemo(
+    () => normalizedUserName || (normalizedRole === 'instructor' ? 'Instructor' : 'Student'),
+    [normalizedRole, normalizedUserName]
+  );
+  const classesRoute = normalizedRole === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/(student)/classes';
 
   useEffect(() => {
     setCurrentParticipantId(normalizedParticipantId);
@@ -53,12 +79,41 @@ export default function TeacherSessionScreen() {
   }, [setInCall]);
 
   useEffect(() => {
-    if (!role) return;
-    if (role !== 'instructor') {
-      setInCall(false);
-      router.replace(role === 'student' ? '/(tabs)/(student)/classes' : '/(tabs)/profile');
-    }
-  }, [role, router, setInCall]);
+    if (!normalizedSessionId) return;
+    let active = true;
+
+    const checkSessionStatus = async () => {
+      try {
+        const session = await getIvsSessionById(normalizedSessionId);
+        if (active && session.status === 'ended' && !hasHandledEndedSession.current) {
+          hasHandledEndedSession.current = true;
+          Alert.alert('Session ended', 'This session has ended.');
+          setInCall(false);
+          router.replace(classesRoute as any);
+        }
+      } catch (error) {
+        const message = String((error as any)?.message || '');
+        if (active && !hasHandledEndedSession.current && (message.includes('Session not found') || message.includes('404'))) {
+          hasHandledEndedSession.current = true;
+          Alert.alert('Session ended', 'This session has ended.');
+          setInCall(false);
+          router.replace(classesRoute as any);
+          return;
+        }
+        console.log('[SharedSession] polling error', error);
+      }
+    };
+
+    void checkSessionStatus();
+    const interval = setInterval(() => {
+      void checkSessionStatus();
+    }, 3000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [classesRoute, normalizedSessionId, router, setInCall]);
 
   useEffect(() => {
     if (!normalizedSessionId) return;
@@ -69,25 +124,21 @@ export default function TeacherSessionScreen() {
         const participants = await listIvsSessionParticipants(normalizedSessionId);
         if (!active) return;
         const nextMap = participants.reduce<Record<string, string>>((acc, participant) => {
-          if (participant.displayName) {
-            if (participant.participantId) {
-              acc[participant.participantId] = participant.displayName;
-            }
+          if (participant.displayName && participant.participantId) {
+            acc[participant.participantId] = participant.displayName;
           }
           return acc;
         }, {});
         const nextRoleMap = participants.reduce<Record<string, string>>((acc, participant) => {
-          if (participant.role) {
-            if (participant.participantId) {
-              acc[participant.participantId] = participant.role;
-            }
+          if (participant.role && participant.participantId) {
+            acc[participant.participantId] = participant.role;
           }
           return acc;
         }, {});
         setParticipantNameById(nextMap);
         setParticipantRoleById(nextRoleMap);
       } catch (error) {
-        console.log('[TeacherSession] participant list error', error);
+        console.log('[SharedSession] participant list error', error);
       }
     };
 
@@ -111,7 +162,7 @@ export default function TeacherSessionScreen() {
       setEnding(true);
       await endIvsSession(normalizedSessionId);
       setInCall(false);
-      router.replace('/(tabs)/(teacher)/classes');
+      router.replace(classesRoute as any);
     } catch (err: any) {
       Alert.alert('Failed to end session', err?.message || 'Please try again.');
     } finally {
@@ -122,8 +173,8 @@ export default function TeacherSessionScreen() {
   const handleInfoPress = () => {
     Alert.alert(
       'Session Info',
-      `Session: ${normalizedSessionName || 'Live Session'}\nCoach: ${
-        normalizedUserName || 'Instructor'
+      `Session: ${normalizedSessionName || 'Live Session'}\n${normalizedRole === 'instructor' ? 'Coach' : 'You'}: ${
+        normalizedUserName || (normalizedRole === 'instructor' ? 'Instructor' : 'Student')
       }\nCode: ${normalizedSessionCode || 'N/A'}`
     );
   };
@@ -132,11 +183,11 @@ export default function TeacherSessionScreen() {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Unable to join session</Text>
-        <Text style={styles.subText}>Missing IVS token. Please start the session again.</Text>
+        <Text style={styles.subText}>Missing IVS token. Please join the session again.</Text>
         <Pressable
           onPress={() => {
             setInCall(false);
-            router.replace('/(tabs)/(teacher)/classes');
+            router.replace(classesRoute as any);
           }}
           style={styles.backButton}
         >
@@ -163,17 +214,17 @@ export default function TeacherSessionScreen() {
                 sessionId: normalizedSessionId,
                 stageArn: normalizedStageArn,
                 userId: uid?.trim() || undefined,
-                role: 'instructor',
+                role: normalizedRole,
                 participantId: currentParticipantId
               });
             } catch (error) {
-              console.log('[TeacherSession] participant leave error', error);
+              console.log('[SharedSession] participant leave error', error);
               await sendIvsTelemetry({
                 eventName: 'participant_left_mark_failed',
                 sessionId: normalizedSessionId,
                 stageArn: normalizedStageArn,
                 userId: uid?.trim() || undefined,
-                role: 'instructor',
+                role: normalizedRole,
                 participantId: currentParticipantId,
                 details: {
                   message: String((error as any)?.message || 'unknown')
@@ -182,7 +233,7 @@ export default function TeacherSessionScreen() {
             }
           }
           setInCall(false);
-          router.replace('/(tabs)/(teacher)/classes');
+          router.replace(classesRoute as any);
         }}
         onJoinAttempt={async () => {
           await sendIvsTelemetry({
@@ -190,7 +241,7 @@ export default function TeacherSessionScreen() {
             sessionId: normalizedSessionId,
             stageArn: normalizedStageArn,
             userId: uid?.trim() || undefined,
-            role: 'instructor',
+            role: normalizedRole,
             participantId: currentParticipantId
           });
         }}
@@ -200,7 +251,7 @@ export default function TeacherSessionScreen() {
             sessionId: normalizedSessionId,
             stageArn: normalizedStageArn,
             userId: uid?.trim() || undefined,
-            role: 'instructor',
+            role: normalizedRole,
             participantId: currentParticipantId,
             details: { message }
           });
@@ -221,7 +272,7 @@ export default function TeacherSessionScreen() {
               attributes: {
                 displayName: normalizedLocalLabel,
                 userId: effectiveUid,
-                role: 'instructor',
+                role: normalizedRole,
                 sessionId: normalizedSessionId,
                 sessionCode: normalizedSessionCode || ''
               }
@@ -231,7 +282,7 @@ export default function TeacherSessionScreen() {
                 stageArn: normalizedStageArn,
                 sessionId: normalizedSessionId,
                 userId: effectiveUid,
-                role: 'instructor'
+                role: normalizedRole
               },
               refreshed
             );
@@ -240,7 +291,7 @@ export default function TeacherSessionScreen() {
               participantId: refreshed.participantId,
               userId: effectiveUid,
               displayName: normalizedLocalLabel,
-              role: 'instructor'
+              role: normalizedRole
             });
             setCurrentParticipantId(refreshed.participantId);
             await sendIvsTelemetry({
@@ -248,7 +299,7 @@ export default function TeacherSessionScreen() {
               sessionId: normalizedSessionId,
               stageArn: normalizedStageArn,
               userId: effectiveUid,
-              role: 'instructor',
+              role: normalizedRole,
               participantId: refreshed.participantId
             });
             return refreshed;
@@ -258,7 +309,7 @@ export default function TeacherSessionScreen() {
               sessionId: normalizedSessionId,
               stageArn: normalizedStageArn,
               userId: effectiveUid,
-              role: 'instructor',
+              role: normalizedRole,
               participantId: currentParticipantId,
               details: {
                 message: String((error as any)?.message || 'unknown')
@@ -268,13 +319,13 @@ export default function TeacherSessionScreen() {
           }
         }}
         onInfoPress={handleInfoPress}
-        onEndSession={handleEndSession}
+        onEndSession={normalizedRole === 'instructor' ? handleEndSession : undefined}
         endSessionLabel={ending ? 'Ending...' : 'End Session'}
         endSessionDisabled={ending}
         localParticipantLabel={normalizedLocalLabel}
         participantNamesById={participantNameById}
         participantRolesById={participantRoleById}
-        localParticipantRole="instructor"
+        localParticipantRole={normalizedRole}
       />
     </View>
   );

@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router";
+import { Tabs, usePathname } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useUserStore } from "@/src/store/userStore";
 import { AntDesign, Entypo, Ionicons, Octicons } from "@expo/vector-icons";
@@ -8,13 +8,16 @@ import { useCallStore } from "@/src/store/callStore";
 export default function TabLayout() {
   const role = useUserStore((state) => state.role);
   const inCall = useCallStore((state) => state.inCall);
+  const pathname = usePathname();
   const skipAuth = __DEV__ && role == null;
+  const normalizedPath = (pathname || "").toLowerCase();
+  const isSessionRoute = normalizedPath.endsWith('/session');
 
   return (
     <Tabs
       screenListeners={{
         tabPress: (event) => {
-          if (!inCall) return;
+          if (!inCall && !isSessionRoute) return;
           event.preventDefault();
           Alert.alert(
             "Call in progress",
@@ -24,14 +27,19 @@ export default function TabLayout() {
       }}
       screenOptions={{
         tabBarStyle: {
-          display: inCall ? "none" : "flex",
+          display: inCall || isSessionRoute ? "none" : "flex",
           backgroundColor: "#A980FE",
-          height: 80,
-          paddingTop: 13,
+          minHeight: 64,
+          height: 'auto',
+          paddingTop: 10,
+          paddingBottom: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 14,
+          fontSize: 13,
           fontFamily: "Inter_600SemiBold",
+        },
+        tabBarItemStyle: {
+          paddingVertical: 2,
         },
         tabBarActiveTintColor: "#6155F5",
         tabBarInactiveTintColor: "#000",
@@ -60,13 +68,6 @@ export default function TabLayout() {
           headerShown: false,
         }}
       />
-      <Tabs.Screen
-        name="(student)/session"
-        options={{
-          href: null,
-          headerShown: false
-        }}
-      />
 
       {/* Instructor tabs */}
       <Tabs.Screen
@@ -77,6 +78,17 @@ export default function TabLayout() {
             <AntDesign name="book" color={color} size={size} />
           ),
           href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/classes" : null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="(teacher)/recordings"
+        options={{
+          title: "Recordings",
+          tabBarIcon: ({ color, size }) => (
+            <Entypo name="folder-video" color={color} size={size} />
+          ),
+          href: role === 'instructor' || skipAuth ? "/(tabs)/(teacher)/recordings" : null,
           headerShown: false,
         }}
       />
@@ -114,6 +126,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="session"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="(student)/session"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
         name="(teacher)/session"
         options={{
           href: null,
@@ -123,7 +149,18 @@ export default function TabLayout() {
 
       {/* Common tabs */}
       <Tabs.Screen
-        name="profile/profile"
+        name="video-ui-test"
+        options={{
+          title: "UI Test",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="flask-outline" color={color} size={size} />
+          ),
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size }) => (

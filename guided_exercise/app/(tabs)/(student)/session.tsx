@@ -2,8 +2,17 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import IvsCall from '@/src/components/IvsCall';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getIvsSessionById, listIvsSessionParticipants } from '@/src/api/ivs';
+import {
+  cacheIvsToken,
+  getIvsSessionById,
+  getIvsToken,
+  listIvsSessionParticipants,
+  markIvsSessionParticipantLeft,
+  sendIvsTelemetry,
+  upsertIvsSessionParticipant
+} from '@/src/api/ivs';
 import { useCallStore } from '@/src/store/callStore';
+import { useUserStore } from '@/src/store/userStore';
 
 type SessionParams = {
   token?: string;
@@ -11,26 +20,45 @@ type SessionParams = {
   userName?: string;
   sessionCode?: string;
   sessionId?: string;
+  stageArn?: string;
+  participantId?: string;
 };
 
 export default function StudentSessionScreen() {
   const router = useRouter();
   const setInCall = useCallStore((state) => state.setInCall);
-  const { token, sessionName, userName, sessionCode, sessionId } = useLocalSearchParams<SessionParams>();
+  const uid = useUserStore((state) => state.uid);
+  const role = useUserStore((state) => state.role);
+  const { token, sessionName, userName, sessionCode, sessionId, stageArn, participantId } = useLocalSearchParams<SessionParams>();
   const hasHandledEndedSession = useRef(false);
   const normalizedSessionId = Array.isArray(sessionId) ? sessionId[0] : sessionId;
   const normalizedSessionName = Array.isArray(sessionName) ? sessionName[0] : sessionName;
   const normalizedUserName = Array.isArray(userName) ? userName[0] : userName;
   const normalizedSessionCode = Array.isArray(sessionCode) ? sessionCode[0] : sessionCode;
   const normalizedToken = Array.isArray(token) ? token[0] : token;
-  const [isInStage, setIsInStage] = useState(false);
+  const normalizedStageArn = Array.isArray(stageArn) ? stageArn[0] : stageArn;
+  const normalizedParticipantId = Array.isArray(participantId) ? participantId[0] : participantId;
+  const [currentParticipantId, setCurrentParticipantId] = useState<string | undefined>(normalizedParticipantId);
   const [participantNameById, setParticipantNameById] = useState<Record<string, string>>({});
+  const [participantRoleById, setParticipantRoleById] = useState<Record<string, string>>({});
   const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Student', [normalizedUserName]);
+
+  useEffect(() => {
+    setCurrentParticipantId(normalizedParticipantId);
+  }, [normalizedParticipantId]);
 
   useEffect(() => {
     setInCall(true);
     return () => setInCall(false);
   }, [setInCall]);
+
+  useEffect(() => {
+    if (!role) return;
+    if (role !== 'student') {
+      setInCall(false);
+      router.replace(role === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/profile');
+    }
+  }, [role, router, setInCall]);
 
   useEffect(() => {
     if (!normalizedSessionId) return;
@@ -41,6 +69,7 @@ export default function StudentSessionScreen() {
         if (active && session.status === 'ended' && !hasHandledEndedSession.current) {
           hasHandledEndedSession.current = true;
           Alert.alert('Session ended', 'The instructor ended this session.');
+          setInCall(false);
           router.replace('/(tabs)/(student)/classes');
         }
       } catch (error) {
@@ -48,6 +77,7 @@ export default function StudentSessionScreen() {
         if (active && !hasHandledEndedSession.current && (message.includes('Session not found') || message.includes('404'))) {
           hasHandledEndedSession.current = true;
           Alert.alert('Session ended', 'The instructor ended this session.');
+          setInCall(false);
           router.replace('/(tabs)/(student)/classes');
           return;
         }
@@ -64,7 +94,7 @@ export default function StudentSessionScreen() {
       active = false;
       clearInterval(interval);
     };
-  }, [normalizedSessionId, router]);
+  }, [normalizedSessionId, router, setInCall]);
 
   useEffect(() => {
     if (!normalizedSessionId) return;
@@ -75,12 +105,23 @@ export default function StudentSessionScreen() {
         const participants = await listIvsSessionParticipants(normalizedSessionId);
         if (!active) return;
         const nextMap = participants.reduce<Record<string, string>>((acc, participant) => {
-          if (participant.participantId && participant.displayName) {
-            acc[participant.participantId] = participant.displayName;
+          if (participant.displayName) {
+            if (participant.participantId) {
+              acc[participant.participantId] = participant.displayName;
+            }
+          }
+          return acc;
+        }, {});
+        const nextRoleMap = participants.reduce<Record<string, string>>((acc, participant) => {
+          if (participant.role) {
+            if (participant.participantId) {
+              acc[participant.participantId] = participant.role;
+            }
           }
           return acc;
         }, {});
         setParticipantNameById(nextMap);
+        setParticipantRoleById(nextRoleMap);
       } catch (error) {
         console.log('[StudentSession] participant list error', error);
       }
@@ -97,12 +138,27 @@ export default function StudentSessionScreen() {
     };
   }, [normalizedSessionId]);
 
+  const handleInfoPress = () => {
+    Alert.alert(
+      'Session Info',
+      `Session: ${normalizedSessionName || 'Live Session'}\nYou: ${
+        normalizedUserName || 'Student'
+      }\nCode: ${normalizedSessionCode || 'N/A'}`
+    );
+  };
+
   if (!normalizedToken) {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Unable to join session</Text>
         <Text style={styles.subText}>Missing IVS token. Please join the session again.</Text>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable
+          onPress={() => {
+            setInCall(false);
+            router.replace('/(tabs)/(student)/classes');
+          }}
+          style={styles.backButton}
+        >
           <Text style={styles.backButtonText}>Go back</Text>
         </Pressable>
       </View>
@@ -111,32 +167,130 @@ export default function StudentSessionScreen() {
 
   return (
     <View style={styles.container}>
-      {isInStage && (
-        <View style={styles.header}>
-          <View style={styles.headerTopRow}>
-            <Text numberOfLines={1} style={styles.title}>
-              {normalizedSessionName || 'Live Session'}
-            </Text>
-            <View style={styles.liveBadge}>
-              <Text style={styles.liveBadgeText}>Live</Text>
-            </View>
-          </View>
-          <Text style={styles.subText}>{normalizedUserName ? `Participant: ${normalizedUserName}` : 'Student view'}</Text>
-          {!!normalizedSessionCode && (
-            <View style={styles.codePill}>
-              <Text style={styles.codePillLabel}>Session Code</Text>
-              <Text style={styles.codePillValue}>{normalizedSessionCode}</Text>
-            </View>
-          )}
-        </View>
-      )}
       <IvsCall
         token={normalizedToken}
         publishOnJoin
-        onLeave={() => router.back()}
-        onInStageChange={setIsInStage}
+        onLeave={async () => {
+          if (normalizedSessionId && currentParticipantId) {
+            try {
+              await markIvsSessionParticipantLeft({
+                sessionId: normalizedSessionId,
+                participantId: currentParticipantId
+              });
+              await sendIvsTelemetry({
+                eventName: 'participant_left_marked',
+                sessionId: normalizedSessionId,
+                stageArn: normalizedStageArn,
+                userId: uid?.trim() || undefined,
+                role: 'student',
+                participantId: currentParticipantId
+              });
+            } catch (error) {
+              console.log('[StudentSession] participant leave error', error);
+              await sendIvsTelemetry({
+                eventName: 'participant_left_mark_failed',
+                sessionId: normalizedSessionId,
+                stageArn: normalizedStageArn,
+                userId: uid?.trim() || undefined,
+                role: 'student',
+                participantId: currentParticipantId,
+                details: {
+                  message: String((error as any)?.message || 'unknown')
+                }
+              });
+            }
+          }
+          setInCall(false);
+          router.replace('/(tabs)/(student)/classes');
+        }}
+        onJoinAttempt={async () => {
+          await sendIvsTelemetry({
+            eventName: 'join_attempt',
+            sessionId: normalizedSessionId,
+            stageArn: normalizedStageArn,
+            userId: uid?.trim() || undefined,
+            role: 'student',
+            participantId: currentParticipantId
+          });
+        }}
+        onJoinFailed={async (message) => {
+          await sendIvsTelemetry({
+            eventName: 'join_failed',
+            sessionId: normalizedSessionId,
+            stageArn: normalizedStageArn,
+            userId: uid?.trim() || undefined,
+            role: 'student',
+            participantId: currentParticipantId,
+            details: { message }
+          });
+        }}
+        onRequestFreshToken={async () => {
+          const effectiveUid = uid?.trim();
+          if (!normalizedStageArn || !normalizedSessionId || !effectiveUid) {
+            return null;
+          }
+          try {
+            const refreshed = await getIvsToken({
+              stageArn: normalizedStageArn,
+              userId: effectiveUid,
+              userName: normalizedLocalLabel,
+              publish: true,
+              subscribe: true,
+              durationMinutes: 60,
+              attributes: {
+                displayName: normalizedLocalLabel,
+                userId: effectiveUid,
+                role: 'student',
+                sessionId: normalizedSessionId,
+                sessionCode: normalizedSessionCode || ''
+              }
+            });
+            cacheIvsToken(
+              {
+                stageArn: normalizedStageArn,
+                sessionId: normalizedSessionId,
+                userId: effectiveUid,
+                role: 'student'
+              },
+              refreshed
+            );
+            await upsertIvsSessionParticipant({
+              sessionId: normalizedSessionId,
+              participantId: refreshed.participantId,
+              userId: effectiveUid,
+              displayName: normalizedLocalLabel,
+              role: 'student'
+            });
+            setCurrentParticipantId(refreshed.participantId);
+            await sendIvsTelemetry({
+              eventName: 'token_refreshed',
+              sessionId: normalizedSessionId,
+              stageArn: normalizedStageArn,
+              userId: effectiveUid,
+              role: 'student',
+              participantId: refreshed.participantId
+            });
+            return refreshed;
+          } catch (error) {
+            await sendIvsTelemetry({
+              eventName: 'token_refresh_failed',
+              sessionId: normalizedSessionId,
+              stageArn: normalizedStageArn,
+              userId: effectiveUid,
+              role: 'student',
+              participantId: currentParticipantId,
+              details: {
+                message: String((error as any)?.message || 'unknown')
+              }
+            });
+            throw error;
+          }
+        }}
+        onInfoPress={handleInfoPress}
         localParticipantLabel={normalizedLocalLabel}
         participantNamesById={participantNameById}
+        participantRolesById={participantRoleById}
+        localParticipantRole="student"
       />
     </View>
   );
@@ -147,55 +301,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F2FF'
   },
-  header: {
-    paddingTop: 56,
-    paddingHorizontal: 16,
-    paddingBottom: 6
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8
-  },
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#2F2856',
-    flexShrink: 1
-  },
-  liveBadge: {
-    backgroundColor: '#E6E2FF',
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 4
-  },
-  liveBadgeText: {
-    color: '#6155F5',
-    fontWeight: '700',
-    fontSize: 12
+    color: '#2F2856'
   },
   subText: {
     marginTop: 4,
     color: '#4E4680'
-  },
-  codePill: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    backgroundColor: '#ECE9FF',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 7
-  },
-  codePillLabel: {
-    color: '#5E5797',
-    fontSize: 11,
-    fontWeight: '600'
-  },
-  codePillValue: {
-    color: '#3B3269',
-    fontSize: 14,
-    fontWeight: '700',
-    marginTop: 1
   },
   backButton: {
     marginTop: 14,
