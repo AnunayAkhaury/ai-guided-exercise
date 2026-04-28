@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } fr
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Camera } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ExerciseSheet, ExerciseType } from './session/exercise-sheet';
 import {
   initializeStage,
   initializeLocalStreams,
@@ -17,6 +18,7 @@ import {
   addOnStageConnectionStateChangedListener
 } from 'expo-realtime-ivs-broadcast';
 import type { Participant } from 'expo-realtime-ivs-broadcast';
+import BottomSheetModal from '@gorhom/bottom-sheet/lib/typescript/components/bottomSheetModal/BottomSheetModal';
 
 type IvsCallProps = {
   token?: string;
@@ -93,10 +95,10 @@ function isLocalParticipant(participant: Participant): boolean {
   const candidate = participant as any;
   return Boolean(
     candidate?.isLocal ??
-      candidate?.local ??
-      candidate?.info?.isLocal ??
-      candidate?.userInfo?.isLocal ??
-      candidate?.participantInfo?.isLocal
+    candidate?.local ??
+    candidate?.info?.isLocal ??
+    candidate?.userInfo?.isLocal ??
+    candidate?.participantInfo?.isLocal
   );
 }
 
@@ -138,6 +140,12 @@ export default function IvsCall({
   const isAudioMutedRef = useRef(isAudioMuted);
   const hasJoinAttemptRef = useRef(false);
 
+  const sheetRef = useRef<BottomSheetModal>(null);
+  const [exercise, setExercise] = useState<ExerciseType | null>(null);
+  const handlePresentModalPress = () => {
+    sheetRef.current?.present();
+  };
+
   const { participants } = useStageParticipants() as { participants: Participant[] };
   const remoteParticipants = useMemo<RemoteParticipantInfo[]>(() => {
     return participants
@@ -151,11 +159,9 @@ export default function IvsCall({
           candidate?.info?.attributes ??
           candidate?.userInfo?.attributes ??
           candidate?.participantInfo?.attributes;
-        const lookupKeys = [
-          participant.id,
-          candidate?.participantId,
-          candidate?.info?.participantId
-        ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+        const lookupKeys = [participant.id, candidate?.participantId, candidate?.info?.participantId].filter(
+          (value): value is string => typeof value === 'string' && value.trim().length > 0
+        );
         const resolvedRole =
           lookupKeys.map((key) => participantRolesById?.[key]).find(Boolean) ||
           firstNonEmptyString(
@@ -221,7 +227,7 @@ export default function IvsCall({
     // setup the connection listener
     const connectionListener = addOnStageConnectionStateChangedListener(({ state, error: connError }) => {
       setStatus(`State: ${state}`);
-      
+
       if (state === 'connected') {
         if (!hasJoinAttemptRef.current) {
           // Ignore stale/shared-stage connection events until user explicitly joins this screen.
@@ -253,7 +259,7 @@ export default function IvsCall({
       } else if (state === 'disconnected') {
         setIsInStage(false);
       }
-      
+
       if (connError) setError(connError);
     });
 
@@ -379,7 +385,10 @@ export default function IvsCall({
           <Text style={styles.joinSubtitle}>Join when you are ready.</Text>
           {!!status && <Text style={styles.status}>{status}</Text>}
           {!!error && <Text style={styles.error}>{error}</Text>}
-          <Pressable style={[styles.primaryButton, isJoining && styles.disabledButton]} onPress={join} disabled={isJoining}>
+          <Pressable
+            style={[styles.primaryButton, isJoining && styles.disabledButton]}
+            onPress={join}
+            disabled={isJoining}>
             <Text style={styles.primaryButtonText}>{isJoining ? 'Joining...' : 'Join Session'}</Text>
           </Pressable>
         </View>
@@ -394,8 +403,7 @@ export default function IvsCall({
         style={styles.videoContainer}
         contentContainerStyle={styles.videoContent}
         showsVerticalScrollIndicator={false}
-        bounces
-      >
+        bounces>
         {publishOnJoin && localIsInstructor && (
           <View style={[styles.participantWrapper, styles.localParticipantWrapper]}>
             <View style={styles.participantLabelPill}>
@@ -450,8 +458,7 @@ export default function IvsCall({
               style={[
                 useGridForStudents ? styles.gridVideoFrame : styles.remoteVideoFrame,
                 { height: useGridForStudents ? gridVideoHeight : remoteVideoHeight }
-              ]}
-            >
+              ]}>
               <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} scaleMode="fill" />
               {isVideoMuted && (
                 <View style={styles.cameraOffOverlay}>
@@ -466,11 +473,11 @@ export default function IvsCall({
         {remainingRemoteParticipants.map((participant) => (
           <View
             key={`${participant.participantId}:${participant.deviceUrn}`}
-            style={[styles.participantWrapper, useGridForStudents && styles.gridParticipantWrapper]}
-          >
+            style={[styles.participantWrapper, useGridForStudents && styles.gridParticipantWrapper]}>
             <View style={styles.participantLabelPill}>
               <Text style={styles.participantLabel}>
-                {participant.lookupKeys.map((key) => participantNamesById?.[key]).find(Boolean) || participant.displayName}
+                {participant.lookupKeys.map((key) => participantNamesById?.[key]).find(Boolean) ||
+                  participant.displayName}
               </Text>
             </View>
             {participant.hasVideo && participant.deviceUrn ? (
@@ -478,8 +485,7 @@ export default function IvsCall({
                 style={[
                   useGridForStudents ? styles.gridVideoFrame : styles.remoteVideoFrame,
                   { height: useGridForStudents ? gridVideoHeight : remoteVideoHeight }
-                ]}
-              >
+                ]}>
                 <ExpoIVSRemoteStreamView
                   participantId={participant.participantId}
                   deviceUrn={participant.deviceUrn}
@@ -492,8 +498,7 @@ export default function IvsCall({
                 style={[
                   useGridForStudents ? styles.gridVideoFrame : styles.remoteVideoFrame,
                   { height: useGridForStudents ? gridVideoHeight : remoteVideoHeight }
-                ]}
-              >
+                ]}>
                 <View style={styles.cameraOffOverlay}>
                   <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
                   <Text style={styles.cameraOffText}>Camera Off</Text>
@@ -514,7 +519,12 @@ export default function IvsCall({
 
       {!!error && <Text style={styles.errorInline}>{error}</Text>}
 
-      <View style={[styles.controlBar, compactControls && styles.compactControlBar, { paddingBottom: controlBarPaddingBottom }]}>
+      <View
+        style={[
+          styles.controlBar,
+          compactControls && styles.compactControlBar,
+          { paddingBottom: controlBarPaddingBottom }
+        ]}>
         <Pressable
           style={[
             styles.controlButton,
@@ -523,8 +533,7 @@ export default function IvsCall({
             !publishOnJoin && styles.disabledButton
           ]}
           onPress={toggleAudio}
-          disabled={!publishOnJoin}
-        >
+          disabled={!publishOnJoin}>
           <Ionicons name={isAudioMuted ? 'mic-off' : 'mic'} size={18} color="#fff" />
           <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
             {isAudioMuted ? (compactControls ? 'Mic On' : 'Unmute') : 'Mute'}
@@ -538,8 +547,7 @@ export default function IvsCall({
             !publishOnJoin && styles.disabledButton
           ]}
           onPress={toggleVideo}
-          disabled={!publishOnJoin}
-        >
+          disabled={!publishOnJoin}>
           <Ionicons name={isVideoMuted ? 'videocam-off' : 'videocam'} size={18} color="#fff" />
           <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
             {isVideoMuted ? 'Start Cam' : compactControls ? 'Cam Off' : 'Stop Cam'}
@@ -554,7 +562,9 @@ export default function IvsCall({
           </Pressable>
         )}
         {!onEndSession && (
-          <Pressable style={[styles.endCallButton, compactControls && styles.compactControlButton]} onPress={handleLeave}>
+          <Pressable
+            style={[styles.endCallButton, compactControls && styles.compactControlButton]}
+            onPress={handleLeave}>
             <Ionicons name="call" size={18} color="#fff" />
             <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
               Leave
@@ -569,17 +579,20 @@ export default function IvsCall({
             styles.controlBarSecondary,
             compactControls && styles.compactControlBar,
             { paddingBottom: controlBarPaddingBottom }
-          ]}
-        >
+          ]}>
           {onInfoPress && (
-            <Pressable style={[styles.infoButtonSecondary, compactControls && styles.compactControlButton]} onPress={onInfoPress}>
+            <Pressable
+              style={[styles.infoButtonSecondary, compactControls && styles.compactControlButton]}
+              onPress={onInfoPress}>
               <Ionicons name="information-circle-outline" size={18} color="#fff" />
               <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                 Info
               </Text>
             </Pressable>
           )}
-          <Pressable style={[styles.endCallButton, compactControls && styles.compactControlButton]} onPress={handleLeave}>
+          <Pressable
+            style={[styles.endCallButton, compactControls && styles.compactControlButton]}
+            onPress={handleLeave}>
             <Ionicons name="call" size={18} color="#fff" />
             <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
               Leave
@@ -593,13 +606,33 @@ export default function IvsCall({
               endSessionDisabled && styles.disabledButton
             ]}
             onPress={onEndSession}
-            disabled={endSessionDisabled}
-          >
+            disabled={endSessionDisabled}>
             <Ionicons name="stop-circle-outline" size={18} color="#fff" />
             <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
               {compactControls && endSessionLabel === 'End Session' ? 'End' : endSessionLabel}
             </Text>
           </Pressable>
+        </View>
+      )}
+
+      {/* Select Exercise */}
+      {localIsInstructor && (
+        <View>
+          {exercise ? (
+            <Pressable
+              style={[styles.primaryButton, { backgroundColor: '#D64562' }]}
+              onPress={() => {
+                setExercise(null);
+              }}>
+              <Text style={styles.primaryButtonText}>Cancel: {exercise}</Text>
+            </Pressable>
+          ) : (
+            <Pressable onPress={() => sheetRef.current?.present()} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Pick Exercise</Text>
+            </Pressable>
+          )}
+
+          <ExerciseSheet ref={sheetRef} onSelect={setExercise} />
         </View>
       )}
     </View>

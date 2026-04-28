@@ -13,6 +13,7 @@ import {
 } from '@/src/api/ivs';
 import { useCallStore } from '@/src/store/callStore';
 import { useUserStore } from '@/src/store/userStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type SessionParams = {
   token?: string;
@@ -29,7 +30,8 @@ export default function TeacherSessionScreen() {
   const setInCall = useCallStore((state) => state.setInCall);
   const uid = useUserStore((state) => state.uid);
   const role = useUserStore((state) => state.role);
-  const { token, sessionName, userName, sessionCode, sessionId, stageArn, participantId } = useLocalSearchParams<SessionParams>();
+  const { token, sessionName, userName, sessionCode, sessionId, stageArn, participantId } =
+    useLocalSearchParams<SessionParams>();
   const [ending, setEnding] = useState(false);
   const [participantNameById, setParticipantNameById] = useState<Record<string, string>>({});
   const [participantRoleById, setParticipantRoleById] = useState<Record<string, string>>({});
@@ -42,6 +44,7 @@ export default function TeacherSessionScreen() {
   const normalizedParticipantId = Array.isArray(participantId) ? participantId[0] : participantId;
   const [currentParticipantId, setCurrentParticipantId] = useState<string | undefined>(normalizedParticipantId);
   const normalizedLocalLabel = useMemo(() => normalizedUserName || 'Instructor', [normalizedUserName]);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     setCurrentParticipantId(normalizedParticipantId);
@@ -138,8 +141,7 @@ export default function TeacherSessionScreen() {
             setInCall(false);
             router.replace('/(tabs)/(teacher)/classes');
           }}
-          style={styles.backButton}
-        >
+          style={styles.backButton}>
           <Text style={styles.backButtonText}>Go back</Text>
         </Pressable>
       </View>
@@ -147,7 +149,16 @@ export default function TeacherSessionScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+          paddingLeft: insets.left,
+          paddingRight: insets.right
+        }
+      ]}>
       <IvsCall
         token={normalizedToken}
         publishOnJoin
