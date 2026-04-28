@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Tuple
+from feedback_component.feedback_main import generate_comparison
+from feedback_component.firebase_admin import get_timestamps, write_feedback
 
 import boto3
 import requests
@@ -131,6 +133,70 @@ def maybe_callback(
     response.raise_for_status()
     print("Backend callback succeeded:", response.text)
 
+def get_ideal_path(exercise: str):
+    workdir = os.getenv("WORKDIR")
+    return f"{workdir}/ideals/{exercise}.mp4"
+
+def feedback_pipeline(s3_client, output_bucket, output_key, output_file):
+
+    user_id = require_env("USER_ID")
+    recording_id = require_env("RECORDING_ID")
+
+    recording_start, timestamps = get_timestamps(recording_id)
+
+    # convert recording start to ms
+    recording_start_ms = int(recording_start.timestamp() * 1000)
+
+    workdir = Path(os.getenv("WORKDIR", "/tmp/video-worker"))
+    clips_dir = workdir / "clips"
+    clips_dir.mkdir(parents=True, exist_ok=True)
+
+    clip_paths = []
+
+    for i, t in enumerate(timestamps):
+        try:
+            start_ms = int(t["starttime"].timestamp() * 1000)
+            end_ms = int(t["endtime"].timestamp() * 1000)
+            exercise = t.get("exercise", "unknown")
+
+            # convert to offsets relative to recording start
+            start_offset = max(0, (start_ms - recording_start_ms) / 1000)
+            duration = max(0.1, (end_ms - start_ms) / 1000)
+
+            clip_path = clips_dir / f"{exercise}_{i}.mp4"
+
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-i", str(workdir / "final_fixed.mp4"),
+                "-ss", str(start_offset),
+                "-t", str(duration),
+                "-c:v", "libx264",
+                "-c:a", "aac",
+                str(clip_path),
+            ]
+
+            subprocess.run(cmd, check=True)
+            clip_paths.append((clip_path, exercise, t))
+
+        except Exception as e:
+            print(f"Skipping timestamp {i} due to error: {e}")
+            continue
+
+    for clip_path, exercise, t in clip_paths:
+        try:
+            json_dir = workdir / recording_id
+            feedback = generate_comparison(exercise_name=exercise, video_file=str(clip_path), ideal_file=get_ideal_path(exercise), json_dir=json_dir)
+            write_feedback(user_id=user_id, recording_id=recording_id, feedback=feedback)
+
+            processed_video_url = upload_file(s3_client, output_file, output_bucket, output_key)
+            print("Uploaded processed video:", processed_video_url)
+
+            maybe_callback(recording_id, processed_video_url, output_bucket, output_key)
+            print("Video worker completed successfully.")
+        except Exception as e:
+            print(f"generate_comparison failed for {clip_path}: {e}")
+
 
 def main() -> int:
     recording_id = require_env("RECORDING_ID")
@@ -143,7 +209,7 @@ def main() -> int:
 
     workdir = Path(os.getenv("WORKDIR", "/tmp/video-worker"))
     hls_dir = workdir / "high"
-    output_file = workdir / "final_fixed.mp4"
+    output_file = workdir / f"final_fixed.mp4"
 
     s3_client = boto3.client("s3", region_name=aws_region)
 
@@ -173,6 +239,11 @@ def main() -> int:
 
     if not output_file.exists():
         raise RuntimeError("ffmpeg did not produce an output file")
+
+    try:
+        feedback_pipeline(s3_client, output_bucket, output_key, output_file)
+    except Exception as e:
+        raise RuntimeError("feedback pipeline failed")
 
     processed_video_url = upload_file(s3_client, output_file, output_bucket, output_key)
     print("Uploaded processed video:", processed_video_url)

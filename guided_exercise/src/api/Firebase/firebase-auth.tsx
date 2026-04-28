@@ -15,9 +15,7 @@ function getErrorMessage(err: unknown, fallback: string): string {
 
 function getApiBaseUrl(): string {
   if (!API_BASE_URL) {
-    throw new Error(
-      'Backend URL is not configured. EXPO_PUBLIC_API_URL is missing in this app build.'
-    );
+    throw new Error('Backend URL is not configured. EXPO_PUBLIC_API_URL is missing in this app build.');
   }
   return API_BASE_URL;
 }
@@ -82,11 +80,7 @@ export async function createProfile(uid: string, role: string, username: string,
       fullname?: string;
       username?: string;
       email?: string | null;
-    }>(
-      '/api/firebase/createProfile',
-      { uid, role, username, fullname, email },
-      'Failed to create profile.'
-    );
+    }>('/api/firebase/createProfile', { uid, role, username, fullname, email }, 'Failed to create profile.');
 
     useUserStore.setState({
       uid: uid,
@@ -118,11 +112,7 @@ export async function hydrateUserProfile(uid: string, fallbackEmail?: string | n
     fullname: string;
     username: string;
     email?: string | null;
-  }>(
-    '/api/firebase/getProfile',
-    { uid },
-    'Failed to load profile from backend.'
-  );
+  }>('/api/firebase/getProfile', { uid }, 'Failed to load profile from backend.');
 
   useUserStore.setState({
     uid,

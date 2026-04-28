@@ -19,7 +19,7 @@ class OutputFeedback(BaseModel):
         le=10
     )
 
-def llm_generate_feedback(exercise_name, base_name, data_dir="/app/data"):
+def llm_generate_feedback(exercise_name, base_name, data_dir="./data"):
 
     bad_reps_file_path = os.path.join(data_dir, f"{base_name}-bad-reps.json")
 

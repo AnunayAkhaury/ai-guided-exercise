@@ -1,0 +1,89 @@
+{
+  "sourceFile": "ideal-pushups-angles.json",
+  "generatedAt": "2026-04-21T04:21:01.792208+00:00",
+  "joints": {
+    "left_elbow": {
+      "avg_peak": 151.43305714285717,
+      "avg_valley": 64.32849999999999,
+      "prominence": 18.500100000000003,
+      "rom": 92.50050000000002,
+      "rep_boundaries": [
+        2000,
+        4400,
+        7000,
+        10100,
+        12400,
+        15300,
+        18000,
+        20700
+      ]
+    },
+    "right_elbow": {
+      "avg_peak": 144.73082857142853,
+      "avg_valley": 63.7116875,
+      "prominence": 17.82772,
+      "rom": 89.1386,
+      "rep_boundaries": [
+        2100,
+        4500,
+        7100,
+        9800,
+        12600,
+        15400,
+        18100,
+        20700
+      ]
+    },
+    "left_shoulder": {
+      "avg_peak": 68.17577142857142,
+      "avg_valley": 27.4561,
+      "prominence": 9.83258,
+      "rom": 49.16289999999999,
+      "rep_boundaries": [
+        2200,
+        5100,
+        7300,
+        10000,
+        12800,
+        15600,
+        17900,
+        20500
+      ]
+    },
+    "right_shoulder": {
+      "avg_peak": 55.01541428571429,
+      "avg_valley": 30.455325000000002,
+      "prominence": 5.41392,
+      "rom": 27.069599999999998,
+      "rep_boundaries": []
+    },
+    "left_knee": {
+      "avg_peak": 162.80690555555555,
+      "avg_valley": 155.52385789473684,
+      "prominence": 3.1177000000000024,
+      "rom": 15.58850000000001,
+      "rep_boundaries": []
+    },
+    "right_hip": {
+      "avg_peak": 166.69757499999997,
+      "avg_valley": 159.21547777777775,
+      "prominence": 3.1706800000000044,
+      "rom": 15.853400000000022,
+      "rep_boundaries": []
+    },
+    "left_ankle": {
+      "avg_peak": 82.784905,
+      "avg_valley": 72.13123333333334,
+      "prominence": 4.992320000000001,
+      "rom": 24.961600000000004,
+      "rep_boundaries": []
+    },
+    "right_ankle": {
+      "avg_peak": 74.87576666666668,
+      "avg_valley": 63.81318666666667,
+      "prominence": 4.091539999999999,
+      "rom": 20.457699999999996,
+      "rep_boundaries": []
+    }
+  }
+}

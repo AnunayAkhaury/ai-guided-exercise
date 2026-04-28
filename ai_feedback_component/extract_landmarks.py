@@ -44,7 +44,7 @@ def filter_pose(landmarks):
         })
     return {"worldLandmarks": result}
 
-def extract_landmarks(base_name, data_dir="/app/data", model_path="pose_landmarker_heavy.task"):
+def extract_landmarks(base_name, data_dir="./data", model_path="pose_landmarker_heavy.task"):
     """
     Constructs paths internally and processes the video.
     """

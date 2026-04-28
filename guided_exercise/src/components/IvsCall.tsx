@@ -19,6 +19,7 @@ import {
 } from 'expo-realtime-ivs-broadcast';
 import type { Participant } from 'expo-realtime-ivs-broadcast';
 import BottomSheetModal from '@gorhom/bottom-sheet/lib/typescript/components/bottomSheetModal/BottomSheetModal';
+import { addExerciseTimestamp, ExerciseTimestamp } from '../api/Firebase/firebase-feedback';
 
 type IvsCallProps = {
   token?: string;
@@ -36,6 +37,7 @@ type IvsCallProps = {
   participantNamesById?: Record<string, string>;
   participantRolesById?: Record<string, string>;
   localParticipantRole?: 'student' | 'instructor';
+  sessionId: string;
 };
 
 type RemoteParticipantInfo = {
@@ -117,7 +119,8 @@ export default function IvsCall({
   localParticipantLabel,
   participantNamesById,
   participantRolesById,
-  localParticipantRole
+  localParticipantRole,
+  sessionId
 }: IvsCallProps) {
   const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -139,6 +142,7 @@ export default function IvsCall({
   const publishOnJoinRef = useRef(publishOnJoin);
   const isAudioMutedRef = useRef(isAudioMuted);
   const hasJoinAttemptRef = useRef(false);
+  const [exerciseTimestamp, setExerciseTimestamp] = useState<ExerciseTimestamp | null>(null);
 
   const sheetRef = useRef<BottomSheetModal>(null);
   const [exercise, setExercise] = useState<ExerciseType | null>(null);
@@ -200,6 +204,18 @@ export default function IvsCall({
   const includeLocalInGrid = publishOnJoin && !localIsInstructor;
   const totalStudentTiles = remainingRemoteParticipants.length + (includeLocalInGrid ? 1 : 0);
   const useGridForStudents = totalStudentTiles > 1;
+
+  useEffect(() => {
+    if (exerciseTimestamp?.starttime && exerciseTimestamp?.endtime) {
+      if (exerciseTimestamp.endtime - exerciseTimestamp.starttime > 3000) {
+        // 3 seconds
+        addExerciseTimestamp(exerciseTimestamp);
+      } else {
+        // Exercise too short
+        setExerciseTimestamp(null);
+      }
+    }
+  }, [exerciseTimestamp]);
 
   useEffect(() => {
     publishOnJoinRef.current = publishOnJoin;
@@ -619,20 +635,46 @@ export default function IvsCall({
       {localIsInstructor && (
         <View>
           {exercise ? (
+            // Cancel/stop exercise
             <Pressable
               style={[styles.primaryButton, { backgroundColor: '#D64562' }]}
               onPress={() => {
                 setExercise(null);
+                setExerciseTimestamp((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        endtime: Date.now()
+                      }
+                    : null
+                );
               }}>
               <Text style={styles.primaryButtonText}>Cancel: {exercise}</Text>
             </Pressable>
           ) : (
-            <Pressable onPress={() => sheetRef.current?.present()} style={styles.primaryButton}>
+            // Start exercise
+            <Pressable
+              onPress={() => {
+                sheetRef.current?.present();
+              }}
+              style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>Pick Exercise</Text>
             </Pressable>
           )}
 
-          <ExerciseSheet ref={sheetRef} onSelect={setExercise} />
+          <ExerciseSheet
+            ref={sheetRef}
+            onSelect={(selected) => {
+              setExercise(selected);
+
+              setExerciseTimestamp({
+                sessionId,
+                exercise: selected,
+                starttime: Date.now(),
+                endtime: null
+              });
+            }}
+          />
         </View>
       )}
     </View>

@@ -65,7 +65,9 @@ function parseS3Prefix(rawS3Prefix: string): { bucket: string; keyPrefix: string
   };
 }
 
-function resolvePlaybackTarget(recording: RecordingDocument): { bucket: string; key: string; source: 'processed' | 'raw_hls' } | null {
+function resolvePlaybackTarget(
+  recording: RecordingDocument
+): { bucket: string; key: string; source: 'processed' | 'raw_hls' } | null {
   const processed = recording.processedVideoUrl ? parseS3Prefix(recording.processedVideoUrl) : null;
   if (processed) {
     return {
@@ -105,18 +107,15 @@ function shouldPreserveExistingStatus(
 function shouldAutoStartRecordingProcessing(recording: RecordingDocument): boolean {
   return Boolean(
     isAutoStartRecordingProcessingEnabled() &&
-      recording.source === 'eventbridge' &&
-      recording.status === 'completed' &&
-      !recording.processedVideoUrl &&
-      recording.userId?.trim() &&
-      recording.rawS3Prefix?.trim()
+    recording.source === 'eventbridge' &&
+    recording.status === 'completed' &&
+    !recording.processedVideoUrl &&
+    recording.userId?.trim() &&
+    recording.rawS3Prefix?.trim()
   );
 }
 
-async function autoStartRecordingProcessing(
-  req: Request,
-  recording: RecordingDocument
-): Promise<RecordingDocument> {
+async function autoStartRecordingProcessing(req: Request, recording: RecordingDocument): Promise<RecordingDocument> {
   if (!shouldAutoStartRecordingProcessing(recording)) {
     return recording;
   }

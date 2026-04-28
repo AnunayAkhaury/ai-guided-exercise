@@ -285,6 +285,7 @@ export default function TeacherSessionScreen() {
         localParticipantLabel={normalizedLocalLabel}
         participantNamesById={participantNameById}
         participantRolesById={participantRoleById}
+        sessionId={sessionId!}
         localParticipantRole="instructor"
       />
     </View>

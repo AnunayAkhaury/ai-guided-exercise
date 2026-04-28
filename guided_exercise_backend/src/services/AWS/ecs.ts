@@ -1,9 +1,4 @@
-import {
-  ECSClient,
-  RunTaskCommand,
-  type AssignPublicIp,
-  type KeyValuePair
-} from '@aws-sdk/client-ecs';
+import { ECSClient, RunTaskCommand, type AssignPublicIp, type KeyValuePair } from '@aws-sdk/client-ecs';
 
 type StartRecordingWorkerTaskInput = {
   recordingId: string;
@@ -41,9 +36,7 @@ function buildContainerEnvironment(input: StartRecordingWorkerTaskInput): KeyVal
     ['WORKER_SECRET', optionalEnv('WORKER_SHARED_SECRET')]
   ];
 
-  return entries
-    .filter(([, value]) => Boolean(value))
-    .map(([name, value]) => ({ name, value: value! }));
+  return entries.filter(([, value]) => Boolean(value)).map(([name, value]) => ({ name, value: value! }));
 }
 
 function toStartedBy(recordingId: string): string {
@@ -59,8 +52,7 @@ export async function startRecordingWorkerTask(input: StartRecordingWorkerTaskIn
   const containerName = requireEnv('ECS_CONTAINER_NAME');
   const subnets = splitCsvEnv('ECS_SUBNET_IDS');
   const securityGroups = splitCsvEnv('ECS_SECURITY_GROUP_IDS');
-  const assignPublicIp = (process.env.ECS_ASSIGN_PUBLIC_IP?.trim().toUpperCase() ||
-    'ENABLED') as AssignPublicIp;
+  const assignPublicIp = (process.env.ECS_ASSIGN_PUBLIC_IP?.trim().toUpperCase() || 'ENABLED') as AssignPublicIp;
 
   const response = await ecsClient.send(
     new RunTaskCommand({
