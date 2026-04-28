@@ -117,6 +117,7 @@ function shouldAutoStartRecordingProcessing(recording: RecordingDocument): boole
 }
 
 async function autoStartRecordingProcessing(req: Request, recording: RecordingDocument): Promise<RecordingDocument> {
+  console.log('Check 3');
   if (!shouldAutoStartRecordingProcessing(recording)) {
     return recording;
   }
@@ -157,6 +158,7 @@ async function autoStartRecordingProcessing(req: Request, recording: RecordingDo
 export async function upsertRecordingController(req: Request, res: Response) {
   try {
     const expectedIngestSecret = process.env.RECORDING_INGEST_SECRET;
+    console.log('expectedIngestSecret', expectedIngestSecret);
     if (!expectedIngestSecret) {
       return sendErrorResponse(req, res, 500, 'Recording ingest secret is not configured on server.');
     }
@@ -179,6 +181,8 @@ export async function upsertRecordingController(req: Request, res: Response) {
     const sessionId = body.sessionId.trim();
     const participantId = body.participantId.trim();
     const rawS3Prefix = body.rawS3Prefix.trim();
+
+    console.log('sessionId', sessionId);
 
     // Ingest first tries IVS session linkage, then app session id.
     let session = await getSessionByIvsSessionId(sessionId);
@@ -237,6 +241,8 @@ export async function upsertRecordingController(req: Request, res: Response) {
       ...(body.feedbackJsonUrl ? { feedbackJsonUrl: body.feedbackJsonUrl } : {}),
       ...(body.error && !preserveExistingStatus ? { error: body.error } : {})
     };
+
+    console.log('Check 1');
 
     const recording = await upsertRecording(payload);
     const finalRecording = await autoStartRecordingProcessing(req, recording);

@@ -54,10 +54,7 @@ function toRecordingIdFromPrefix(prefix: string): string {
   return Buffer.from(normalized).toString('base64url');
 }
 
-function mapRecordingDoc(
-  id: string,
-  data: FirebaseFirestore.DocumentData | undefined
-): RecordingDocument | null {
+function mapRecordingDoc(id: string, data: FirebaseFirestore.DocumentData | undefined): RecordingDocument | null {
   if (!data) return null;
   return {
     recordingId: id,
@@ -65,8 +62,8 @@ function mapRecordingDoc(
     participantId: data.participantId,
     userId: data.userId ?? null,
     rawS3Prefix: data.rawS3Prefix,
-    recordingStart: data.recordingStart?.toDate ? data.recordingStart.toDate() : data.recordingStart ?? null,
-    recordingEnd: data.recordingEnd?.toDate ? data.recordingEnd.toDate() : data.recordingEnd ?? null,
+    recordingStart: data.recordingStart?.toDate ? data.recordingStart.toDate() : (data.recordingStart ?? null),
+    recordingEnd: data.recordingEnd?.toDate ? data.recordingEnd.toDate() : (data.recordingEnd ?? null),
     durationMs: typeof data.durationMs === 'number' ? data.durationMs : null,
     status: data.status,
     processedVideoUrl: data.processedVideoUrl ?? null,
@@ -84,12 +81,13 @@ export function toRecordingId(input: { recordingId: string | undefined; rawS3Pre
 }
 
 export async function upsertRecording(input: UpsertRecordingInput): Promise<RecordingDocument> {
+  console.log('Check2');
   const now = new Date();
   const recordingId = toRecordingId({ recordingId: input.recordingId, rawS3Prefix: input.rawS3Prefix });
   const ref = db.collection(RECORDINGS_COLLECTION).doc(recordingId);
   const existingSnapshot = await ref.get();
   const existing = existingSnapshot.data();
-  const createdAt = existing?.createdAt?.toDate ? existing.createdAt.toDate() : existing?.createdAt ?? now;
+  const createdAt = existing?.createdAt?.toDate ? existing.createdAt.toDate() : (existing?.createdAt ?? now);
 
   await ref.set(
     {
@@ -156,10 +154,10 @@ export async function updateRecordingById(
     {
       status: patch.status ?? existing?.status ?? 'queued',
       processedVideoUrl:
-        patch.processedVideoUrl !== undefined ? patch.processedVideoUrl : existing?.processedVideoUrl ?? null,
+        patch.processedVideoUrl !== undefined ? patch.processedVideoUrl : (existing?.processedVideoUrl ?? null),
       feedbackJsonUrl:
-        patch.feedbackJsonUrl !== undefined ? patch.feedbackJsonUrl : existing?.feedbackJsonUrl ?? null,
-      error: patch.error !== undefined ? patch.error : existing?.error ?? null,
+        patch.feedbackJsonUrl !== undefined ? patch.feedbackJsonUrl : (existing?.feedbackJsonUrl ?? null),
+      error: patch.error !== undefined ? patch.error : (existing?.error ?? null),
       updatedAt: now
     },
     { merge: true }
@@ -247,11 +245,7 @@ export async function listRecordingsBySessionId(sessionId: string): Promise<Reco
 
 export async function listRecordingsByUserId(userId: string): Promise<RecordingDocument[]> {
   const normalizedUserId = userId.trim();
-  const snapshot = await db
-    .collection(RECORDINGS_COLLECTION)
-    .where('userId', '==', normalizedUserId)
-    .limit(500)
-    .get();
+  const snapshot = await db.collection(RECORDINGS_COLLECTION).where('userId', '==', normalizedUserId).limit(500).get();
 
   const recordings = snapshot.docs
     .map((doc) => mapRecordingDoc(doc.id, doc.data()))
