@@ -4,6 +4,8 @@ type StartRecordingWorkerTaskInput = {
   recordingId: string;
   rawS3Prefix: string;
   userId: string;
+  recordingStart?: number;
+  timestamps?: any[];
 };
 
 function requireEnv(name: string): string {
@@ -33,7 +35,11 @@ function buildContainerEnvironment(input: StartRecordingWorkerTaskInput): KeyVal
     ['USER_ID', input.userId],
     ['OUTPUT_BUCKET', optionalEnv('WORKER_OUTPUT_BUCKET')],
     ['BACKEND_UPDATE_URL', optionalEnv('WORKER_CALLBACK_URL')],
-    ['WORKER_SECRET', optionalEnv('WORKER_SHARED_SECRET')]
+    ['BACKEND_ADD_CLIP_URL', optionalEnv('ADD_CLIP_CALLBACK_URL')],
+    ['WORKER_SECRET', optionalEnv('WORKER_SHARED_SECRET')],
+    ['RECORDING_START_MS', input.recordingStart?.toString() ?? null],
+    ['TIMESTAMPS_JSON', input.timestamps ? JSON.stringify(input.timestamps) : null],
+    ['GOOGLE_API_KEY', process.env.GOOGLE_API_KEY || null]
   ];
 
   return entries.filter(([, value]) => Boolean(value)).map(([name, value]) => ({ name, value: value! }));

@@ -29,7 +29,7 @@ import {
   startSessionController,
   upsertSessionParticipantController
 } from '@/controllers/session-controller.js';
-import { addExerciseTimestampController } from '@/controllers/feedback-controller.js';
+import { addExerciseTimestampController, addClipWithFeedbackController } from '@/controllers/feedback-controller.js';
 
 const router = Router();
 router.get('/', helloWorldController);
@@ -39,6 +39,7 @@ router.post('/api/firebase/getProfile', getProfileController);
 router.post('/api/firebase/addRecording', addRecordingController);
 router.post('/api/firebase/getUserRecordings', getUserRecordingsController);
 router.post('/api/firebase/addTimestamp', addExerciseTimestampController);
+router.post('/api/firebase/addClip', addClipWithFeedbackController);
 router.post('/api/recordings/upsert', upsertRecordingController);
 router.post('/api/recordings/:recordingId/process', startRecordingProcessingController);
 router.post('/api/recordings/worker-complete', completeRecordingProcessingController);

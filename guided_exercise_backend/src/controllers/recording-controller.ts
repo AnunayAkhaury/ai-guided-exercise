@@ -20,6 +20,7 @@ import {
 import type { RecordingDocument } from '@/services/Firebase/firebase-recordings-v2.js';
 import { startRecordingWorkerTask } from '@/services/AWS/ecs.js';
 import { getRequestId, logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
+import { getTimestamps } from '@/services/Firebase/firebase-feedback.js';
 
 type UpsertRecordingRequest = {
   recordingId?: string;
@@ -125,11 +126,20 @@ async function autoStartRecordingProcessing(req: Request, recording: RecordingDo
     return (await getRecordingById(recording.recordingId)) ?? recording;
   }
 
+  const timestampInfo = await getTimestamps(claimedRecording.recordingId).catch(() => null);
+
+  const safeTimestampInfo = timestampInfo ?? {
+    recordingStartMs: null,
+    timestamps: []
+  };
+
   try {
     await startRecordingWorkerTask({
       recordingId: claimedRecording.recordingId,
       rawS3Prefix: claimedRecording.rawS3Prefix,
-      userId: claimedRecording.userId!
+      userId: claimedRecording.userId!,
+      recordingStart: safeTimestampInfo.recordingStartMs,
+      timestamps: safeTimestampInfo.timestamps
     });
 
     return claimedRecording;
@@ -345,11 +355,20 @@ export async function startRecordingProcessingController(req: Request, res: Resp
       error: null
     });
 
+    const timestampInfo = await getTimestamps(recording.recordingId).catch(() => null);
+
+    const safeTimestampInfo = timestampInfo ?? {
+      recordingStartMs: null,
+      timestamps: []
+    };
+
     try {
       const taskArn = await startRecordingWorkerTask({
         recordingId: processingRecording.recordingId,
         rawS3Prefix: processingRecording.rawS3Prefix,
-        userId: processingRecording.userId!
+        userId: processingRecording.userId!,
+        recordingStart: safeTimestampInfo.recordingStartMs,
+        timestamps: safeTimestampInfo.timestamps
       });
 
       return res.status(202).json({

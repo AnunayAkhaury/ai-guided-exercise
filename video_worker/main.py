@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Tuple
 from feedback_component.feedback_main import generate_comparison
-from feedback_component.firebase_admin import get_timestamps, write_feedback
+import json
 
 import boto3
 import requests
@@ -44,6 +44,16 @@ def build_output_key(recording_id: str) -> str:
 
     return f"processed/{recording_id}/final_fixed.mp4"
 
+def build_output_key_clip(recording_id: str, index: str) -> str:
+    explicit_output_key = os.getenv("OUTPUT_KEY")
+    if explicit_output_key:
+        return explicit_output_key.lstrip("/")
+
+    user_id = os.getenv("USER_ID")
+    if user_id:
+        return f"processed/users/{user_id}/recordings/{recording_id}/{index}.mp4"
+
+    return f"processed/{recording_id}/{index}.mp4"
 
 def ensure_clean_dir(path: Path) -> None:
     if path.exists():
@@ -104,7 +114,6 @@ def upload_file(s3_client, local_path: Path, bucket: str, key: str) -> str:
     s3_client.upload_file(str(local_path), bucket, key, ExtraArgs={"ContentType": "video/mp4"})
     return f"s3://{bucket}/{key}"
 
-
 def maybe_callback(
     recording_id: str,
     processed_video_url: str,
@@ -133,19 +142,48 @@ def maybe_callback(
     response.raise_for_status()
     print("Backend callback succeeded:", response.text)
 
+def save_clip_callback(
+    recording_id: str,
+    processed_video_url: str,
+    exercise: str,
+    feedback: str,
+    user_id:str,
+) -> None:
+    backend_add_clip_url = os.getenv("BACKEND_ADD_CLIP_URL")
+    if not backend_add_clip_url:
+        print("BACKEND_ADD_CLIP_URL not set; skipping add clip callback.")
+        return
+
+    payload = {
+        "recordingId": recording_id,
+        "processedVideoUrl": processed_video_url,
+        "exercise": exercise,
+        "feedback": feedback,
+        "userId": user_id
+    }
+
+    headers = {"Content-Type": "application/json"}
+    worker_secret = os.getenv("WORKER_SECRET")
+    if worker_secret:
+        headers["x-worker-secret"] = worker_secret
+
+    response = requests.post(backend_add_clip_url, json=payload, headers=headers, timeout=30)
+    response.raise_for_status()
+    print("Add clip callback succeeded:", response.text)
+
 def get_ideal_path(exercise: str):
     workdir = os.getenv("WORKDIR")
     return f"{workdir}/ideals/{exercise}.mp4"
 
-def feedback_pipeline(s3_client, output_bucket, output_key, output_file):
-
+def feedback_pipeline(s3_client, output_bucket):
     user_id = require_env("USER_ID")
     recording_id = require_env("RECORDING_ID")
-
-    recording_start, timestamps = get_timestamps(recording_id)
+    recording_start = require_env("RECORDING_START_MS")
+    timestamps_raw = require_env("TIMESTAMPS_JSON")
+    timestamps = json.loads(timestamps_raw) if timestamps_raw else []
 
     # convert recording start to ms
-    recording_start_ms = int(recording_start.timestamp() * 1000)
+    recording_start_ms = int(recording_start)
 
     workdir = Path(os.getenv("WORKDIR", "/tmp/video-worker"))
     clips_dir = workdir / "clips"
@@ -155,9 +193,9 @@ def feedback_pipeline(s3_client, output_bucket, output_key, output_file):
 
     for i, t in enumerate(timestamps):
         try:
-            start_ms = int(t["starttime"].timestamp() * 1000)
-            end_ms = int(t["endtime"].timestamp() * 1000)
-            exercise = t.get("exercise", "unknown")
+            start_ms = int(t["starttime"])
+            end_ms = int(t["endtime"])
+            exercise = t.get("exercise")
 
             # convert to offsets relative to recording start
             start_offset = max(0, (start_ms - recording_start_ms) / 1000)
@@ -187,13 +225,13 @@ def feedback_pipeline(s3_client, output_bucket, output_key, output_file):
         try:
             json_dir = workdir / recording_id
             feedback = generate_comparison(exercise_name=exercise, video_file=str(clip_path), ideal_file=get_ideal_path(exercise), json_dir=json_dir)
-            write_feedback(user_id=user_id, recording_id=recording_id, feedback=feedback)
 
-            processed_video_url = upload_file(s3_client, output_file, output_bucket, output_key)
-            print("Uploaded processed video:", processed_video_url)
+            # Store clips + feedback
+            clip_output_key = build_output_key_clip(recording_id=recording_id, index=i)
+            processed_video_url = upload_file(s3_client, clip_path, output_bucket, clip_output_key)
 
-            maybe_callback(recording_id, processed_video_url, output_bucket, output_key)
-            print("Video worker completed successfully.")
+            save_clip_callback(recording_id=recording_id, processed_video_url=processed_video_url, exercise=exercise, feedback=feedback, user_id=user_id)
+
         except Exception as e:
             print(f"generate_comparison failed for {clip_path}: {e}")
 
@@ -241,10 +279,11 @@ def main() -> int:
         raise RuntimeError("ffmpeg did not produce an output file")
 
     try:
-        feedback_pipeline(s3_client, output_bucket, output_key, output_file)
+        feedback_pipeline(s3_client, output_bucket)
     except Exception as e:
         raise RuntimeError("feedback pipeline failed")
 
+    # Store full video
     processed_video_url = upload_file(s3_client, output_file, output_bucket, output_key)
     print("Uploaded processed video:", processed_video_url)
 
