@@ -117,7 +117,6 @@ function shouldAutoStartRecordingProcessing(recording: RecordingDocument): boole
 }
 
 async function autoStartRecordingProcessing(req: Request, recording: RecordingDocument): Promise<RecordingDocument> {
-  console.log('Check 3');
   if (!shouldAutoStartRecordingProcessing(recording)) {
     return recording;
   }
@@ -133,6 +132,8 @@ async function autoStartRecordingProcessing(req: Request, recording: RecordingDo
     recordingStartMs: null,
     timestamps: []
   };
+
+  console.log('Check 3');
 
   try {
     await startRecordingWorkerTask({

@@ -51,6 +51,7 @@ function toStartedBy(recordingId: string): string {
 }
 
 export async function startRecordingWorkerTask(input: StartRecordingWorkerTaskInput): Promise<string> {
+  console.log('Start Recording Worker Task');
   const ecsClient = new ECSClient({ region: process.env.AWS_REGION || 'us-west-2' });
 
   const cluster = requireEnv('ECS_CLUSTER_ARN');
@@ -83,6 +84,8 @@ export async function startRecordingWorkerTask(input: StartRecordingWorkerTaskIn
       }
     })
   );
+
+  console.log('Response from start recording worker task', response);
 
   if (response.failures?.length) {
     const failure = response.failures[0];
