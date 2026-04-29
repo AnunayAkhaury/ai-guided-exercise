@@ -10,6 +10,7 @@ import {
 } from '@/services/Firebase/firebase-session.js';
 import {
   claimRecordingForProcessing,
+  getClipById,
   getRecordingById,
   listClipsByUserId,
   listRecordingsBySessionId,
@@ -347,6 +348,48 @@ export async function getRecordingPlaybackController(req: Request, res: Response
   } catch (err: any) {
     logControllerError(req, err, 'getRecordingPlaybackController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to get recording playback URL.');
+  }
+}
+
+function parseS3Uri(uri: string) {
+  const url = new URL(uri.replace('s3://', 'https://'));
+  return {
+    Bucket: url.hostname,
+    Key: url.pathname.slice(1) // Removes the leading slash
+  };
+}
+
+export async function getClipPlaybackController(req: Request, res: Response) {
+  try {
+    const clipId = Array.isArray(req.params.clipId) ? req.params.clipId[0] : req.params.clipId;
+
+    if (!clipId) {
+      return sendErrorResponse(req, res, 400, 'clipId is required.');
+    }
+
+    const clip = await getClipById(clipId);
+    if (!clip || !clip.processedVideoUrl) {
+      return sendErrorResponse(req, res, 404, 'Clip or video path not found.');
+    }
+
+    const { Bucket, Key } = parseS3Uri(clip.processedVideoUrl);
+
+    const s3Client = new S3Client({ region: DEFAULT_REGION });
+    const command = new GetObjectCommand({ Bucket, Key });
+
+    const playbackUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: PLAYBACK_URL_TTL_SECONDS
+    });
+
+    return res.status(200).json({
+      clipId,
+      playbackUrl,
+      expiresInSeconds: PLAYBACK_URL_TTL_SECONDS,
+      exercise: clip.exercise
+    });
+  } catch (err: any) {
+    logControllerError(req, err, 'getClipPlaybackController failed');
+    return sendErrorResponse(req, res, 500, 'Failed to generate playback URL.');
   }
 }
 

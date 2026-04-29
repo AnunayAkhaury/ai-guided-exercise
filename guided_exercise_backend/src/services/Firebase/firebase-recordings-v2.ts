@@ -266,7 +266,9 @@ export async function listRecordingsByUserId(userId: string): Promise<RecordingD
   return recordings;
 }
 
-export async function listClipsByUserId(userId: string): Promise<(ClipsDocument & { recordingStart: any })[]> {
+export async function listClipsByUserId(
+  userId: string
+): Promise<(ClipsDocument & { recordingStart: number | null; clipId: string })[]> {
   const normalizedUserId = userId.trim();
 
   const snapshot = await db.collection(CLIPS_COLLECTION).where('userId', '==', normalizedUserId).limit(500).get();
@@ -274,16 +276,20 @@ export async function listClipsByUserId(userId: string): Promise<(ClipsDocument 
   const clipsWithDates = await Promise.all(
     snapshot.docs.map(async (doc) => {
       const clipData = doc.data() as ClipsDocument;
-      let recordingStart = null;
+
+      let recordingStart: number | null = null;
 
       if (clipData.recordingId) {
-        const recordingDoc = await db.collection('recordings').doc(clipData.recordingId).get();
+        const recordingDoc = await db.collection(RECORDINGS_COLLECTION).doc(clipData.recordingId).get();
+
         if (recordingDoc.exists) {
-          recordingStart = recordingDoc.data()?.recordingStart || recordingDoc.data()?.createdAt || null;
+          const data = recordingDoc.data();
+          recordingStart = data?.recordingStart?.toMillis?.() ?? null;
         }
       }
 
       return {
+        clipId: doc.id,
         ...clipData,
         recordingStart
       };
@@ -291,4 +297,15 @@ export async function listClipsByUserId(userId: string): Promise<(ClipsDocument 
   );
 
   return clipsWithDates;
+}
+
+export async function getClipById(clipId: string) {
+  const normalizedClipId = clipId.trim();
+  const snapshot = await db.collection(CLIPS_COLLECTION).doc(normalizedClipId).get();
+
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  return snapshot.data();
 }

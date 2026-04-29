@@ -12,13 +12,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import Typography from '@/src/components/ui/Typography';
-import { getIvsRecordingPlayback, IvsClipWithDate, listIvsClipsByUser } from '@/src/api/ivs';
+import { getIvsClipsPlayback, IvsClipWithDate, listIvsClipsByUser } from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
 
-function formatDate(value: string | null) {
+function formatDate(value: string | number | null) {
   if (!value) return 'Unknown date';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Unknown date';
+  const timestamp = typeof value === 'string' && !isNaN(Number(value)) ? Number(value) : value;
+  const date = new Date(timestamp);
+
+  if (isNaN(date.getTime())) return 'Unknown date';
+
   return date.toLocaleString(undefined, {
     month: 'short',
     day: 'numeric',
@@ -26,6 +29,15 @@ function formatDate(value: string | null) {
     hour: 'numeric',
     minute: '2-digit'
   });
+}
+
+function formatDuration(value: string | null) {
+  if (!value || Number(value) < 1000) return '0s';
+  const totalSeconds = Math.round(Number(value) / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes === 0) return `${seconds}s`;
+  return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
 }
 
 export default function TeacherRecordingsScreen() {
@@ -37,9 +49,9 @@ export default function TeacherRecordingsScreen() {
   const [clips, setClips] = useState<IvsClipWithDate[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
+  const [playingClipId, setPlayingClipId] = useState<string | null>(null);
 
-  const loadRecordings = useCallback(async () => {
+  const loadClips = useCallback(async () => {
     if (!uid) {
       setClips([]);
       return;
@@ -51,72 +63,94 @@ export default function TeacherRecordingsScreen() {
   useEffect(() => {
     const run = async () => {
       try {
-        await loadRecordings();
+        await loadClips();
       } catch (error: any) {
-        Alert.alert('Unable to load recordings', error?.message || 'Please try again.');
+        Alert.alert('Unable to load clips', error?.message || 'Please try again.');
       } finally {
         setLoading(false);
       }
     };
     void run();
-  }, [loadRecordings]);
+  }, [loadClips]);
 
   const onRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
-      await loadRecordings();
+      await loadClips();
     } catch (error: any) {
       Alert.alert('Refresh failed', error?.message || 'Please try again.');
     } finally {
       setRefreshing(false);
     }
-  }, [loadRecordings]);
+  }, [loadClips]);
 
   const groupedClips = useMemo(() => {
-    return clips.reduce<Record<string, IvsClipWithDate[]>>((acc, clip) => {
-      const key = clip.recordingStart
-        ? new Date(clip.recordingStart).toLocaleString(undefined, { month: 'long', year: 'numeric' })
-        : 'Unknown';
+    // 1. Sort the raw clips array first (Newest to Oldest)
+    const sortedClips = [...clips].sort((a, b) => {
+      const timeA = a.recordingStart ? Number(a.recordingStart) : 0;
+      const timeB = b.recordingStart ? Number(b.recordingStart) : 0;
+      return timeB - timeA;
+    });
+
+    return sortedClips.reduce<Record<string, IvsClipWithDate[]>>((acc, clip) => {
+      let key = 'Other';
+      if (clip.recordingStart) {
+        const date = new Date(Number(clip.recordingStart));
+        if (!isNaN(date.getTime())) {
+          key = date.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+        }
+      }
+
       if (!acc[key]) acc[key] = [];
       acc[key].push(clip);
       return acc;
     }, {});
   }, [clips]);
-
-  const handlePlay = useCallback(async (recordingId: string) => {
+  const handlePlay = useCallback(async (clip: IvsClipWithDate) => {
     try {
-      setPlayingRecordingId(recordingId);
-      const playback = await getIvsRecordingPlayback(recordingId);
+      setPlayingClipId(clip.clipId);
+
+      const playback = await getIvsClipsPlayback(clip.clipId);
+
       router.push({
         pathname: '/(extra)/recording-display',
-        params: { link: playback.playbackUrl }
+        params: {
+          link: playback.playbackUrl,
+          title: clip.exercise,
+          feedback: clip.feedback
+        }
       });
     } catch (error: any) {
-      Alert.alert('Playback failed', error?.message || 'Unable to load this recording.');
+      Alert.alert('Playback failed', error?.message || 'Unable to load this clip.');
     } finally {
-      setPlayingRecordingId(null);
+      setPlayingClipId(null);
     }
   }, []);
 
   return (
     <View className="flex-1 bg-white">
-      <Header title="Recordings" />
+      <Header title="Exercise Clips" />
+
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}
-        contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingBottom: 30, paddingTop: 16 }}>
+        contentContainerStyle={{
+          paddingHorizontal: horizontalPadding,
+          paddingBottom: 30,
+          paddingTop: 16
+        }}>
         {loading ? (
           <View className="items-center pt-12">
             <ActivityIndicator color="#6155F5" />
-            <Typography className="mt-3 text-[#666]">Loading recordings...</Typography>
+            <Typography className="mt-3 text-[#666]">Loading your clips...</Typography>
           </View>
         ) : clips.length === 0 ? (
           <View className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-6 items-center mt-3">
             <Ionicons name="videocam-outline" size={24} color="#6155F5" />
             <Typography font="inter-semibold" className="text-[#342F66] text-base mt-3">
-              No recordings yet
+              No clips found
             </Typography>
             <Typography className="text-[#6C6896] text-center mt-2">
-              Your processed class recordings will appear here after session recording completes.
+              Your generated exercise clips will appear here after your session is processed.
             </Typography>
           </View>
         ) : (
@@ -125,14 +159,14 @@ export default function TeacherRecordingsScreen() {
               <Typography font="inter-semibold" className="text-[#3E3A67] text-base mb-3">
                 {group}
               </Typography>
-              {items.map((clip, index) => (
-                <View
-                  key={`${clip.recordingId}-${index}`}
-                  className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-4 mb-3">
+
+              {items.map((clip) => (
+                <View key={clip.clipId} className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-4 mb-3">
                   <View className="flex-row items-center justify-between">
                     <Typography font="inter-semibold" className="text-[#2F2A5A]">
                       {formatDate(clip.recordingStart)}
                     </Typography>
+
                     <View className="px-2 py-1 rounded-full bg-[#E5DCFF]">
                       <Typography font="inter-medium" className="text-[#6155F5] text-xs">
                         Processed
@@ -140,27 +174,31 @@ export default function TeacherRecordingsScreen() {
                     </View>
                   </View>
 
-                  <Typography className="text-[#5B5685] mt-2">Duration: {clip.duration}</Typography>
-
-                  <Typography className="text-[#5B5685] mt-1">Exercise: {clip.exercise}</Typography>
-
-                  {clip.recordingId ? (
-                    <Typography className="text-[#5B5685] mt-1" numberOfLines={1}>
-                      Session: {clip.recordingId}
+                  <View className="mt-2 space-y-1">
+                    <Typography className="text-[#5B5685]">
+                      <Typography font="inter-semibold">Duration:</Typography> {formatDuration(clip.duration)}
                     </Typography>
-                  ) : null}
+
+                    <Typography className="text-[#5B5685]">
+                      <Typography font="inter-semibold">Exercise:</Typography> {clip.exercise}
+                    </Typography>
+
+                    <Typography className="text-[#5B5685]" numberOfLines={1}>
+                      <Typography font="inter-semibold">Ref:</Typography> {clip.clipId}
+                    </Typography>
+                  </View>
 
                   <Pressable
-                    onPress={() => void handlePlay(clip.recordingId)}
-                    disabled={playingRecordingId === clip.recordingId}
-                    className="mt-4 rounded-xl bg-[#6155F5] px-4 py-3 flex-row items-center justify-center">
-                    {playingRecordingId === clip.recordingId ? (
+                    onPress={() => void handlePlay(clip)}
+                    disabled={playingClipId === clip.clipId}
+                    className="mt-4 rounded-xl bg-[#6155F5] px-4 py-3 flex-row items-center justify-center active:opacity-70">
+                    {playingClipId === clip.clipId ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
                       <>
                         <Ionicons name="play" size={18} color="#fff" />
                         <Typography font="inter-semibold" className="text-white ml-2">
-                          Play Recording
+                          View Clip
                         </Typography>
                       </>
                     )}
