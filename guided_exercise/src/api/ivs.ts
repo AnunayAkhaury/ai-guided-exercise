@@ -65,6 +65,17 @@ export type IvsRecording = {
   updatedAt: string;
 };
 
+import { ExerciseType } from '../components/session/exercise-sheet';
+export type IvsClipWithDate = {
+  duration: string;
+  exercise: ExerciseType;
+  feedback: string;
+  processedVideoUrl: string;
+  recordingId: string;
+  userId: string;
+  recordingStart: string;
+};
+
 export type IvsRecordingPlayback = {
   recordingId: string;
   sessionId: string;
@@ -277,9 +288,7 @@ export function getIvsSessionById(sessionId: string): Promise<IvsSession> {
   return getJson<IvsSession>(`/api/ivs/sessions/${encodeURIComponent(sessionId)}`);
 }
 
-export function upsertIvsSessionParticipant(
-  request: SessionParticipantUpsertRequest
-): Promise<IvsSessionParticipant> {
+export function upsertIvsSessionParticipant(request: SessionParticipantUpsertRequest): Promise<IvsSessionParticipant> {
   return postJson<IvsSessionParticipant>('/api/ivs/sessions/participants/upsert', request as Record<string, unknown>);
 }
 
@@ -299,6 +308,10 @@ export function listIvsRecordingsBySession(sessionId: string): Promise<IvsRecord
 
 export function listIvsRecordingsByUser(userId: string): Promise<IvsRecording[]> {
   return getJson<IvsRecording[]>(`/api/recordings/user/${encodeURIComponent(userId)}`);
+}
+
+export function listIvsClipsByUser(userId: string): Promise<IvsClipWithDate[]> {
+  return getJson<IvsClipWithDate[]>(`/api/recordings/clips/user/${encodeURIComponent(userId)}`);
 }
 
 export function getIvsRecordingPlayback(recordingId: string): Promise<IvsRecordingPlayback> {

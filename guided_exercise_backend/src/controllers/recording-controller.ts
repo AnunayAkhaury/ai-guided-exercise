@@ -11,6 +11,7 @@ import {
 import {
   claimRecordingForProcessing,
   getRecordingById,
+  listClipsByUserId,
   listRecordingsBySessionId,
   listRecordingsByUserId,
   toRecordingId,
@@ -292,6 +293,21 @@ export async function listRecordingsByUserController(req: Request, res: Response
   } catch (err: any) {
     logControllerError(req, err, 'listRecordingsByUserController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to list recordings by user.');
+  }
+}
+
+export async function listClipsByUserController(req: Request, res: Response) {
+  try {
+    const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
+    if (!userId?.trim()) {
+      return sendErrorResponse(req, res, 400, 'userId is required.');
+    }
+
+    const clips = await listClipsByUserId(userId);
+    return res.status(200).json(clips);
+  } catch (err: any) {
+    logControllerError(req, err, 'listClipsByUserController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to list clips by user.');
   }
 }
 

@@ -1,10 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, View, useWindowDimensions } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  View,
+  useWindowDimensions
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import Typography from '@/src/components/ui/Typography';
-import { getIvsRecordingPlayback, listIvsRecordingsByUser, type IvsRecording } from '@/src/api/ivs';
+import { getIvsRecordingPlayback, IvsClipWithDate, listIvsClipsByUser } from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
 
 function formatDate(value: string | null) {
@@ -20,33 +28,24 @@ function formatDate(value: string | null) {
   });
 }
 
-function formatDuration(durationMs: number | null) {
-  if (!durationMs || durationMs < 1000) return '0s';
-  const totalSeconds = Math.round(durationMs / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (minutes === 0) return `${seconds}s`;
-  return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
-}
-
 export default function TeacherRecordingsScreen() {
   const { width, height } = useWindowDimensions();
   const isSmallPhone = width < 380 || height < 760;
   const horizontalPadding = isSmallPhone ? 14 : 18;
   const uid = useUserStore((state) => state.uid);
-  const [recordings, setRecordings] = useState<IvsRecording[]>([]);
+
+  const [clips, setClips] = useState<IvsClipWithDate[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
 
   const loadRecordings = useCallback(async () => {
     if (!uid) {
-      setRecordings([]);
+      setClips([]);
       return;
     }
-
-    const data = await listIvsRecordingsByUser(uid);
-    setRecordings(data);
+    const data = await listIvsClipsByUser(uid);
+    setClips(data);
   }, [uid]);
 
   useEffect(() => {
@@ -59,7 +58,6 @@ export default function TeacherRecordingsScreen() {
         setLoading(false);
       }
     };
-
     void run();
   }, [loadRecordings]);
 
@@ -74,16 +72,16 @@ export default function TeacherRecordingsScreen() {
     }
   }, [loadRecordings]);
 
-  const groupedRecordings = useMemo(() => {
-    return recordings.reduce<Record<string, IvsRecording[]>>((acc, recording) => {
-      const key = recording.recordingStart
-        ? new Date(recording.recordingStart).toLocaleString(undefined, { month: 'long', year: 'numeric' })
+  const groupedClips = useMemo(() => {
+    return clips.reduce<Record<string, IvsClipWithDate[]>>((acc, clip) => {
+      const key = clip.recordingStart
+        ? new Date(clip.recordingStart).toLocaleString(undefined, { month: 'long', year: 'numeric' })
         : 'Unknown';
       if (!acc[key]) acc[key] = [];
-      acc[key].push(recording);
+      acc[key].push(clip);
       return acc;
     }, {});
-  }, [recordings]);
+  }, [clips]);
 
   const handlePlay = useCallback(async (recordingId: string) => {
     try {
@@ -105,14 +103,13 @@ export default function TeacherRecordingsScreen() {
       <Header title="Recordings" />
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}
-        contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingBottom: 30, paddingTop: 16 }}
-      >
+        contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingBottom: 30, paddingTop: 16 }}>
         {loading ? (
           <View className="items-center pt-12">
             <ActivityIndicator color="#6155F5" />
             <Typography className="mt-3 text-[#666]">Loading recordings...</Typography>
           </View>
-        ) : recordings.length === 0 ? (
+        ) : clips.length === 0 ? (
           <View className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-6 items-center mt-3">
             <Ionicons name="videocam-outline" size={24} color="#6155F5" />
             <Typography font="inter-semibold" className="text-[#342F66] text-base mt-3">
@@ -123,43 +120,41 @@ export default function TeacherRecordingsScreen() {
             </Typography>
           </View>
         ) : (
-          Object.entries(groupedRecordings).map(([group, items]) => (
+          Object.entries(groupedClips).map(([group, items]) => (
             <View key={group} className="mb-6">
               <Typography font="inter-semibold" className="text-[#3E3A67] text-base mb-3">
                 {group}
               </Typography>
-              {items.map((recording) => (
+              {items.map((clip, index) => (
                 <View
-                  key={recording.recordingId}
-                  className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-4 mb-3"
-                >
+                  key={`${clip.recordingId}-${index}`}
+                  className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-4 mb-3">
                   <View className="flex-row items-center justify-between">
                     <Typography font="inter-semibold" className="text-[#2F2A5A]">
-                      {formatDate(recording.recordingStart)}
+                      {formatDate(clip.recordingStart)}
                     </Typography>
                     <View className="px-2 py-1 rounded-full bg-[#E5DCFF]">
                       <Typography font="inter-medium" className="text-[#6155F5] text-xs">
-                        {recording.status}
+                        Processed
                       </Typography>
                     </View>
                   </View>
 
-                  <Typography className="text-[#5B5685] mt-2">
-                    Duration: {formatDuration(recording.durationMs)}
-                  </Typography>
+                  <Typography className="text-[#5B5685] mt-2">Duration: {clip.duration}</Typography>
 
-                  {recording.sessionId ? (
+                  <Typography className="text-[#5B5685] mt-1">Exercise: {clip.exercise}</Typography>
+
+                  {clip.recordingId ? (
                     <Typography className="text-[#5B5685] mt-1" numberOfLines={1}>
-                      Session: {recording.sessionId}
+                      Session: {clip.recordingId}
                     </Typography>
                   ) : null}
 
                   <Pressable
-                    onPress={() => void handlePlay(recording.recordingId)}
-                    disabled={playingRecordingId === recording.recordingId}
-                    className="mt-4 rounded-xl bg-[#6155F5] px-4 py-3 flex-row items-center justify-center"
-                  >
-                    {playingRecordingId === recording.recordingId ? (
+                    onPress={() => void handlePlay(clip.recordingId)}
+                    disabled={playingRecordingId === clip.recordingId}
+                    className="mt-4 rounded-xl bg-[#6155F5] px-4 py-3 flex-row items-center justify-center">
+                    {playingRecordingId === clip.recordingId ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
                       <>

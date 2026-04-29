@@ -1,6 +1,16 @@
 import { db } from './firebase-service.js';
 
 export type RecordingStatus = 'queued' | 'processing' | 'completed' | 'failed';
+export type ExerciseType = 'pushup' | 'lunge';
+
+export type ClipsDocument = {
+  duration: string;
+  exercise: ExerciseType;
+  feedback: string;
+  processedVideoUrl: string;
+  recordingId: string;
+  userId: string;
+};
 
 export type RecordingDocument = {
   recordingId: string;
@@ -44,6 +54,7 @@ type UpdateRecordingPatch = {
 };
 
 const RECORDINGS_COLLECTION = 'recordings_v2';
+const CLIPS_COLLECTION = 'clips';
 
 function normalizePrefix(prefix: string): string {
   return prefix.trim().replace(/^s3:\/\//, '');
@@ -253,4 +264,31 @@ export async function listRecordingsByUserId(userId: string): Promise<RecordingD
 
   recordings.sort((a, b) => recordingSortTime(b) - recordingSortTime(a));
   return recordings;
+}
+
+export async function listClipsByUserId(userId: string): Promise<(ClipsDocument & { recordingStart: any })[]> {
+  const normalizedUserId = userId.trim();
+
+  const snapshot = await db.collection(CLIPS_COLLECTION).where('userId', '==', normalizedUserId).limit(500).get();
+
+  const clipsWithDates = await Promise.all(
+    snapshot.docs.map(async (doc) => {
+      const clipData = doc.data() as ClipsDocument;
+      let recordingStart = null;
+
+      if (clipData.recordingId) {
+        const recordingDoc = await db.collection('recordings').doc(clipData.recordingId).get();
+        if (recordingDoc.exists) {
+          recordingStart = recordingDoc.data()?.recordingStart || recordingDoc.data()?.createdAt || null;
+        }
+      }
+
+      return {
+        ...clipData,
+        recordingStart
+      };
+    })
+  );
+
+  return clipsWithDates;
 }
