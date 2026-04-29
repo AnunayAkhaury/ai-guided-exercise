@@ -268,7 +268,7 @@ export async function listRecordingsByUserId(userId: string): Promise<RecordingD
 
 export async function listClipsByUserId(
   userId: string
-): Promise<(ClipsDocument & { recordingStart: any; clipId: string })[]> {
+): Promise<(ClipsDocument & { recordingStart: number | null; clipId: string })[]> {
   const normalizedUserId = userId.trim();
 
   const snapshot = await db.collection(CLIPS_COLLECTION).where('userId', '==', normalizedUserId).limit(500).get();
@@ -276,14 +276,15 @@ export async function listClipsByUserId(
   const clipsWithDates = await Promise.all(
     snapshot.docs.map(async (doc) => {
       const clipData = doc.data() as ClipsDocument;
-      let recordingStart = null;
+
+      let recordingStart: number | null = null;
 
       if (clipData.recordingId) {
-        const recordingDoc = await db.collection('recordings').doc(clipData.recordingId).get();
+        const recordingDoc = await db.collection(RECORDINGS_COLLECTION).doc(clipData.recordingId).get();
 
         if (recordingDoc.exists) {
           const data = recordingDoc.data();
-          recordingStart = data?.recordingStart || data?.createdAt || null;
+          recordingStart = data?.recordingStart?.toMillis?.() ?? null;
         }
       }
 

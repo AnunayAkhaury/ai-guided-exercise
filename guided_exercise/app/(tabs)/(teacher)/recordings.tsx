@@ -28,6 +28,15 @@ function formatDate(value: string | null) {
   });
 }
 
+function formatDuration(value: string | null) {
+  if (!value || Number(value) < 1000) return '0s';
+  const totalSeconds = Math.round(Number(value) / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes === 0) return `${seconds}s`;
+  return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+}
+
 export default function TeacherRecordingsScreen() {
   const { width, height } = useWindowDimensions();
   const isSmallPhone = width < 380 || height < 760;
@@ -152,7 +161,7 @@ export default function TeacherRecordingsScreen() {
 
                   <View className="mt-2 space-y-1">
                     <Typography className="text-[#5B5685]">
-                      <Typography font="inter-semibold">Duration:</Typography> {clip.duration}
+                      <Typography font="inter-semibold">Duration:</Typography> {formatDuration(clip.duration)}
                     </Typography>
 
                     <Typography className="text-[#5B5685]">
