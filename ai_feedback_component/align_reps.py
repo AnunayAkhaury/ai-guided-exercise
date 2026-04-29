@@ -204,7 +204,7 @@ def align_reps(base_name, ideal_base_name, data_dir="./data"):
         return
 
     with open(imp_joints_path, 'r') as file:
-        imp_joints = json.load(file)
+        imp_joints = json.load(file)["primary_joints"]
     
     counter = DeepCycleCounter(imp_joints)
     
