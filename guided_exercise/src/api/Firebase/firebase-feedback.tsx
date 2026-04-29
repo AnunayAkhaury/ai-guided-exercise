@@ -29,11 +29,24 @@ export async function addExerciseTimestamp(timestamp: ExerciseTimestamp) {
   }
 }
 
-export async function getFeedbackFromRef(feedbackRef: string) {
-  await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/firebase/${feedbackRef}`, {
+export interface RepFeedback {
+  timestampStart: number;
+  timestampEnd: number;
+  feedback: string;
+}
+
+export interface ExerciseFeedback {
+  summary: string;
+  score: number;
+  data: RepFeedback[];
+}
+
+export async function getFeedbackFromRef(feedbackRef: string): Promise<ExerciseFeedback | null> {
+  const feedbackDoc = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/firebase/${feedbackRef}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json'
     }
   });
+  return feedbackDoc.json();
 }

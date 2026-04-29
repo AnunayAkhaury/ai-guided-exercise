@@ -1,5 +1,9 @@
 import type { Request, Response } from 'express';
-import { addClipWithFeedback, addExerciseTimestamp, getFeedbackFromId } from '@/services/Firebase/firebase-feedback.js';
+import {
+  addClipWithFeedback,
+  addExerciseTimestamp,
+  getFeedbackFromRef
+} from '@/services/Firebase/firebase-feedback.js';
 import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
 export async function addExerciseTimestampController(req: Request, res: Response) {
@@ -40,7 +44,7 @@ export async function getFeedbackFromIdController(req: Request, res: Response) {
     if (!feedbackRef?.trim()) {
       return sendErrorResponse(req, res, 400, 'feedbackRef is required.');
     }
-    const getFeedbackFromIdResult = await getFeedbackFromId(feedbackRef);
+    const getFeedbackFromIdResult = await getFeedbackFromRef(feedbackRef);
     return res.status(200).json(getFeedbackFromIdResult);
   } catch (err: any) {
     logControllerError(req, err, 'feedbackController failed');

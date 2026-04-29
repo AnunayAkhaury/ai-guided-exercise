@@ -122,7 +122,19 @@ export async function getTimestamps(recordingId: string) {
   }
 }
 
-export async function getFeedbackFromId(feedbackRef: string) {
+export interface RepFeedback {
+  timestampStart: number;
+  timestampEnd: number;
+  feedback: string;
+}
+
+export interface ExerciseFeedback {
+  summary: string;
+  score: number;
+  data: RepFeedback[];
+}
+
+export async function getFeedbackFromRef(feedbackRef: string): Promise<Feedback | null> {
   const normalizedFeedbackRef = feedbackRef.trim();
   const snapshot = await db.collection('feedbacks').doc(normalizedFeedbackRef).get();
   if (!snapshot.exists) {
