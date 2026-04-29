@@ -117,6 +117,7 @@ function shouldAutoStartRecordingProcessing(recording: RecordingDocument): boole
 }
 
 async function autoStartRecordingProcessing(req: Request, recording: RecordingDocument): Promise<RecordingDocument> {
+  console.log('Auto start');
   if (!shouldAutoStartRecordingProcessing(recording)) {
     return recording;
   }
@@ -246,7 +247,9 @@ export async function upsertRecordingController(req: Request, res: Response) {
     console.log('Check 1');
 
     const recording = await upsertRecording(payload);
+    console.log('Check 4');
     const finalRecording = await autoStartRecordingProcessing(req, recording);
+    console.log('Check 5');
 
     return res.status(200).json(finalRecording);
   } catch (err: any) {
