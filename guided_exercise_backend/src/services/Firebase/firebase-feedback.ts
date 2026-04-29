@@ -122,23 +122,24 @@ export async function getTimestamps(recordingId: string) {
   }
 }
 
-export interface RepFeedback {
-  timestampStart: number;
-  timestampEnd: number;
-  feedback: string;
-}
-
-export interface ExerciseFeedback {
-  summary: string;
-  score: number;
-  data: RepFeedback[];
-}
-
-export async function getFeedbackFromRef(feedbackRef: string): Promise<Feedback | null> {
+export async function getFeedbackFromRef(feedbackRef: string): Promise<ExerciseFeedback | null> {
   const normalizedFeedbackRef = feedbackRef.trim();
-  const snapshot = await db.collection('feedbacks').doc(normalizedFeedbackRef).get();
-  if (!snapshot.exists) {
+
+  if (!normalizedFeedbackRef) return null;
+
+  try {
+    const snapshot = await db.collection('feedbacks').doc(normalizedFeedbackRef).get();
+
+    if (!snapshot || !snapshot.exists) {
+      return null;
+    }
+
+    const snapshotData = snapshot.data();
+    if (!snapshotData) return null;
+
+    return snapshotData as ExerciseFeedback;
+  } catch (error) {
+    console.error('Error fetching feedback ref:', error);
     return null;
   }
-  return snapshot.data();
 }
