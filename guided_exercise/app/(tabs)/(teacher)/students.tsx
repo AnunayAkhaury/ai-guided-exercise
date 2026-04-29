@@ -81,10 +81,11 @@ export default function Students() {
   }, [searchQuery, sortAscending, students]);
 
   return (
-    <View className="flex-grow bg-white">
+    <View className="flex-1 bg-white">
       <Header title="Students" />
 
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: isSmallPhone ? 14 : 20, paddingVertical: isSmallPhone ? 14 : 20 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"

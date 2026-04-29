@@ -1295,12 +1295,17 @@ function teardownStageRuntime({
 }
 
 const shellStyle: CSSProperties = {
-  minHeight: '100%',
+  height: '100dvh',
+  maxHeight: '100dvh',
   display: 'flex',
   flexDirection: 'column',
   gap: 20,
   padding: 24,
   boxSizing: 'border-box',
+  overflowY: 'auto',
+  overflowX: 'hidden',
+  overscrollBehavior: 'contain',
+  WebkitOverflowScrolling: 'touch',
   background: 'radial-gradient(circle at top, rgba(229, 220, 255, 0.9) 0%, #F5F2FF 42%, #FFFFFF 100%)'
 };
 
@@ -1406,7 +1411,12 @@ const stageContentStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 20,
-  flex: 1
+  flex: '0 0 auto',
+  width: '100%',
+  maxWidth: 1280,
+  margin: '0 auto',
+  paddingBottom: 8,
+  boxSizing: 'border-box'
 };
 
 const stageHeaderStyle: CSSProperties = {
@@ -1465,7 +1475,13 @@ const emptyStateSubtitleStyle: CSSProperties = {
 const controlBarStyle: CSSProperties = {
   position: 'sticky',
   bottom: 0,
-  paddingTop: 12
+  zIndex: 20,
+  width: '100%',
+  maxWidth: 1280,
+  margin: '0 auto',
+  paddingTop: 12,
+  paddingBottom: 4,
+  boxSizing: 'border-box'
 };
 
 const controlRowStyle: CSSProperties = {
