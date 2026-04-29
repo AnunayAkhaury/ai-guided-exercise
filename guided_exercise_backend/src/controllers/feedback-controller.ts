@@ -44,6 +44,7 @@ export async function getFeedbackFromIdController(req: Request, res: Response) {
     if (!feedbackRef?.trim()) {
       return sendErrorResponse(req, res, 400, 'feedbackRef is required.');
     }
+    console.log(feedbackRef);
     const getFeedbackFromIdResult = await getFeedbackFromRef(feedbackRef);
     return res.status(200).json(getFeedbackFromIdResult);
   } catch (err: any) {

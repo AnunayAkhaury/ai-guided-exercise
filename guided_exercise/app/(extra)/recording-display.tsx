@@ -7,7 +7,7 @@ import { getFeedbackFromRef, ExerciseFeedback } from '@/src/api/Firebase/firebas
 
 export const EXERCISE_TITLE_MAP: Record<ExerciseType, string> = {
   lunge: 'Lunges',
-  pushup: 'Pushups'
+  pushup: 'Push Ups'
 };
 
 export default function RecordingDisplay() {
@@ -61,15 +61,31 @@ export default function RecordingDisplay() {
         style={{
           marginBottom: 20,
           padding: 10,
-          backgroundColor: '#C3F5FF',
+          backgroundColor: '#6155F5',
           borderRadius: 8,
           alignSelf: 'flex-start'
         }}>
-        <Text style={{ color: '#000', fontWeight: 'bold' }}>← Back</Text>
+        <Text style={{ color: '#FFF', fontWeight: 'bold' }}>← Back</Text>
       </TouchableOpacity>
-      <Text className="text-2xl">{EXERCISE_TITLE_MAP[title as ExerciseType]}</Text>
       <VideoView player={player} allowsFullscreen style={{ width: '100%', height: 250, backgroundColor: 'black' }} />
-      {feedbackDocument && <Text className="text-lg mt-4">{feedbackDocument.summary}</Text>}
+      <View className="mt-6 px-4">
+        {feedbackDocument && (
+          <View className="rounded-3xl border border-[#D9CCFF] bg-[#F8F5FF] p-6 shadow-sm">
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-[#3E3A67] text-lg">{EXERCISE_TITLE_MAP[title as ExerciseType]} Summary</Text>
+              <View className="flex-row items-center bg-white px-3 py-1 rounded-full border border-[#E5DCFF]">
+                <Text className="ml-2 text-[#6155F5] text-xs">Score: {feedbackDocument.score}/10</Text>
+              </View>
+            </View>
+
+            <Text className="text-[#5B5685] leading-6 text-base">{feedbackDocument.summary}</Text>
+
+            <View className="mt-4 pt-4 border-t border-[#E5DCFF] flex-row items-center justify-between">
+              <Text className="text-[#6155F5] text-xs">{feedbackDocument.data.length} Reps Detected</Text>
+            </View>
+          </View>
+        )}
+      </View>
     </View>
   );
 }

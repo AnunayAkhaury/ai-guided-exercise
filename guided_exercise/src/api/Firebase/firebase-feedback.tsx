@@ -42,11 +42,27 @@ export interface ExerciseFeedback {
 }
 
 export async function getFeedbackFromRef(feedbackRef: string): Promise<ExerciseFeedback | null> {
-  const feedbackDoc = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/firebase/${feedbackRef}`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json'
+  const url = `${process.env.EXPO_PUBLIC_API_URL}/api/feedback/${feedbackRef}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    // 1. Check if the server actually returned a 200 OK
+    if (!response.ok) {
+      const errorText = await response.text(); // Get the HTML/Error body
+      console.error(`Fetch failed with status ${response.status}. Body:`, errorText);
+      return null;
     }
-  });
-  return feedbackDoc.json();
+
+    // 2. Try to parse the JSON
+    return await response.json();
+  } catch (error) {
+    console.error('Network or Parsing Error in getFeedbackFromRef:', error);
+    return null;
+  }
 }
