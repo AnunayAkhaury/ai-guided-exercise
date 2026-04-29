@@ -1,12 +1,7 @@
 import json
 import math
-import sys
 import os
 from datetime import datetime, timezone
-from pathlib import Path
-
-# Constants for geometry threshold
-DELTA_THRESHOLD = 5.0
 
 # Joint definitions remain at module level for easy configuration
 JOINTS = {
@@ -25,26 +20,17 @@ JOINTS = {
 JOINT_NAMES = list(JOINTS.keys())
 
 def angle_3pt(a: dict, b: dict, c: dict) -> float | None:
-    """Calculates angle (degrees) at vertex b between bones a-b and c-b."""
     ba = (a["x"] - b["x"], a["y"] - b["y"], a["z"] - b["z"])
     bc = (c["x"] - b["x"], c["y"] - b["y"], c["z"] - b["z"])
-
-    dot     = sum(ba[i] * bc[i] for i in range(3))
-    mag_ba  = math.sqrt(sum(v * v for v in ba))
-    mag_bc  = math.sqrt(sum(v * v for v in bc))
-
-    if mag_ba < 1e-9 or mag_bc < 1e-9:
-        return None
-
+    dot = sum(ba[i] * bc[i] for i in range(3))
+    mag_ba = math.sqrt(sum(v * v for v in ba))
+    mag_bc = math.sqrt(sum(v * v for v in bc))
+    if mag_ba < 1e-9 or mag_bc < 1e-9: return None
     cos_val = max(-1.0, min(1.0, dot / (mag_ba * mag_bc)))
     return round(math.degrees(math.acos(cos_val)), 4)
 
 def landmarks_to_dict(landmarks: list) -> dict:
     return {lm["name"]: {"x": lm["x"], "y": lm["y"], "z": lm["z"], "confident": lm["confident"]} for lm in landmarks}
-
-def is_significant(deltas: dict) -> bool:
-    vals = [abs(v) for v in deltas.values() if v is not None]
-    return bool(vals) and max(vals) >= DELTA_THRESHOLD
 
 def compute_angles(lm_dict: dict) -> dict:
     angles = {}
@@ -55,18 +41,12 @@ def compute_angles(lm_dict: dict) -> dict:
             usable_dict[joint] = True if lm_dict[a_name]["confident"] and lm_dict[b_name]["confident"] and lm_dict[c_name]["confident"] else False
         else:
             angles[joint] = None
-            usable_dict[joint] = None
+            usable_dict[joint] = False
     return angles, usable_dict
 
 def calculate_joint_angles(base_name, data_dir="./data"):
-    """
-    Constructs paths internally, calculates joint angles and deltas, 
-    and saves JSON outputs.
-    """
-    # Internal Path Construction
     pose_json_path = os.path.join(data_dir, f"{base_name}-pose.json")
     angles_json_path = os.path.join(data_dir, f"{base_name}-angles.json")
-    deltas_json_path = os.path.join(data_dir, f"{base_name}-angle-deltas.json")
 
     if not os.path.exists(pose_json_path):
         print(f"File not found: {pose_json_path}")
@@ -86,7 +66,7 @@ def calculate_joint_angles(base_name, data_dir="./data"):
             angles, usable_dict = compute_angles(lm_dict)
         else:
             angles = {j: None for j in JOINT_NAMES}
-            usable_dict = {j: None for j in JOINT_NAMES}
+            usable_dict = {j: False for j in JOINT_NAMES}
 
         angle_frames.append({
             "frameIndex": frame["frameIndex"],
@@ -95,58 +75,16 @@ def calculate_joint_angles(base_name, data_dir="./data"):
             "usableDict": usable_dict,
         })
 
-    # Pass 2: Calculate frame-to-frame deltas
-    delta_frames = []
-    for i in range(len(angle_frames) - 1):
-        prev = angle_frames[i]
-        curr = angle_frames[i + 1]
-        
-
-        deltas = {}
-        usable_dict = {}
-        for joint in JOINT_NAMES:
-            p, c = prev["angles"][joint], curr["angles"][joint]
-            deltas[joint] = round(c - p, 4) if (p is not None and c is not None) else None
-            usable_dict[joint] = True if prev["usableDict"][joint] and curr["usableDict"][joint] else False
-
-        delta_frames.append({
-            "fromFrame": angle_frames[i]["frameIndex"],
-            "toFrame": angle_frames[i + 1]["frameIndex"],
-            "timestampMs": angle_frames[i + 1]["timestampMs"],
-            "deltas": deltas,
-            "usableDict": usable_dict,
-        })
-
-    # Pass 3: Filter significance
-    sig_deltas = [d for d in delta_frames if is_significant(d["deltas"])]
-    angles_by_index = {f["frameIndex"]: f for f in angle_frames}
-    sig_angle_frames = [angles_by_index[d["toFrame"]] for d in sig_deltas if d["toFrame"] in angles_by_index]
-
-    # Save Deltas
-    deltas_output = {
-        "sourceFile": f"{base_name}-angles.json",
-        "generatedAt": now_iso,
-        "captureRate": pose_data["captureRate"],
-        "deltaThreshold": DELTA_THRESHOLD,
-        "totalDeltas": len(sig_deltas),
-        "joints": JOINT_NAMES,
-        "frames": sig_deltas,
-    }
-    with open(deltas_json_path, "w", encoding="utf-8") as f:
-        json.dump(deltas_output, f, indent=2)
-
-    # Save Angles
     angles_output = {
         "sourceFile": f"{base_name}-pose.json",
         "generatedAt": now_iso,
         "captureRate": pose_data["captureRate"],
         "joints": JOINT_NAMES,
-        "totalFrames": len(sig_angle_frames),
-        "deltaThreshold": DELTA_THRESHOLD,
-        "frames": sig_angle_frames
+        "totalFrames": len(angle_frames),
+        "frames": angle_frames
     }
+
     with open(angles_json_path, "w", encoding="utf-8") as f:
         json.dump(angles_output, f, indent=2)
 
-    print(f"Deltas written to {deltas_json_path}")
-    print(f"Angles written to {angles_json_path} ({len(sig_angle_frames)} frames kept)")
+    print(f"Angles written to {angles_json_path} for {len(angle_frames)} frames")
