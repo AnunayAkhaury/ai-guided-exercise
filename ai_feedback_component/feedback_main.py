@@ -3,6 +3,7 @@ from extract_landmarks import extract_landmarks
 from calculate_joint_angles import calculate_joint_angles
 from analyze_ideal import generate_ideal_baseline
 from analyze_form import run_form_analysis
+from align_reps import align_reps
 from llm_feedback import llm_generate_feedback
 
 def generate_ideal(base_name):
@@ -35,11 +36,14 @@ def generate_comparison(exercise_name, test_video_name, ideal_baseline_name):
     
     # 2. Calculate Angles for the test video
     calculate_joint_angles(test_video_name)
-    
-    # 3. Compare test angles against the specified ideal baseline
+
+    # 3. Detect reps in student and instructor
+    align_reps(test_video_name, ideal_baseline_name)
+
+    # 4. Compare test angles against the specified ideal baseline
     run_form_analysis(test_video_name, ideal_baseline_name)
 
-    # 4. Generate feedback using LLM
+    # 5. Generate feedback using LLM
     result = llm_generate_feedback(exercise_name, test_video_name)
 
     print(f"--- Analysis Complete: {test_video_name}-bad_reps.json ---\n")

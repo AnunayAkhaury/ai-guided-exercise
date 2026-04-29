@@ -1,16 +1,11 @@
 import json
 import sys
 import os
-import bisect
 import numpy as np
 from scipy.signal import find_peaks, savgol_filter
 
 # Threshold for flagging deviations (percent)
-DEVIATION_THRESHOLD = 25.0   # percent — deviations beyond this are flagged
-MIN_REP_GAP_MS      = 500    # ms — valley timestamps closer than this are merged into one boundary
-
-# Savgol Smoothing Parameters
-# Window length must be odd. polyorder must be less than window_length.
+DEVIATION_THRESHOLD = 25.0
 SAVGOL_WINDOW = 11
 SAVGOL_POLY   = 2
 
@@ -19,164 +14,136 @@ def load_angles(path: str) -> list[dict]:
         data = json.load(f)
     return data["frames"]
 
-def _series(frames: list[dict], joint: str) -> np.ndarray:
-    """
-    Extracts joint angles, applying smoothing and dropping invalid points.
-    """
-
-    raw_values = []
-    for f in frames:
-        is_valid = f["usableDict"].get(joint, False)
-        val = f["angles"].get(joint)
-        
-        # If not valid or None, use NaN to represent a 'dropped' point
-        raw_values.append(val if (is_valid and val is not None) else np.nan)
-    
-    series = np.array(raw_values, dtype=float)
-
-    # Handle missing data (Interpolate over NaNs so Savgol can run)
-    # Savgol cannot handle NaNs directly. We interpolate to bridge the 'dropped' gaps.
-    nans = np.isnan(series)
-    if np.all(nans):
-        return series
-    
-    series[nans] = np.interp(np.flatnonzero(nans), np.flatnonzero(~nans), series[~nans])
-
-    if len(series) > SAVGOL_WINDOW:
-        series = savgol_filter(series, window_length=SAVGOL_WINDOW, polyorder=SAVGOL_POLY)
-    
-    return series
+def load_rep_boundaries(path: str) -> list[dict]:
+    """Loads the pre-calculated consensus boundaries."""
+    with open(path, "r") as f:
+        data = json.load(f)
+    return data["student_reps"]
 
 def load_baseline(path: str) -> dict:
-    """Load the ideal baseline JSON written by analyze-ideal.py."""
+    """Load the ideal baseline JSON."""
     with open(path, "r") as f:
         data = json.load(f)
     return data["joints"]
 
-def _merge_boundaries(timestamps: list[int]) -> list[int]:
-    """Deduplicate valley timestamps from multiple joints that fall within MIN_REP_GAP_MS of each other."""
-    merged = []
-    for ts in sorted(timestamps):
-        if not merged or ts - merged[-1] >= MIN_REP_GAP_MS:
-            merged.append(ts)
-    return merged
+def _series(frames: list[dict], joint: str) -> np.ndarray:
+    raw_values = []
+    for f in frames:
+        is_valid = f["usableDict"].get(joint, False)
+        val = f["angles"].get(joint)
+        raw_values.append(val if (is_valid and val is not None) else np.nan)
+    
+    series = np.array(raw_values, dtype=float)
+    nans = np.isnan(series)
+    if not np.all(nans):
+        series[nans] = np.interp(np.flatnonzero(nans), np.flatnonzero(~nans), series[~nans])
+        if len(series) > SAVGOL_WINDOW:
+            series = savgol_filter(series, window_length=SAVGOL_WINDOW, polyorder=SAVGOL_POLY)
+    return series
 
 def find_form_extrema(frames: list[dict], baseline: dict) -> list[dict]:
-    """
-    Find peaks and valleys in the form data for each active joint, using
-    the prominence values derived from the ideal baseline.
-    """
+    """Find peaks and valleys for each joint using baseline prominence."""
     extrema = []
     for joint, info in baseline.items():
         series = _series(frames, joint)
         prominence = info["prominence"]
 
-        peak_indices,   _ = find_peaks(series,  prominence=prominence)
+        peak_indices, _ = find_peaks(series, prominence=prominence)
         valley_indices, _ = find_peaks(-series, prominence=prominence)
 
         for idx in peak_indices:
-            frame = frames[idx]
             extrema.append({
-                "frameIndex":   frame["frameIndex"],
-                "timestampMs":  frame["timestampMs"],
-                "joint":        joint,
-                "type":         "Peak",
+                "frameIndex": frames[idx]["frameIndex"],
+                "timestampMs": frames[idx]["timestampMs"],
+                "joint": joint,
+                "type": "Peak",
                 "actual_angle": float(series[idx]),
             })
 
         for idx in valley_indices:
-            frame = frames[idx]
             extrema.append({
-                "frameIndex":   frame["frameIndex"],
-                "timestampMs":  frame["timestampMs"],
-                "joint":        joint,
-                "type":         "Valley",
+                "frameIndex": frames[idx]["frameIndex"],
+                "timestampMs": frames[idx]["timestampMs"],
+                "joint": joint,
+                "type": "Valley",
                 "actual_angle": float(series[idx]),
             })
     return extrema
 
-def assign_rep_index(extrema: list[dict], rep_boundaries: list[int]) -> list[dict]:
+def assign_rep_index(extrema: list[dict], rep_boundaries: list[dict]) -> list[dict]:
     """
-    Tag each extremum with a 1-based rep_index.
-    Rep 1 = before the first boundary, Rep 2 = between boundary 1 and 2, etc.
+    Tags each extremum with a 1-based rep_index based on boundaries.
+    If an extremum falls outside all boundaries, it is tagged as rep_index 0.
     """
     for entry in extrema:
-        entry["rep_index"] = bisect.bisect_left(rep_boundaries, entry["timestampMs"]) + 1
+        ts = entry["timestampMs"]
+        found_rep = 0
+        for i, rep in enumerate(rep_boundaries):
+            if rep["start_ms"] <= ts <= rep["end_ms"]:
+                # Use the rep_index from JSON if available, otherwise use 1-based loop index
+                found_rep = rep.get("rep_index", i + 1)
+                break
+        entry["rep_index"] = found_rep
     return extrema
 
-def flag_deviations(
-    extrema: list[dict],
-    baseline: dict,
-    threshold: float = DEVIATION_THRESHOLD,
-) -> list[dict]:
-    """Return extrema that deviate from the ideal average by more than threshold%."""
+def flag_deviations(extrema: list[dict], baseline: dict, threshold: float = DEVIATION_THRESHOLD) -> list[dict]:
     flagged = []
     for entry in extrema:
-        joint    = entry["joint"]
-        info     = baseline[joint]
+        # Only process extrema that actually fell inside a detected rep
+        if entry["rep_index"] == 0:
+            continue
+
+        joint = entry["joint"]
+        info = baseline[joint]
         expected = info["avg_peak"] if entry["type"] == "Peak" else info["avg_valley"]
-        actual   = entry["actual_angle"]
+        actual = entry["actual_angle"]
         
-        # Avoid division by zero
+        if expected == 0: continue
         diff_pct = abs(actual - expected) / expected * 100.0
 
         if diff_pct > threshold:
             flagged.append({
-                "frameIndex":     entry["frameIndex"],
-                "timestampMs":    entry["timestampMs"],
-                "rep_index":      entry["rep_index"],
-                "joint":          joint,
-                "type":           entry["type"],
+                "frameIndex": entry["frameIndex"],
+                "timestampMs": entry["timestampMs"],
+                "rep_index": entry["rep_index"],
+                "joint": joint,
+                "type": entry["type"],
                 "expected_angle": round(expected, 4),
-                "actual_angle":   round(actual,   4),
-                "diff_pct":       round(diff_pct, 2),
+                "actual_angle": round(actual, 4),
+                "diff_pct": round(diff_pct, 2),
             })
 
     flagged.sort(key=lambda x: (x["timestampMs"], x["frameIndex"]))
     return flagged
 
 def run_form_analysis(video_name, ideal_base_name=None, data_dir="./data"):
-    """
-    Constructs paths and runs the analysis pipeline.
-    """
-    # If no specific ideal file is provided, assume it's the same base name
     ideal_file = ideal_base_name if ideal_base_name else video_name
     
-    baseline_path = os.path.join(data_dir, f"{ideal_file}-ideal.json")
-    input_path    = os.path.join(data_dir, f"{video_name}-angles.json")
-    output_path   = os.path.join(data_dir, f"{video_name}-bad-reps.json")
+    baseline_path   = os.path.join(data_dir, f"{ideal_file}-ideal.json")
+    input_path      = os.path.join(data_dir, f"{video_name}-angles.json")
+    boundaries_path = os.path.join(data_dir, f"{video_name}-rep-boundaries.json")
+    output_path     = os.path.join(data_dir, f"{video_name}-bad-reps.json")
 
-    if not os.path.exists(baseline_path):
-        print(f"Baseline file not found: {baseline_path}")
-        return
-    if not os.path.exists(input_path):
-        print(f"Input angles file not found: {input_path}")
+    if not os.path.exists(boundaries_path):
+        print(f"Boundaries not found at {boundaries_path}")
         return
 
-    # Load data
+    # Load everything
     baseline = load_baseline(baseline_path)
     form_frames = load_angles(input_path)
-    
-    # Re-detect rep boundaries from all joints with significant ROM.
-    # Valley timestamps from multiple joints are merged to avoid duplicates.
-    all_valley_ts: list[int] = []
-    for joint, info in baseline.items():
-        if not info["rep_boundaries"]:
-            continue
-        form_series = _series(form_frames, joint)
-        valley_idxs, _ = find_peaks(-form_series, prominence=info["prominence"])
-        all_valley_ts.extend(form_frames[i]["timestampMs"] for i in valley_idxs)
+    rep_boundaries = load_rep_boundaries(boundaries_path)
 
-    rep_boundaries = _merge_boundaries(all_valley_ts)
-
-    # Process deviations
+    # Original Pipeline
     extrema = find_form_extrema(form_frames, baseline)
+    
+    # Updated Assignment (Uses your new JSON boundaries)
     extrema = assign_rep_index(extrema, rep_boundaries)
+    
+    # Original Flagging logic
     results = flag_deviations(extrema, baseline)
 
-    # Save output
     with open(output_path, "w") as f:
         json.dump(results, f, indent=2)
 
     flagged_reps = len({r["rep_index"] for r in results})
-    print(f"Wrote {len(results)} flag(s) across {flagged_reps} flagged rep(s) to {output_path}", file=sys.stderr)
+    print(f"Wrote {len(results)} flag(s) across {flagged_reps} flagged rep(s) to {output_path}")
