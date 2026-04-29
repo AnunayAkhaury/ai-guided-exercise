@@ -106,6 +106,13 @@ function shouldPreserveExistingStatus(
 }
 
 function shouldAutoStartRecordingProcessing(recording: RecordingDocument): boolean {
+  console.log('enabled:', isAutoStartRecordingProcessingEnabled());
+  console.log('isEventBridge:', recording.source === 'eventbridge');
+  console.log('isCompleted:', recording.status === 'completed');
+  console.log('noProcessedVideo:', !recording.processedVideoUrl);
+  console.log('hasUserId:', Boolean(recording.userId?.trim()));
+  console.log('hasRawS3Prefix:', Boolean(recording.rawS3Prefix?.trim()));
+
   return Boolean(
     isAutoStartRecordingProcessingEnabled() &&
     recording.source === 'eventbridge' &&
