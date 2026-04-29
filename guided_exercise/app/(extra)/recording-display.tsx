@@ -2,9 +2,15 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { router, useLocalSearchParams } from 'expo-router';
+import { ExerciseType } from '@/src/components/session/exercise-sheet';
+
+export const EXERCISE_TITLE_MAP: Record<ExerciseType, string> = {
+  lunge: 'Lunges',
+  pushup: 'Pushups'
+};
 
 export default function RecordingDisplay() {
-  const { link } = useLocalSearchParams();
+  const { link, title, feedback } = useLocalSearchParams();
   const videoLink = Array.isArray(link) ? link[0] : link;
 
   if (!videoLink) {
@@ -41,7 +47,7 @@ export default function RecordingDisplay() {
         }}>
         <Text style={{ color: '#000', fontWeight: 'bold' }}>← Back</Text>
       </TouchableOpacity>
-
+      <Text className="text-2xl">{EXERCISE_TITLE_MAP[title as ExerciseType]}</Text>
       <VideoView player={player} allowsFullscreen style={{ width: '100%', height: 250, backgroundColor: 'black' }} />
     </View>
   );

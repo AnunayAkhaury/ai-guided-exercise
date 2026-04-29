@@ -15,10 +15,13 @@ import Typography from '@/src/components/ui/Typography';
 import { getIvsClipsPlayback, IvsClipWithDate, listIvsClipsByUser } from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
 
-function formatDate(value: string | null) {
+function formatDate(value: string | number | null) {
   if (!value) return 'Unknown date';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Unknown date';
+  const timestamp = typeof value === 'string' && !isNaN(Number(value)) ? Number(value) : value;
+  const date = new Date(timestamp);
+
+  if (isNaN(date.getTime())) return 'Unknown date';
+
   return date.toLocaleString(undefined, {
     month: 'short',
     day: 'numeric',
@@ -82,16 +85,27 @@ export default function TeacherRecordingsScreen() {
   }, [loadClips]);
 
   const groupedClips = useMemo(() => {
-    return clips.reduce<Record<string, IvsClipWithDate[]>>((acc, clip) => {
-      const key = clip.recordingStart
-        ? new Date(clip.recordingStart).toLocaleString(undefined, { month: 'long', year: 'numeric' })
-        : 'Other';
+    // 1. Sort the raw clips array first (Newest to Oldest)
+    const sortedClips = [...clips].sort((a, b) => {
+      const timeA = a.recordingStart ? Number(a.recordingStart) : 0;
+      const timeB = b.recordingStart ? Number(b.recordingStart) : 0;
+      return timeB - timeA;
+    });
+
+    return sortedClips.reduce<Record<string, IvsClipWithDate[]>>((acc, clip) => {
+      let key = 'Other';
+      if (clip.recordingStart) {
+        const date = new Date(Number(clip.recordingStart));
+        if (!isNaN(date.getTime())) {
+          key = date.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+        }
+      }
+
       if (!acc[key]) acc[key] = [];
       acc[key].push(clip);
       return acc;
     }, {});
   }, [clips]);
-
   const handlePlay = useCallback(async (clip: IvsClipWithDate) => {
     try {
       setPlayingClipId(clip.clipId);
@@ -102,7 +116,8 @@ export default function TeacherRecordingsScreen() {
         pathname: '/(extra)/recording-display',
         params: {
           link: playback.playbackUrl,
-          title: clip.exercise
+          title: clip.exercise,
+          feedback: clip.feedback
         }
       });
     } catch (error: any) {
