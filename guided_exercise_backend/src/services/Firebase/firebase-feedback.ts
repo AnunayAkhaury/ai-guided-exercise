@@ -18,7 +18,8 @@ export async function addClipWithFeedback(
   processedVideoUrl: string,
   exercise: string,
   feedback: string,
-  userId: string
+  userId: string,
+  duration: string
 ) {
   try {
     await db.collection('clips').doc().set({
@@ -26,7 +27,8 @@ export async function addClipWithFeedback(
       processedVideoUrl,
       exercise,
       feedback,
-      userId
+      userId,
+      duration
     });
   } catch (error) {
     throw error;

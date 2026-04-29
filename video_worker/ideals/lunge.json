@@ -1,0 +1,76 @@
+{
+  "sourceFile": "GoodLunge-angles.json",
+  "generatedAt": "2026-04-29T07:20:22.372200+00:00",
+  "joints": {
+    "left_elbow": {
+      "avg_peak": 82.71285714285715,
+      "avg_valley": 62.50894999999999,
+      "prominence": 8.54946,
+      "rom": 42.747299999999996,
+      "rep_boundaries": [4400, 8200, 9400, 11100, 13500, 14900]
+    },
+    "right_elbow": {
+      "avg_peak": 86.9587875,
+      "avg_valley": 72.90794285714286,
+      "prominence": 6.74186,
+      "rom": 33.7093,
+      "rep_boundaries": []
+    },
+    "left_shoulder": {
+      "avg_peak": 62.27978888888889,
+      "avg_valley": 48.85023333333334,
+      "prominence": 5.555119999999999,
+      "rom": 27.77559999999999,
+      "rep_boundaries": []
+    },
+    "right_shoulder": {
+      "avg_peak": 39.65633333333333,
+      "avg_valley": 30.880183333333335,
+      "prominence": 3.7173799999999995,
+      "rom": 18.586899999999996,
+      "rep_boundaries": []
+    },
+    "left_knee": {
+      "avg_peak": 145.16918333333334,
+      "avg_valley": 81.51755714285716,
+      "prominence": 17.94828,
+      "rom": 89.7414,
+      "rep_boundaries": [1800, 3500, 4800, 7400, 8000, 11400, 14900]
+    },
+    "right_knee": {
+      "avg_peak": 152.97556,
+      "avg_valley": 75.66291666666667,
+      "prominence": 18.79532,
+      "rom": 93.97659999999999,
+      "rep_boundaries": [1500, 4400, 6800, 8100, 11400, 14900]
+    },
+    "left_hip": {
+      "avg_peak": 174.08975,
+      "avg_valley": 130.18708,
+      "prominence": 15.313780000000001,
+      "rom": 76.5689,
+      "rep_boundaries": [2000, 4700, 8000, 11400, 14900]
+    },
+    "right_hip": {
+      "avg_peak": 176.37957500000002,
+      "avg_valley": 114.89466,
+      "prominence": 18.49854,
+      "rom": 92.49269999999999,
+      "rep_boundaries": [1800, 3800, 8000, 10700, 15100]
+    },
+    "left_ankle": {
+      "avg_peak": 144.30193333333332,
+      "avg_valley": 118.55120000000001,
+      "prominence": 11.175320000000003,
+      "rom": 55.87660000000001,
+      "rep_boundaries": [600, 1300, 3000, 3900, 5600, 8200, 9100, 9700, 10600, 12500, 13400, 14800]
+    },
+    "right_ankle": {
+      "avg_peak": 137.30896666666666,
+      "avg_valley": 88.42460000000001,
+      "prominence": 20.80548,
+      "rom": 104.02739999999999,
+      "rep_boundaries": [2800, 4800, 6200, 9500, 13400]
+    }
+  }
+}

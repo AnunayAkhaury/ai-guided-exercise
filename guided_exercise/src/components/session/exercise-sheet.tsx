@@ -4,8 +4,8 @@ import { View, Text, Pressable, FlatList } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 
-export type ExerciseType = 'pushup' | 'squat' | 'lunge' | 'jumpingjack';
-const EXERCISES: ExerciseType[] = ['pushup', 'squat', 'lunge', 'jumpingjack'];
+export type ExerciseType = 'pushup' | 'lunge';
+const EXERCISES: ExerciseType[] = ['pushup', 'lunge'];
 
 export const ExerciseSheet = forwardRef<BottomSheetModal, { onSelect: (ex: ExerciseType) => void }>((props, ref) => {
   const snapPoints = useMemo(() => ['40', '60%'], []);

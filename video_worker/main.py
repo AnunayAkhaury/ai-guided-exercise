@@ -149,6 +149,7 @@ def save_clip_callback(
     exercise: str,
     feedback: str,
     user_id:str,
+    duration:int
 ) -> None:
     backend_add_clip_url = os.getenv("BACKEND_ADD_CLIP_URL")
     if not backend_add_clip_url:
@@ -160,7 +161,8 @@ def save_clip_callback(
         "processedVideoUrl": processed_video_url,
         "exercise": exercise,
         "feedback": feedback,
-        "userId": user_id
+        "userId": user_id,
+        "duration": str(duration)
     }
 
     headers = {"Content-Type": "application/json"}
@@ -231,8 +233,9 @@ def feedback_pipeline(s3_client, output_bucket):
             # Store clips + feedback
             clip_output_key = build_output_key_clip(recording_id=recording_id, index=i)
             processed_video_url = upload_file(s3_client, clip_path, output_bucket, clip_output_key)
+            duration = t["endtime"] - t["starttime"]
 
-            save_clip_callback(recording_id=recording_id, processed_video_url=processed_video_url, exercise=exercise, feedback=feedback, user_id=user_id)
+            save_clip_callback(recording_id=recording_id, processed_video_url=processed_video_url, exercise=exercise, feedback=feedback, user_id=user_id, duration=duration)
 
         except Exception as e:
             print(f"generate_comparison failed for {clip_path}: {e}")
