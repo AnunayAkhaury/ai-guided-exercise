@@ -176,10 +176,10 @@ def get_ideal_path(exercise: str):
     return f"{workdir}/ideals/{exercise}.mp4"
 
 def feedback_pipeline(s3_client, output_bucket):
-    user_id = require_env("USER_ID")
-    recording_id = require_env("RECORDING_ID")
-    recording_start = require_env("RECORDING_START_MS")
-    timestamps_raw = require_env("TIMESTAMPS_JSON")
+    user_id = os.getenv("USER_ID")
+    recording_id = os.getenv("RECORDING_ID")
+    recording_start = os.getenv("RECORDING_START_MS")
+    timestamps_raw = os.getenv("TIMESTAMPS_JSON")
     timestamps = json.loads(timestamps_raw) if timestamps_raw else []
 
     # convert recording start to ms

@@ -129,24 +129,18 @@ async function autoStartRecordingProcessing(req: Request, recording: RecordingDo
     return recording;
   }
 
-  console.log('Pass 1');
-
   const claimedRecording = await claimRecordingForProcessing(recording.recordingId);
   if (!claimedRecording) {
     return (await getRecordingById(recording.recordingId)) ?? recording;
   }
 
-  console.log('Pass 2');
-
   const timestampInfo = await getTimestamps(claimedRecording.recordingId).catch(() => null);
-  console.log('Pass 3');
+  console.log('Timestamp Info', timestampInfo);
 
   const safeTimestampInfo = timestampInfo ?? {
     recordingStartMs: null,
     timestamps: []
   };
-
-  console.log('Check 3');
 
   try {
     await startRecordingWorkerTask({
@@ -256,12 +250,8 @@ export async function upsertRecordingController(req: Request, res: Response) {
       ...(body.error && !preserveExistingStatus ? { error: body.error } : {})
     };
 
-    console.log('Check 1');
-
     const recording = await upsertRecording(payload);
-    console.log('Check 4');
     const finalRecording = await autoStartRecordingProcessing(req, recording);
-    console.log('Check 5');
 
     return res.status(200).json(finalRecording);
   } catch (err: any) {

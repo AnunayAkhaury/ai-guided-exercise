@@ -1,7 +1,7 @@
-from extract_landmarks import extract_landmarks
-from calculate_joint_angles import calculate_joint_angles
-from analyze_form import run_form_analysis
-from llm_feedback import llm_generate_feedback
+from .extract_landmarks import extract_landmarks
+from .calculate_joint_angles import calculate_joint_angles
+from .analyze_form import run_form_analysis
+from .llm_feedback import llm_generate_feedback
 
 def generate_comparison(exercise_name, video_file, ideal_file, json_dir):
     """
