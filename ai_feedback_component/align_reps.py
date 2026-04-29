@@ -83,6 +83,7 @@ class DeepCycleCounter:
         # 1. Find time to complete one repetition for each student and instructor
         inst_periods = []
         stud_periods = []
+        joint_results = []
 
         for joint in self.joints:
             if joint not in inst_df.columns or joint not in stud_df.columns:
@@ -171,11 +172,26 @@ class DeepCycleCounter:
             plt.title(f"Similarity Score (Template stretched to {stud_period} frames)")
             plt.show()
 
+            to_ms = lambda f: round((f / self.fps) * 1000, 2)
+
+            joint_results.append({
+                "joint": joint,
+                "inst_period_frames": inst_period,
+                "stud_period_frames": stud_period,
+                "template_start_frame": best_start,
+                "template_start_ms": to_ms(best_start),
+                "template_end_ms": to_ms(best_start + inst_period),
+                "peaks_frames": peaks.tolist()
+            })
+        
+        return joint_results
+
 
 def align_reps(base_name, ideal_base_name, data_dir="./data"):
     imp_joints_path = os.path.join(data_dir, f"{ideal_base_name}-imp-joints.json")
     baseline_path = os.path.join(data_dir, f"{ideal_base_name}-angles.json")
     input_path    = os.path.join(data_dir, f"{base_name}-angles.json")
+    output_path   = os.path.join(data_dir, f"{base_name}-rep-boundaries.json")
     
     if not os.path.exists(imp_joints_path):
         print(f"Baseline file not found: {imp_joints_path}")
@@ -195,4 +211,61 @@ def align_reps(base_name, ideal_base_name, data_dir="./data"):
     inst_df = counter.preprocess(counter.load_json_to_df(baseline_path))
     stud_df = counter.preprocess(counter.load_json_to_df(input_path, drop_unusable=True))
 
-    counter.analyze(inst_df, stud_df)
+    joint_results = counter.analyze(inst_df, stud_df)
+
+    if not joint_results: return
+
+    # Timing Constants
+    fps = counter.fps
+    to_ms = lambda f: round((f / fps) * 1000, 2)
+    stud_period = joint_results[0]["stud_period_frames"]
+
+    # 1. Consensus Peak Clustering
+    all_peaks = []
+    for r in joint_results: all_peaks.extend(r["peaks_frames"])
+    
+    # Tolerance for clustering (40% of a rep duration)
+    tol = int(0.4 * stud_period)
+    all_peaks = np.sort(all_peaks)
+    
+    clusters = []
+    if len(all_peaks) > 0:
+        curr = [all_peaks[0]]
+        for p in all_peaks[1:]:
+            if p - np.mean(curr) <= tol: curr.append(p)
+            else:
+                clusters.append(int(np.mean(curr)))
+                curr = [p]
+        clusters.append(int(np.mean(curr)))
+
+    # 2. Prepare Final Output
+    student_reps = [
+        {
+            "rep_index": i + 1,
+            "start_frame": s,
+            "end_frame": s + stud_period,
+            "start_ms": to_ms(s),
+            "end_ms": to_ms(s + stud_period)
+        } for i, s in enumerate(clusters)
+    ]
+
+    # Pick the "Anchor" joint for the instructor (usually the first important joint)
+    anchor = joint_results[0]
+    instructor_template = {
+        "joint": anchor["joint"],
+        "start_frame": anchor["template_start_frame"],
+        "end_frame": anchor["template_start_frame"] + anchor["inst_period_frames"],
+        "start_ms": anchor["template_start_ms"],
+        "end_ms": anchor["template_end_ms"]
+    }
+
+    output = {
+        "metadata": {"fps": fps, "total_reps": len(student_reps)},
+        "instructor_template": instructor_template,
+        "student_reps": student_reps
+    }
+
+    with open(output_path, "w") as f:
+        json.dump(output, f, indent=2)
+
+    print(f"Analysis saved with {len(student_reps)} reps found.")
