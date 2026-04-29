@@ -45,6 +45,7 @@ export default function TeacherRecordingsScreen() {
       return;
     }
     const data = await listIvsClipsByUser(uid);
+    console.log(data);
     setClips(data);
   }, [uid]);
 

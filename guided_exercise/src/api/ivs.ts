@@ -311,9 +311,13 @@ export function listIvsRecordingsByUser(userId: string): Promise<IvsRecording[]>
 }
 
 export function listIvsClipsByUser(userId: string): Promise<IvsClipWithDate[]> {
-  return getJson<IvsClipWithDate[]>(`/api/recordings/clips/user/${encodeURIComponent(userId)}`);
+  return getJson<IvsClipWithDate[]>(`/api/clips/user/${encodeURIComponent(userId)}`);
 }
 
 export function getIvsRecordingPlayback(recordingId: string): Promise<IvsRecordingPlayback> {
   return getJson<IvsRecordingPlayback>(`/api/recordings/${encodeURIComponent(recordingId)}/playback`);
+}
+
+export function getIvsClipsPlayback(clipId: string): Promise<IvsRecordingPlayback> {
+  return getJson<IvsRecordingPlayback>(`/api/recordings/${encodeURIComponent(clipId)}/playback`);
 }

@@ -292,3 +292,14 @@ export async function listClipsByUserId(userId: string): Promise<(ClipsDocument 
 
   return clipsWithDates;
 }
+
+export async function getClipById(clipId: string) {
+  const normalizedClipId = clipId.trim();
+  const snapshot = await db.collection(CLIPS_COLLECTION).doc(normalizedClipId).get();
+
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  return snapshot.data();
+}

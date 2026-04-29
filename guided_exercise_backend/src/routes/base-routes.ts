@@ -17,7 +17,8 @@ import {
   listRecordingsByUserController,
   startRecordingProcessingController,
   upsertRecordingController,
-  listClipsByUserController
+  listClipsByUserController,
+  getClipPlaybackController
 } from '@/controllers/recording-controller.js';
 import {
   createSessionController,
@@ -46,8 +47,9 @@ router.post('/api/recordings/:recordingId/process', startRecordingProcessingCont
 router.post('/api/recordings/worker-complete', completeRecordingProcessingController);
 router.get('/api/recordings/session/:sessionId', listRecordingsBySessionController);
 router.get('/api/recordings/user/:userId', listRecordingsByUserController);
-router.get('/api/recordings/clips/user/:userId', listClipsByUserController);
 router.get('/api/recordings/:recordingId/playback', getRecordingPlaybackController);
+router.get('/api/clips/user/:userId', listClipsByUserController);
+router.get('/api/clips/user/:clipId/playback', getClipPlaybackController);
 router.post('/api/ivs/token', createIvsTokenController);
 router.post('/api/ivs/telemetry', addIvsTelemetryController);
 router.post('/api/ivs/sessions/create', createSessionController);
