@@ -10,6 +10,7 @@ import json
 import boto3
 import requests
 
+base_dir = Path(__file__).resolve().parent
 
 def require_env(name: str) -> str:
     value = os.getenv(name)
@@ -172,8 +173,7 @@ def save_clip_callback(
     print("Add clip callback succeeded:", response.text)
 
 def get_ideal_path(exercise: str):
-    workdir = os.getenv("WORKDIR")
-    return f"{workdir}/ideals/{exercise}.mp4"
+    return Path(base_dir) / "ideals" / f"{exercise}.json"
 
 def feedback_pipeline(s3_client, output_bucket):
     user_id = os.getenv("USER_ID")
@@ -185,7 +185,7 @@ def feedback_pipeline(s3_client, output_bucket):
     # convert recording start to ms
     recording_start_ms = int(recording_start)
 
-    workdir = Path(os.getenv("WORKDIR", "/tmp/video-worker"))
+    workdir = Path("/tmp/video-worker")
     clips_dir = workdir / "clips"
     clips_dir.mkdir(parents=True, exist_ok=True)
 
@@ -215,16 +215,18 @@ def feedback_pipeline(s3_client, output_bucket):
             ]
 
             subprocess.run(cmd, check=True)
-            clip_paths.append((clip_path, exercise, t))
+            clip_paths.append((clip_path, exercise, t, i))
 
         except Exception as e:
             print(f"Skipping timestamp {i} due to error: {e}")
             continue
 
-    for clip_path, exercise, t in clip_paths:
+    for clip_path, exercise, t, i in clip_paths:
         try:
-            json_dir = workdir / recording_id
-            feedback = generate_comparison(exercise_name=exercise, video_file=str(clip_path), ideal_file=get_ideal_path(exercise), json_dir=json_dir)
+            json_dir = workdir / "json"
+            json_dir.mkdir(parents=True, exist_ok=True)
+            model_path = Path(base_dir / "feedback_component" / "pose_landmarker_heavy.task").resolve()            
+            feedback = generate_comparison(exercise_name=exercise, video_file=clip_path, ideal_file=get_ideal_path(exercise), json_dir=json_dir, model_path=model_path)
 
             # Store clips + feedback
             clip_output_key = build_output_key_clip(recording_id=recording_id, index=i)
@@ -245,7 +247,7 @@ def main() -> int:
     output_bucket = os.getenv("OUTPUT_BUCKET", input_bucket)
     output_key = build_output_key(recording_id)
 
-    workdir = Path(os.getenv("WORKDIR", "/tmp/video-worker"))
+    workdir = Path("/tmp/video-worker")
     hls_dir = workdir / "high"
     output_file = workdir / f"final_fixed.mp4"
 
@@ -262,7 +264,6 @@ def main() -> int:
         },
     )
 
-    ensure_clean_dir(workdir)
     hls_prefix = f"{input_prefix}/media/hls/high/"
     downloaded = download_prefix(s3_client, input_bucket, hls_prefix, hls_dir)
 
@@ -281,7 +282,7 @@ def main() -> int:
     try:
         feedback_pipeline(s3_client, output_bucket)
     except Exception as e:
-        raise RuntimeError("feedback pipeline failed")
+        print(f"feedback pipeline failed (skipping): {e}")
 
     # Store full video
     processed_video_url = upload_file(s3_client, output_file, output_bucket, output_key)
@@ -289,6 +290,8 @@ def main() -> int:
 
     maybe_callback(recording_id, processed_video_url, output_bucket, output_key)
     print("Video worker completed successfully.")
+    ensure_clean_dir(workdir)
+
     return 0
 
 

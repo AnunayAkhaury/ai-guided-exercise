@@ -115,7 +115,7 @@ def calculate_joint_angles(video_file, json_dir):
 
     # Save Deltas
     deltas_output = {
-        "sourceFile": json_dir / "angles.json",
+        "sourceFile": str(json_dir / "angles.json"),
         "generatedAt": now_iso,
         "captureRate": pose_data["captureRate"],
         "deltaThreshold": DELTA_THRESHOLD,
@@ -128,7 +128,7 @@ def calculate_joint_angles(video_file, json_dir):
 
     # Save Angles
     angles_output = {
-        "sourceFile": json_dir / "pose.json",
+        "sourceFile": str(json_dir / "pose.json"),
         "generatedAt": now_iso,
         "captureRate": pose_data["captureRate"],
         "joints": JOINT_NAMES,

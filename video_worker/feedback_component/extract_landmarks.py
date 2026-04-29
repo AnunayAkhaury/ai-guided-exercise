@@ -41,17 +41,22 @@ def filter_pose(landmarks):
         })
     return {"worldLandmarks": result}
 
-def extract_landmarks(video_file, json_dir, model_path="./pose_landmarker_heavy.task"):
+def extract_landmarks(video_file, json_dir, model_path):
     """
     Constructs paths internally and processes the video.
     """
-    # Setup MediaPipe Tasks
-    base_options = python.BaseOptions(model_asset_path=model_path)
+
+    with open(model_path, 'rb') as f:
+        model_data = f.read()
+    
+    # Pass the actual bytes, not the path
+    base_options = python.BaseOptions(model_asset_buffer=model_data)
     options = vision.PoseLandmarkerOptions(
         base_options=base_options,
         running_mode=vision.RunningMode.IMAGE,
         num_poses=1
     )
+    print("options dead...")
 
     detector = vision.PoseLandmarker.create_from_options(options)
     cap = cv2.VideoCapture(video_file)
@@ -95,14 +100,13 @@ def extract_landmarks(video_file, json_dir, model_path="./pose_landmarker_heavy.
     cap.release()
 
     output = {
-        "videoFile": video_file,
+        "videoFile": str(video_file),
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "captureRate": EXTRACT_FPS,
         "totalFrames": len(frames),
         "landmarks": BODY_LANDMARK_NAMES,
         "frames": frames
     }
-
     with open(json_dir / "pose.json", "w") as f:
         json.dump(output, f, indent=2)
 
