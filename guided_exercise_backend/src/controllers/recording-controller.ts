@@ -122,12 +122,17 @@ async function autoStartRecordingProcessing(req: Request, recording: RecordingDo
     return recording;
   }
 
+  console.log('Pass 1');
+
   const claimedRecording = await claimRecordingForProcessing(recording.recordingId);
   if (!claimedRecording) {
     return (await getRecordingById(recording.recordingId)) ?? recording;
   }
 
+  console.log('Pass 2');
+
   const timestampInfo = await getTimestamps(claimedRecording.recordingId).catch(() => null);
+  console.log('Pass 3');
 
   const safeTimestampInfo = timestampInfo ?? {
     recordingStartMs: null,
