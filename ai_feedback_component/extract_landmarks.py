@@ -1,16 +1,12 @@
 import cv2
 import json
-import sys
 import os
 import time
 import mediapipe as mp
-
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-EXTRACT_FPS = 10
-
-# Landmarks configuration kept at module level as they are constants
+# --- Constants from extract_landmarks.py ---
 KEEP_INDICES = {
     11,12,13,14,15,16,
     23,24,25,26,27,28,29,30,31,32
@@ -30,25 +26,30 @@ BODY_LANDMARK_NAMES = [ALL_LANDMARKS[i] for i in KEEP_INDICES]
 
 CONFIDENCE_THRES = 0.5
 
-def filter_pose(landmarks):
-    result = []
+MODEL_PATH = "pose_landmarker_heavy.task"
+
+def filter_pose_to_schema(landmarks):
+    """
+    Replicates the nested worldLandmarks structure from extract_landmarks.py.
+    """
+    world_landmarks = []
     for i in KEEP_INDICES:
         lm = landmarks[i]
-        confidence = lm.visibility * 0.6 + lm.presence * 0.4
-        result.append({
+        # Confidence logic from get_pose.py/extract_landmarks.py 
+        vis = getattr(lm, "visibility", 0.0) or 0.0
+        pres = getattr(lm, "presence", 0.0) or 0.0
+        confidence = vis * 0.6 + pres * 0.4
+        
+        world_landmarks.append({
             "name": ALL_LANDMARKS[i],
             "x": round(lm.x, 6),
             "y": round(lm.y, 6),
             "z": round(lm.z, 6),
             "confident": True if confidence > CONFIDENCE_THRES else False,
         })
-    return {"worldLandmarks": result}
+    return {"worldLandmarks": world_landmarks}
 
-def extract_landmarks(base_name, data_dir="./data", model_path="pose_landmarker_heavy.task"):
-    """
-    Constructs paths internally and processes the video.
-    """
-    # Logic moved inside:
+def extract_landmarks(base_name, data_dir="./data"):
     video_path = os.path.join(data_dir, f"{base_name}.mp4")
     output_path = os.path.join(data_dir, f"{base_name}-pose.json")
 
@@ -56,62 +57,62 @@ def extract_landmarks(base_name, data_dir="./data", model_path="pose_landmarker_
         print(f"Video not found: {video_path}")
         return
 
-    # Setup MediaPipe Tasks
-    base_options = python.BaseOptions(model_asset_path=model_path)
+    base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
     options = vision.PoseLandmarkerOptions(
         base_options=base_options,
-        running_mode=vision.RunningMode.IMAGE,
-        num_poses=1
+        running_mode=vision.RunningMode.VIDEO,
+        min_pose_detection_confidence=0.5,
+        min_pose_presence_confidence=0.5,
+        min_tracking_confidence=0.5
     )
 
     detector = vision.PoseLandmarker.create_from_options(options)
     cap = cv2.VideoCapture(video_path)
     
-    if not cap.isOpened():
-        print(f"Error: Could not open video {video_path}")
-        return
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30
+    frames_list = []
+    frame_idx = 0
 
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    # Ensure fps is valid to avoid division by zero
-    frame_interval = max(1, int(fps / EXTRACT_FPS))
+    print(f"Processing {base_name} with high-res sampling...")
 
-    frames = []
-    frame_index = 0
-    saved_index = 0
-
-    while True:
+    while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
-        if frame_index % frame_interval == 0:
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-            result = detector.detect(mp_image)
+        # Replicating the per-frame sampling from get_pose.py
+        timestamp_ms = int((frame_idx / fps) * 1000)
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+        
+        # Detect using Video Mode logic
+        result = detector.detect_for_video(mp_image, timestamp_ms)
 
-            poses = []
-            if result.pose_world_landmarks:
-                poses.append(filter_pose(result.pose_world_landmarks[0]))
+        poses = []
+        if result.pose_world_landmarks:
+            # Replicating the nested 'poses' array structure
+            poses.append(filter_pose_to_schema(result.pose_world_landmarks[0]))
 
-            frames.append({
-                "frameIndex": saved_index,
-                "timestampMs": int((saved_index / EXTRACT_FPS) * 1000),
-                "poses": poses
-            })
-            saved_index += 1
-            print(f"\rProcessing frame {saved_index}...", end="")
+        frames_list.append({
+            "frameIndex": frame_idx,
+            "timestampMs": timestamp_ms,
+            "poses": poses
+        })
 
-        frame_index += 1
+        frame_idx += 1
+        if frame_idx % 50 == 0:
+            print(f"\rProcessed {frame_idx} frames...", end="")
 
     cap.release()
 
+    # Final JSON structure matching extract_landmarks.py format
     output = {
         "videoFile": f"{base_name}.mp4",
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%S"),
-        "captureRate": EXTRACT_FPS,
-        "totalFrames": len(frames),
+        "captureRate": int(fps),
+        "totalFrames": len(frames_list),
         "landmarks": BODY_LANDMARK_NAMES,
-        "frames": frames
+        "frames": frames_list
     }
 
     with open(output_path, "w") as f:
