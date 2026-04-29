@@ -7,6 +7,7 @@ export type ClipsDocument = {
   duration: string;
   exercise: ExerciseType;
   feedback: string;
+  feedbackRef: string | null;
   processedVideoUrl: string;
   recordingId: string;
   userId: string;

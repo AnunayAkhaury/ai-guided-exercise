@@ -31,7 +31,11 @@ import {
   startSessionController,
   upsertSessionParticipantController
 } from '@/controllers/session-controller.js';
-import { addExerciseTimestampController, addClipWithFeedbackController } from '@/controllers/feedback-controller.js';
+import {
+  addExerciseTimestampController,
+  addClipWithFeedbackController,
+  getFeedbackFromIdController
+} from '@/controllers/feedback-controller.js';
 
 const router = Router();
 router.get('/', helloWorldController);
@@ -50,6 +54,7 @@ router.get('/api/recordings/user/:userId', listRecordingsByUserController);
 router.get('/api/recordings/:recordingId/playback', getRecordingPlaybackController);
 router.get('/api/clips/user/:userId', listClipsByUserController);
 router.get('/api/clip/:clipId/playback', getClipPlaybackController);
+router.get('/api/feedback/:feedbackRef', getFeedbackFromIdController);
 router.post('/api/ivs/token', createIvsTokenController);
 router.post('/api/ivs/telemetry', addIvsTelemetryController);
 router.post('/api/ivs/sessions/create', createSessionController);

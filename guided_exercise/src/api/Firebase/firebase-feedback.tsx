@@ -28,3 +28,12 @@ export async function addExerciseTimestamp(timestamp: ExerciseTimestamp) {
     throw new Error(`Error Adding Timestamp.`);
   }
 }
+
+export async function getFeedbackFromRef(feedbackRef: string) {
+  await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/firebase/${feedbackRef}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+}

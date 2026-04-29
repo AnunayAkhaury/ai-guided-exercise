@@ -121,3 +121,12 @@ export async function getTimestamps(recordingId: string) {
     throw err;
   }
 }
+
+export async function getFeedbackFromId(feedbackRef: string) {
+  const normalizedFeedbackRef = feedbackRef.trim();
+  const snapshot = await db.collection('feedbacks').doc(normalizedFeedbackRef).get();
+  if (!snapshot.exists) {
+    return null;
+  }
+  return snapshot.data();
+}

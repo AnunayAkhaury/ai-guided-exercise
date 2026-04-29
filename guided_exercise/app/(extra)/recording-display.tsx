@@ -12,6 +12,8 @@ export const EXERCISE_TITLE_MAP: Record<ExerciseType, string> = {
 export default function RecordingDisplay() {
   const { link, title, feedback } = useLocalSearchParams();
   const videoLink = Array.isArray(link) ? link[0] : link;
+  const [feedbackDocument, setFeedbackDocument] = React.useState(feedback);
+  const [feedbackString, setFeedbackString] = React.useState('');
 
   if (!videoLink) {
     return (
