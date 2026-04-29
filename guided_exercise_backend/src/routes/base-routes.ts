@@ -49,7 +49,7 @@ router.get('/api/recordings/session/:sessionId', listRecordingsBySessionControll
 router.get('/api/recordings/user/:userId', listRecordingsByUserController);
 router.get('/api/recordings/:recordingId/playback', getRecordingPlaybackController);
 router.get('/api/clips/user/:userId', listClipsByUserController);
-router.get('/api/clips/user/:clipId/playback', getClipPlaybackController);
+router.get('/api/clip/:clipId/playback', getClipPlaybackController);
 router.post('/api/ivs/token', createIvsTokenController);
 router.post('/api/ivs/telemetry', addIvsTelemetryController);
 router.post('/api/ivs/sessions/create', createSessionController);

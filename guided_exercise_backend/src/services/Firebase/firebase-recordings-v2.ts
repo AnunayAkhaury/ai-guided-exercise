@@ -266,7 +266,9 @@ export async function listRecordingsByUserId(userId: string): Promise<RecordingD
   return recordings;
 }
 
-export async function listClipsByUserId(userId: string): Promise<(ClipsDocument & { recordingStart: any })[]> {
+export async function listClipsByUserId(
+  userId: string
+): Promise<(ClipsDocument & { recordingStart: any; clipId: string })[]> {
   const normalizedUserId = userId.trim();
 
   const snapshot = await db.collection(CLIPS_COLLECTION).where('userId', '==', normalizedUserId).limit(500).get();
@@ -278,12 +280,15 @@ export async function listClipsByUserId(userId: string): Promise<(ClipsDocument 
 
       if (clipData.recordingId) {
         const recordingDoc = await db.collection('recordings').doc(clipData.recordingId).get();
+
         if (recordingDoc.exists) {
-          recordingStart = recordingDoc.data()?.recordingStart || recordingDoc.data()?.createdAt || null;
+          const data = recordingDoc.data();
+          recordingStart = data?.recordingStart || data?.createdAt || null;
         }
       }
 
       return {
+        clipId: doc.id,
         ...clipData,
         recordingStart
       };

@@ -361,7 +361,7 @@ function parseS3Uri(uri: string) {
 
 export async function getClipPlaybackController(req: Request, res: Response) {
   try {
-    const { clipId } = req.body;
+    const clipId = Array.isArray(req.params.clipId) ? req.params.clipId[0] : req.params.clipId;
 
     if (!clipId) {
       return sendErrorResponse(req, res, 400, 'clipId is required.');
