@@ -40,7 +40,7 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
     rep_info_path = os.path.join(data_dir, f"{video_name}-rep-boundaries.json")
     i_angles_path = os.path.join(data_dir, f"{instructor_video_name}-angles.json")
     
-    output_json = os.path.join(data_dir, f"{video_name}-dtw-errors.json")
+    output_json = os.path.join(data_dir, f"{video_name}-bad-reps.json")
     output_video = os.path.join(data_dir, f"{video_name}-comparison.mp4")
 
     # Load Data
