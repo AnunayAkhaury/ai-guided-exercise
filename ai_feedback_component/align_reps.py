@@ -9,6 +9,7 @@ class DeepCycleCounter:
     def __init__(self, joints, fps=30):
         self.joints = joints
         self.fps = fps
+        self.butterworth_freq = 0.8
     
 
     def load_json_to_df(self, json_path, drop_unusable=True):
@@ -42,21 +43,52 @@ class DeepCycleCounter:
         return df
 
 
-    def preprocess(self, df):
+    def preprocess(self, df, is_inst=False):
         df = df.copy()
 
         # Keep the heavy smoothing (0.8Hz) to keep the "Big Picture" clear
-        def butter_lowpass_filter(data, cutoff=0.8, fs=30, order=4):
-            nyq = 0.5 * fs
+        def butter_lowpass_filter(data, cutoff=self.butterworth_freq, order=4):
+            nyq = 0.5 * self.fps
             normal_cutoff = cutoff / nyq
             b, a = butter(order, normal_cutoff, btype='low', analog=False)
             return filtfilt(b, a, data)
 
-        for col in self.joints:
-            if col in df.columns:
-                signal = df[col].interpolate().ffill().bfill().values.astype(float)
-                signal = butter_lowpass_filter(signal, cutoff=1.5, fs=self.fps)
-                df[col] = signal
+        if is_inst:
+            inst_periods = []
+            for col in self.joints:
+                if col in df.columns:
+                    signal = df[col].interpolate().ffill().bfill().values.astype(float)
+
+                    # 1. Get a rough period estimate using a high-frequency pass
+                    rough_signal = butter_lowpass_filter(signal, cutoff=2.5)
+                    rough_period = self.estimate_period_autocorr(rough_signal)
+                        
+                    # 2. Determine if movement is "Fast" or "Slow"
+                    # If period is less than 40 frames (approx 1.3s at 30fps)
+                    if rough_period > 0:
+                        inst_periods.append(rough_period)
+            
+            if not inst_periods:
+                print("No periodic movement found in instructor.")
+                return df
+
+            inst_period = int(np.max(inst_periods))
+            if inst_period < (self.fps * 1.3):
+                current_cutoff = 2.5  # Fast (Mountain Climbers, Jumping Jacks)
+            else:
+                current_cutoff = 0.8  # Slow (Squats, Lunges, Pushups)
+                    
+            self.butterworth_freq = current_cutoff
+                    
+            # 3. Apply the final filter
+            df[col] = butter_lowpass_filter(signal)
+        else:
+            for col in self.joints:
+                if col in df.columns:
+                    signal = df[col].interpolate().ffill().bfill().values.astype(float)
+                    signal = butter_lowpass_filter(signal)
+                    df[col] = signal
+                    
         return df
 
 
@@ -243,7 +275,7 @@ def align_reps(base_name, ideal_base_name, data_dir="./data"):
     
     counter = DeepCycleCounter(imp_joints)
     
-    inst_df = counter.preprocess(counter.load_json_to_df(baseline_path))
+    inst_df = counter.preprocess(counter.load_json_to_df(baseline_path), is_inst=True)
     stud_df = counter.preprocess(counter.load_json_to_df(input_path, drop_unusable=True))
 
     joint_results = counter.analyze(inst_df, stud_df)
