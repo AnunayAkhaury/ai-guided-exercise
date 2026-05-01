@@ -105,6 +105,7 @@ class DeepCycleCounter:
         # 1. Find time to complete one repetition for each student and instructor
         inst_periods = []
         stud_periods = []
+        filtered_joints = []
         joint_results = []
 
         for joint in self.joints:
@@ -112,7 +113,11 @@ class DeepCycleCounter:
                 continue
 
             inst_periods.append(self.estimate_period_autocorr(inst_df[joint].values))
-            stud_periods.append(self.estimate_period_autocorr(stud_df[joint].values))
+            temp_stud_period = self.estimate_period_autocorr(stud_df[joint].values)
+            stud_periods.append(temp_stud_period)
+
+            if temp_stud_period != 0:
+                filtered_joints.append(joint)
 
         if not inst_periods or not stud_periods:
             print("No valid joint data found.")
@@ -122,7 +127,7 @@ class DeepCycleCounter:
         inst_period = int(np.max(inst_periods))
         stud_period = int(np.max(stud_periods))
 
-        for joint in self.joints:
+        for joint in filtered_joints:
             if joint not in inst_df.columns or joint not in stud_df.columns:
                 continue
 
