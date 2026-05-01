@@ -61,22 +61,44 @@ class DeepCycleCounter:
 
 
     def estimate_period_autocorr(self, signal):
+        # 1. Center the signal
         sig_centered = signal - np.mean(signal)
+        
+        # 2. Compute autocorrelation
         corr = np.correlate(sig_centered, sig_centered, mode='full')
         corr = corr[len(corr)//2:]
+        
+        # 3. Normalize the correlation (so the peak at lag 0 is 1.0)
+        # This is critical for defining a "confidence" threshold
+        if corr[0] == 0: return 0
+        corr = corr / corr[0]
 
-        # Minimum 1.5s, Maximum 10s per rep
+        # Define search bounds
         min_lag = int(self.fps * 1.5) 
         max_lag = int(self.fps * 10.0)
         
         search_region = corr[min_lag:max_lag]
-        if len(search_region) == 0: return int(self.fps * 4)
+        if len(search_region) == 0: return 0
 
+        # 4. Find peaks in the normalized search region
         peaks, props = find_peaks(search_region, height=0)
+        
         if len(peaks) > 0:
-            best_peak = peaks[np.argmax(props['peak_heights'])]
-            return best_peak + min_lag
-        return np.argmax(search_region) + min_lag
+            # Get the height of the strongest peak
+            best_idx = np.argmax(props['peak_heights'])
+            peak_height = props['peak_heights'][best_idx]
+            
+            # --- CONFIDENCE THRESHOLD ---
+            # 0.4 is a common threshold. If the peak is lower than this, 
+            # the repetition is too weak/inconsistent to trust.
+            confidence_threshold = 0.4 
+            
+            if peak_height < confidence_threshold:
+                return 0 # Low confidence
+                
+            return peaks[best_idx] + min_lag
+            
+        return 0 # No peaks found
 
 
     def analyze(self, inst_df, stud_df):
@@ -219,53 +241,86 @@ def align_reps(base_name, ideal_base_name, data_dir="./data"):
     fps = counter.fps
     to_ms = lambda f: round((f / fps) * 1000, 2)
     stud_period = joint_results[0]["stud_period_frames"]
+    num_joints = len(joint_results)
 
-    # 1. Consensus Peak Clustering
+    # 1. Consensus Peak Clustering (Modified to track source joint)
     all_peaks = []
-    for r in joint_results: all_peaks.extend(r["peaks_frames"])
+    for r in joint_results: 
+        for p in r["peaks_frames"]:
+            all_peaks.append({"frame": p, "result": r})
     
-    # Tolerance for clustering (40% of a rep duration)
-    tol = int(0.4 * stud_period)
-    all_peaks = np.sort(all_peaks)
+    # Sort by frame index
+    all_peaks.sort(key=lambda x: x["frame"])
     
     clusters = []
     if len(all_peaks) > 0:
-        curr = [all_peaks[0]]
-        for p in all_peaks[1:]:
-            if p - np.mean(curr) <= tol: curr.append(p)
+        curr_cluster = [all_peaks[0]]
+        tol = int(0.4 * stud_period)
+
+        for i in range(1, len(all_peaks)):
+            p_val = all_peaks[i]["frame"]
+            if p_val - np.mean([x["frame"] for x in curr_cluster]) <= tol:
+                curr_cluster.append(all_peaks[i])
             else:
-                clusters.append(int(np.mean(curr)))
-                curr = [p]
-        clusters.append(int(np.mean(curr)))
+                unique_joints = len(set([x["result"]["joint"] for x in curr_cluster]))
+                if unique_joints / num_joints >= 0.5:
+                    # Save the cluster with the joint result that is closest to the mean
+                    mean_frame = np.mean([x["frame"] for x in curr_cluster])
+                    best_match = min(curr_cluster, key=lambda x: abs(x["frame"] - mean_frame))
+                    clusters.append(best_match)
+                curr_cluster = [all_peaks[i]]
+        
+        # Process the last cluster
+        unique_joints = len(set([x["result"]["joint"] for x in curr_cluster]))
+        if (unique_joints / num_joints) >= 0.5:
+            mean_frame = np.mean([x["frame"] for x in curr_cluster])
+            best_match = min(curr_cluster, key=lambda x: abs(x["frame"] - mean_frame))
+            clusters.append(best_match)
 
-    # 2. Prepare Final Output
-    student_reps = [
-        {
+    # 2. Final Overlap Cleanup
+    final_reps = []
+    if clusters:
+        clusters.sort(key=lambda x: x["frame"])
+        final_reps.append(clusters[0])
+        for i in range(1, len(clusters)):
+            if clusters[i]["frame"] - final_reps[-1]["frame"] >= int(stud_period * 0.9):
+                final_reps.append(clusters[i])
+
+    # 3. Prepare Final Output (Linking specific joint to instructor template)
+    student_reps = []
+    for i, rep in enumerate(final_reps):
+        s = rep["frame"]
+        # The specific joint result that defined this cluster
+        source_joint = rep["result"] 
+        
+        rep_entry = {
             "rep_index": i + 1,
-            "start_frame": s,
-            "end_frame": s + stud_period,
-            "start_ms": to_ms(s),
-            "end_ms": to_ms(s + stud_period)
-        } for i, s in enumerate(clusters)
-    ]
-
-    # Pick the "Anchor" joint for the instructor (usually the first important joint)
-    anchor = joint_results[0]
-    instructor_template = {
-        "joint": anchor["joint"],
-        "start_frame": anchor["template_start_frame"],
-        "end_frame": anchor["template_start_frame"] + anchor["inst_period_frames"],
-        "start_ms": anchor["template_start_ms"],
-        "end_ms": anchor["template_end_ms"]
-    }
+            "student_boundary": {
+                "start_frame": s,
+                "end_frame": s + stud_period,
+                "start_ms": to_ms(s),
+                "end_ms": to_ms(s + stud_period)
+            },
+            "instructor_template": {
+                "joint": source_joint["joint"], # The joint that defined this specific boundary
+                "start_frame": source_joint["template_start_frame"],
+                "end_frame": source_joint["template_start_frame"] + source_joint["inst_period_frames"],
+                "start_ms": source_joint["template_start_ms"],
+                "end_ms": source_joint["template_end_ms"]
+            },
+            "confidence": "high"
+        }
+        student_reps.append(rep_entry)
 
     output = {
-        "metadata": {"fps": fps, "total_reps": len(student_reps)},
-        "instructor_template": instructor_template,
+        "metadata": {
+            "fps": fps, 
+            "total_reps": len(student_reps)
+        },
         "student_reps": student_reps
     }
 
     with open(output_path, "w") as f:
         json.dump(output, f, indent=2)
 
-    print(f"Analysis saved with {len(student_reps)} reps found.")
+    print(f"Analysis saved with {len(student_reps)} reps. Each paired with instructor template.")
