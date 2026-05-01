@@ -55,7 +55,7 @@ class DeepCycleCounter:
         for col in self.joints:
             if col in df.columns:
                 signal = df[col].interpolate().ffill().bfill().values.astype(float)
-                signal = butter_lowpass_filter(signal, cutoff=0.8, fs=self.fps)
+                signal = butter_lowpass_filter(signal, cutoff=1.5, fs=self.fps)
                 df[col] = signal
         return df
 
@@ -74,7 +74,7 @@ class DeepCycleCounter:
         corr = corr / corr[0]
 
         # Define search bounds
-        min_lag = int(self.fps * 1.5) 
+        min_lag = int(self.fps * 0.2) 
         max_lag = int(self.fps * 10.0)
         
         search_region = corr[min_lag:max_lag]
@@ -101,31 +101,39 @@ class DeepCycleCounter:
         return 0 # No peaks found
 
 
-    def analyze(self, inst_df, stud_df):
-        # 1. Find time to complete one repetition for each student and instructor
-        inst_periods = []
-        stud_periods = []
-        filtered_joints = []
+    def analyze(self, inst_df, stud_df):        
         joint_results = []
 
+        joint_candidates = []
+        filtered_joints = []
+
+        # 1. Collect periods and confidence scores for all joints
         for joint in self.joints:
             if joint not in inst_df.columns or joint not in stud_df.columns:
                 continue
+            
+            # Get period and the peak height (confidence) from instructor
+            p_inst = self.estimate_period_autocorr(inst_df[joint].values)
+            p_stud = self.estimate_period_autocorr(stud_df[joint].values)
 
-            inst_periods.append(self.estimate_period_autocorr(inst_df[joint].values))
-            temp_stud_period = self.estimate_period_autocorr(stud_df[joint].values)
-            stud_periods.append(temp_stud_period)
-
-            if temp_stud_period != 0:
+            if p_inst > 0 and p_stud > 0:
+                joint_candidates.append({
+                    "joint": joint,
+                    "p_inst": p_inst,
+                    "p_stud": p_stud,
+                })
                 filtered_joints.append(joint)
 
-        if not inst_periods or not stud_periods:
-            print("No valid joint data found.")
-            return
+        if not joint_candidates:
+            print("No matching rhythmic joints found between student and instructor.")
+            return []
 
-        # Choose the max period, which is the "Dominant Rhythm"
-        inst_period = int(np.max(inst_periods))
-        stud_period = int(np.max(stud_periods))
+        # 2. Sort by joints based on which one aludes to the dominant rhythm period
+        # We use the largest instructor period as the anchor
+        joint_candidates.sort(key=lambda x: x['p_inst'], reverse=True)
+        
+        inst_period = int(joint_candidates[0]['p_inst'])
+        stud_period = int(joint_candidates[0]['p_stud'])
 
         for joint in filtered_joints:
             if joint not in inst_df.columns or joint not in stud_df.columns:
