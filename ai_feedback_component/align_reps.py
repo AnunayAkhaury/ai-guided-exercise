@@ -275,7 +275,7 @@ def align_reps(base_name, ideal_base_name, data_dir="./data"):
     
     counter = DeepCycleCounter(imp_joints)
     
-    inst_df = counter.preprocess(counter.load_json_to_df(baseline_path), is_inst=True)
+    inst_df = counter.preprocess(counter.load_json_to_df(baseline_path, drop_unusable=False), is_inst=True)
     stud_df = counter.preprocess(counter.load_json_to_df(input_path, drop_unusable=True))
 
     joint_results = counter.analyze(inst_df, stud_df)
