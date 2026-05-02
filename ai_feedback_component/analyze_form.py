@@ -24,11 +24,33 @@ def _get_clean_series(frames: list[dict], joint: str) -> np.ndarray:
     
     series = np.array(raw_values, dtype=float)
     nans = np.isnan(series)
-    if not np.all(nans):
-        # Linear interpolation for missing frames
-        series[nans] = np.interp(np.flatnonzero(nans), np.flatnonzero(~nans), series[~nans])
-        if len(series) > SAVGOL_WINDOW:
-            series = savgol_filter(series, window_length=SAVGOL_WINDOW, polyorder=SAVGOL_POLY)
+    
+    # 1. Check if the series is entirely NaN
+    if np.all(nans):
+        return np.zeros_like(series) # Return zeros if no data exists at all
+
+    # 2. Enhanced Interpolation
+    # We use np.interp but also handle the edges
+    non_nan_indices = np.flatnonzero(~nans)
+    nan_indices = np.flatnonzero(nans)
+    
+    series[nans] = np.interp(
+        nan_indices, 
+        non_nan_indices, 
+        series[~nans],
+        left=series[non_nan_indices[0]],  # Fill leading NaNs with first valid value
+        right=series[non_nan_indices[-1]] # Fill trailing NaNs with last valid value
+    )
+
+    # 3. Safe Savgol Filter
+    # Only apply if we have enough points, otherwise smoothing isn't possible
+    if len(series) >= SAVGOL_WINDOW:
+        series = savgol_filter(series, window_length=SAVGOL_WINDOW, polyorder=SAVGOL_POLY)
+    
+    # 4. Final Safety Check
+    # Ensure no weird infs or NaNs remain after filtering
+    series = np.nan_to_num(series, nan=0.0, posinf=0.0, neginf=0.0)
+    
     return series
 
 def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
