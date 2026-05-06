@@ -130,6 +130,16 @@ export default function TabLayout() {
           headerShown: false
         }}
       />
+      {/* Note: Will be moved to student tabs in the future. */}
+      <Tabs.Screen
+        name="(teacher)/stats"
+        options={{
+          title: 'Stats',
+          tabBarIcon: ({ color, size }) => <AntDesign name="book" color={color} size={size} />,
+          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/stats' : null,
+          headerShown: false
+        }}
+      />
 
       {/* Common tabs */}
       <Tabs.Screen

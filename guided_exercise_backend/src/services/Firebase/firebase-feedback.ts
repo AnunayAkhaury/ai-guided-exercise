@@ -23,6 +23,7 @@ export interface ExerciseFeedback {
   summary: string;
   score: number;
   data: RepFeedback[];
+  exercise: string;
 }
 
 export async function addClipWithFeedback(
@@ -79,6 +80,7 @@ async function parseFeedbackString(jsonString: string): Promise<ExerciseFeedback
     return {
       summary: raw.summary || 'No summary available.',
       score: raw.score || 0,
+      exercise: 'lunge',
       data: formattedData.sort((a, b) => a.timestampStart - b.timestampStart)
     };
   } catch (error) {

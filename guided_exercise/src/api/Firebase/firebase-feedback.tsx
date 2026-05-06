@@ -39,6 +39,7 @@ export interface ExerciseFeedback {
   summary: string;
   score: number;
   data: RepFeedback[];
+  exericse: string;
 }
 
 export async function getFeedbackFromRef(feedbackRef: string): Promise<ExerciseFeedback | null> {
@@ -52,17 +53,39 @@ export async function getFeedbackFromRef(feedbackRef: string): Promise<ExerciseF
       }
     });
 
-    // 1. Check if the server actually returned a 200 OK
     if (!response.ok) {
-      const errorText = await response.text(); // Get the HTML/Error body
+      const errorText = await response.text();
       console.error(`Fetch failed with status ${response.status}. Body:`, errorText);
       return null;
     }
 
-    // 2. Try to parse the JSON
     return await response.json();
   } catch (error) {
     console.error('Network or Parsing Error in getFeedbackFromRef:', error);
+    return null;
+  }
+}
+
+export async function getFeedbackFromUserId(userId: string): Promise<ExerciseFeedback[] | null> {
+  const url = `${process.env.EXPO_PUBLIC_API_URL}/api/feedback/user/${userId}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Fetch failed with status ${response.status}. Body:`, errorText);
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Network or Parsing Error in getFeedbackFromUserId:', error);
     return null;
   }
 }
