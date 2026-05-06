@@ -8,6 +8,7 @@ import { ReactNode, useState } from "react";
 import { logout } from "@/src/api/Firebase/firebase-auth";
 import { router } from "expo-router";
 import { resolvePreferredDisplayName } from "@/src/utils/display-name";
+import { useToast } from "@/src/components/ui/ToastProvider";
 
 function Button({ icon, title, onPress }: { icon: ReactNode, title: string, onPress?: () => void }) {
     return (
@@ -22,6 +23,7 @@ function Button({ icon, title, onPress }: { icon: ReactNode, title: string, onPr
 }
 
 export default function Profile() {
+    const { showToast } = useToast();
     const { width, height } = useWindowDimensions();
     const isSmallPhone = width < 380 || height < 760;
     const topBannerHeight = isSmallPhone ? 180 : 208;
@@ -55,7 +57,7 @@ export default function Profile() {
                         await logout();
                         router.replace('/(onboarding)/login');
                     } catch (err: any) {
-                        Alert.alert('Logout failed', err?.message || 'Unable to log out.');
+                        showToast({ title: 'Logout failed', message: err?.message || 'Unable to log out.', variant: 'error' });
                     } finally {
                         setIsLoggingOut(false);
                     }
@@ -65,7 +67,7 @@ export default function Profile() {
     };
 
     const handleComingSoon = (title: string) => {
-        Alert.alert(title, 'This page is not wired up yet.');
+        showToast({ title, message: 'This page is not wired up yet.', variant: 'info' });
     };
     
     return (

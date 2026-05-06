@@ -4,7 +4,6 @@ import {
   StyleSheet,
   View,
   Pressable,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -16,8 +15,10 @@ import React, { useState } from 'react';
 import { login } from '@/src/api/Firebase/firebase-auth';
 import { useUserStore } from '@/src/store/userStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useToast } from '@/src/components/ui/ToastProvider';
 
 export default function Login() {
+  const { showToast } = useToast();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isSmallPhone = width < 380 || height < 760;
@@ -30,7 +31,7 @@ export default function Login() {
   const handleLogin = async () => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
-      Alert.alert('Missing info', 'Please enter your email and password.');
+      showToast({ title: 'Missing info', message: 'Please enter your email and password.', variant: 'error' });
       return;
     }
     if (isSubmitting) return;
@@ -46,7 +47,11 @@ export default function Login() {
       }
     } catch (error: any) {
       console.error('Login failed:', error);
-      Alert.alert('Login failed', error?.message || 'Please check your email/password and try again.');
+      showToast({
+        title: 'Login failed',
+        message: error?.message || 'Please check your email/password and try again.',
+        variant: 'error'
+      });
     } finally {
       setIsSubmitting(false);
     }

@@ -7,6 +7,7 @@ import ProfileImage from '@/src/assets/images/default-profile.jpg';
 import { logout } from '@/src/api/Firebase/firebase-auth';
 import { useUserStore } from '@/src/store/userStore';
 import { resolvePreferredDisplayName } from '@/src/utils/display-name';
+import { useToast } from '@/src/components/ui/ToastProvider';
 
 function ActionRow({ icon, title, onPress, destructive = false }: { icon: ReactNode; title: string; onPress?: () => void; destructive?: boolean }) {
   return (
@@ -21,6 +22,7 @@ function ActionRow({ icon, title, onPress, destructive = false }: { icon: ReactN
 }
 
 export default function ProfileWeb() {
+  const { showToast } = useToast();
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
   const role = useUserStore((state) => state.role);
@@ -32,12 +34,6 @@ export default function ProfileWeb() {
     username,
     fallback: 'User'
   });
-
-  const showBrowserAlert = (title: string, message: string) => {
-    if (typeof window !== 'undefined') {
-      window.alert(`${title}\n\n${message}`);
-    }
-  };
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -52,14 +48,14 @@ export default function ProfileWeb() {
       await logout();
       router.replace('/(onboarding)/login');
     } catch (err: any) {
-      showBrowserAlert('Logout failed', err?.message || 'Unable to log out.');
+      showToast({ title: 'Logout failed', message: err?.message || 'Unable to log out.', variant: 'error' });
     } finally {
       setIsLoggingOut(false);
     }
   };
 
   const handleComingSoon = (title: string) => {
-    showBrowserAlert(title, 'This page is not wired up yet.');
+    showToast({ title, message: 'This page is not wired up yet.', variant: 'info' });
   };
 
   return (

@@ -1,12 +1,14 @@
-import { Alert, ScrollView, TextInput, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { ScrollView, TextInput, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Header from "@/src/components/ui/Header";
 import Typography from "@/src/components/ui/Typography";
 import { useUserStore } from "@/src/store/userStore";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { updateUserProfile } from "@/src/api/Firebase/firebase-auth";
+import { useToast } from "@/src/components/ui/ToastProvider";
 
 export default function EditProfile() {
+  const { showToast } = useToast();
   const { width, height } = useWindowDimensions();
   const isSmallPhone = width < 380 || height < 760;
   const uid = useUserStore((state) => state.uid);
@@ -30,7 +32,7 @@ export default function EditProfile() {
 
   const handleSave = async () => {
     if (!uid) {
-      Alert.alert('Profile unavailable', 'Missing user id. Please log in again.');
+      showToast({ title: 'Profile unavailable', message: 'Missing user id. Please log in again.', variant: 'error' });
       return;
     }
 
@@ -38,21 +40,22 @@ export default function EditProfile() {
     const trimmedUsername = username.trim();
 
     if (!trimmedFullname) {
-      Alert.alert('Full name required', 'Please enter your full name.');
+      showToast({ title: 'Full name required', message: 'Please enter your full name.', variant: 'error' });
       return;
     }
     if (!trimmedUsername) {
-      Alert.alert('Username required', 'Please enter a username.');
+      showToast({ title: 'Username required', message: 'Please enter a username.', variant: 'error' });
       return;
     }
 
     try {
       setIsSaving(true);
       await updateUserProfile(uid, trimmedUsername, trimmedFullname);
+      showToast({ title: 'Profile updated', message: 'Your changes were saved.', variant: 'success' });
       navigateBackToProfile();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unable to update your profile.';
-      Alert.alert('Update failed', message);
+      showToast({ title: 'Update failed', message, variant: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -60,7 +63,7 @@ export default function EditProfile() {
 
   return (
     <View className="flex-1 bg-white">
-      <Header title="Edit Profile" />
+      <Header title="Edit Profile" showBack backFallback="/(tabs)/profile" />
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: isSmallPhone ? 16 : 20, paddingVertical: isSmallPhone ? 16 : 20 }}

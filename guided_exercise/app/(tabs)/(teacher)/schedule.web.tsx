@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import { createIvsSession } from '@/src/api/ivs';
 import { auth } from '@/src/api/Firebase/firebase-config';
 import { useUserStore } from '@/src/store/userStore';
 import { resolvePreferredDisplayName } from '@/src/utils/display-name';
+import { useToast } from '@/src/components/ui/ToastProvider';
 
 function withRoundedHour(date: Date) {
   const next = new Date(date);
@@ -51,6 +52,7 @@ const htmlInputStyle: React.CSSProperties = {
 
 export default function ScheduleScreenWeb() {
   const router = useRouter();
+  const { showToast } = useToast();
   const uid = useUserStore((state) => state.uid);
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
@@ -79,14 +81,6 @@ export default function ScheduleScreenWeb() {
   const [durationMinutes, setDurationMinutes] = useState('60');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const showAlert = (title: string, message: string) => {
-    if (typeof window !== 'undefined' && typeof window.alert === 'function') {
-      window.alert(`${title}\n\n${message}`);
-      return;
-    }
-    Alert.alert(title, message);
-  };
-
   const formattedDate = useMemo(
     () =>
       startAt.toLocaleDateString('en-US', {
@@ -110,17 +104,17 @@ export default function ScheduleScreenWeb() {
   const handleCreateScheduled = async () => {
     const trimmedSessionName = sessionName.trim();
     if (!trimmedSessionName) {
-      showAlert('Missing title', 'Please enter a session title.');
+      showToast({ title: 'Missing title', message: 'Please enter a session title.', variant: 'error' });
       return;
     }
     if (role && role !== 'instructor') {
-      showAlert('Not allowed', 'Only instructors can schedule classes.');
+      showToast({ title: 'Not allowed', message: 'Only instructors can schedule classes.', variant: 'error' });
       return;
     }
 
     const parsedDuration = Number(durationMinutes);
     if (!Number.isInteger(parsedDuration) || parsedDuration < 15 || parsedDuration > 240) {
-      showAlert('Invalid duration', 'Duration must be between 15 and 240 minutes.');
+      showToast({ title: 'Invalid duration', message: 'Duration must be between 15 and 240 minutes.', variant: 'error' });
       return;
     }
     if (isSubmitting) return;
@@ -137,17 +131,19 @@ export default function ScheduleScreenWeb() {
         scheduledEndAt: endAt.toISOString()
       });
       if (!created.scheduledStartAt || !created.scheduledEndAt) {
-        showAlert(
-          'Backend update needed',
-          'Scheduled time was not saved by backend. Deploy latest backend changes and try again.'
-        );
+        showToast({
+          title: 'Backend update needed',
+          message: 'Scheduled time was not saved by backend. Deploy latest backend changes and try again.',
+          variant: 'error',
+          durationMs: 5200
+        });
         return;
       }
-      showAlert('Scheduled', 'Your class was added to upcoming sessions.');
+      showToast({ title: 'Class scheduled', message: 'Your class was added to upcoming sessions.', variant: 'success' });
       setSessionName('');
       router.replace('/(tabs)/(teacher)/classes');
     } catch (error: any) {
-      showAlert('Unable to schedule', error?.message || 'Please try again.');
+      showToast({ title: 'Unable to schedule', message: error?.message || 'Please try again.', variant: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -155,7 +151,7 @@ export default function ScheduleScreenWeb() {
 
   return (
     <View style={styles.container}>
-      <Header title="Schedule Class" />
+      <Header title="Schedule Class" showBack backFallback="/(tabs)/(teacher)/classes" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>New Scheduled Session</Text>

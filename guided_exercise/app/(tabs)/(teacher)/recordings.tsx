@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import Typography from '@/src/components/ui/Typography';
 import { getIvsRecordingPlayback, listIvsRecordingsByUser, startIvsRecordingProcessing, type IvsRecording } from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
+import { useToast } from '@/src/components/ui/ToastProvider';
 
 function formatDate(value: string | null) {
   if (!value) return 'Unknown date';
@@ -49,6 +50,7 @@ function canPlayRecording(recording: IvsRecording) {
 }
 
 export default function TeacherRecordingsScreen() {
+  const { showToast } = useToast();
   const { width, height } = useWindowDimensions();
   const isSmallPhone = width < 380 || height < 760;
   const horizontalPadding = isSmallPhone ? 14 : 18;
@@ -77,14 +79,14 @@ export default function TeacherRecordingsScreen() {
       try {
         await loadRecordings();
       } catch (error: any) {
-        Alert.alert('Unable to load recordings', error?.message || 'Please try again.');
+        showToast({ title: 'Unable to load recordings', message: error?.message || 'Please try again.', variant: 'error' });
       } finally {
         setLoading(false);
       }
     };
 
     void run();
-  }, [loadRecordings]);
+  }, [loadRecordings, showToast]);
 
   const hasPendingRecordings = useMemo(
     () => recordings.some((recording) => recording.status === 'queued' || recording.status === 'processing'),
@@ -104,11 +106,11 @@ export default function TeacherRecordingsScreen() {
       setRefreshing(true);
       await loadRecordings();
     } catch (error: any) {
-      Alert.alert('Refresh failed', error?.message || 'Please try again.');
+      showToast({ title: 'Refresh failed', message: error?.message || 'Please try again.', variant: 'error' });
     } finally {
       setRefreshing(false);
     }
-  }, [loadRecordings]);
+  }, [loadRecordings, showToast]);
 
   const groupedRecordings = useMemo(() => {
     return recordings.reduce<Record<string, IvsRecording[]>>((acc, recording) => {
@@ -130,23 +132,24 @@ export default function TeacherRecordingsScreen() {
         params: { link: playback.playbackUrl }
       });
     } catch (error: any) {
-      Alert.alert('Playback failed', error?.message || 'Unable to load this recording.');
+      showToast({ title: 'Playback failed', message: error?.message || 'Unable to load this recording.', variant: 'error' });
     } finally {
       setPlayingRecordingId(null);
     }
-  }, []);
+  }, [showToast]);
 
   const handleProcess = useCallback(async (recordingId: string) => {
     try {
       setProcessingRecordingId(recordingId);
       await startIvsRecordingProcessing(recordingId);
       await loadRecordings({ silent: true });
+      showToast({ title: 'Processing started', message: 'Recording processing has been queued.', variant: 'success' });
     } catch (error: any) {
-      Alert.alert('Processing failed', error?.message || 'Unable to start recording processing.');
+      showToast({ title: 'Processing failed', message: error?.message || 'Unable to start recording processing.', variant: 'error' });
     } finally {
       setProcessingRecordingId(null);
     }
-  }, [loadRecordings]);
+  }, [loadRecordings, showToast]);
 
   return (
     <View className="flex-1 bg-white">

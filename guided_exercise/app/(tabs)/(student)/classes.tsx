@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Header from '@/src/components/ui/Header';
@@ -16,9 +16,11 @@ import {
 } from '@/src/api/ivs';
 import { useFirestoreSessions } from '@/src/hooks/use-ivs-firestore';
 import { useUserStore } from '@/src/store/userStore';
+import { useToast } from '@/src/components/ui/ToastProvider';
 
 export default function ClassesScreen() {
   const router = useRouter();
+  const { showToast } = useToast();
   const { width, height } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const isSmallPhone = width < 380 || height < 760;
@@ -149,7 +151,7 @@ export default function ClassesScreen() {
         }
       });
     } catch (error: any) {
-      Alert.alert('Join error', error?.message || 'Unable to join session.');
+      showToast({ title: 'Join error', message: error?.message || 'Unable to join session.', variant: 'error' });
     } finally {
       setJoiningSessionId(null);
     }

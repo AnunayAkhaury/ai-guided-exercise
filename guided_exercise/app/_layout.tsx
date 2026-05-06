@@ -13,6 +13,7 @@ import {
   IstokWeb_700Bold
 } from '@expo-google-fonts/istok-web';
 import { Text } from 'react-native';
+import { ToastProvider } from '@/src/components/ui/ToastProvider';
 
 export default function RootLayout() {
   const [interLoaded, interError] = useFontsInter({
@@ -31,5 +32,9 @@ export default function RootLayout() {
     return <Text>Splash Screen</Text>;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <ToastProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </ToastProvider>
+  );
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Platform, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Header from '@/src/components/ui/Header';
@@ -16,6 +16,7 @@ import {
 } from '@/src/api/ivs';
 import { useFirestoreSessions } from '@/src/hooks/use-ivs-firestore';
 import { useUserStore } from '@/src/store/userStore';
+import { useToast } from '@/src/components/ui/ToastProvider';
 
 function toSessionWindow(session: IvsSession) {
   const start = session.scheduledStartAt ? new Date(session.scheduledStartAt) : new Date(session.createdAt);
@@ -32,6 +33,7 @@ function canStartSession(session: IvsSession) {
 
 export default function ClassesScreen() {
   const router = useRouter();
+  const { showToast } = useToast();
   const { width, height } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const isSmallPhone = width < 380 || height < 760;
@@ -80,7 +82,7 @@ export default function ClassesScreen() {
       setCancelingSessionId(sessionId);
       await endIvsSession(sessionId);
     } catch (error: any) {
-      Alert.alert('Cancel failed', error?.message || 'Unable to cancel this session.');
+      showToast({ title: 'Cancel failed', message: error?.message || 'Unable to cancel this session.', variant: 'error' });
     } finally {
       setCancelingSessionId(null);
     }
@@ -91,7 +93,7 @@ export default function ClassesScreen() {
     const displayName = fullname?.trim() || username?.trim() || 'Instructor';
 
     if (!effectiveUid) {
-      Alert.alert('Missing profile', 'Missing profile uid. Please log out and log in again.');
+      showToast({ title: 'Missing profile', message: 'Missing profile uid. Please log out and log in again.', variant: 'error' });
       return;
     }
     if (joiningSessionId) return;
@@ -166,7 +168,7 @@ export default function ClassesScreen() {
         }
       });
     } catch (error: any) {
-      Alert.alert('Join failed', error?.message || 'Unable to join this live session.');
+      showToast({ title: 'Join failed', message: error?.message || 'Unable to join this live session.', variant: 'error' });
     } finally {
       setJoiningSessionId(null);
     }
