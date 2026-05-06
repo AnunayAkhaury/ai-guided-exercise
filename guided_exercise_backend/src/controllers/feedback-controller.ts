@@ -2,7 +2,8 @@ import type { Request, Response } from 'express';
 import {
   addClipWithFeedback,
   addExerciseTimestamp,
-  getFeedbackFromRef
+  getFeedbackFromRef,
+  getFeedbackFromUserId
 } from '@/services/Firebase/firebase-feedback.js';
 import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
@@ -47,6 +48,20 @@ export async function getFeedbackFromIdController(req: Request, res: Response) {
     console.log(feedbackRef);
     const getFeedbackFromIdResult = await getFeedbackFromRef(feedbackRef);
     return res.status(200).json(getFeedbackFromIdResult);
+  } catch (err: any) {
+    logControllerError(req, err, 'feedbackController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
+  }
+}
+
+export async function getFeedbackFromUserIdController(req: Request, res: Response) {
+  try {
+    const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
+    if (!userId?.trim()) {
+      return sendErrorResponse(req, res, 400, 'userId is required.');
+    }
+    const getFeedbackFromUserIdResult = await getFeedbackFromUserId(userId);
+    return res.status(200).json(getFeedbackFromUserIdResult);
   } catch (err: any) {
     logControllerError(req, err, 'feedbackController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');

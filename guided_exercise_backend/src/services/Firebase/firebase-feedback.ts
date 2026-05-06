@@ -143,3 +143,14 @@ export async function getFeedbackFromRef(feedbackRef: string): Promise<ExerciseF
     return null;
   }
 }
+
+export async function getFeedbackFromUserId(userId: string) {
+  try {
+    const snapshot = await db.collection('feedbacks').where('userId', '==', userId).get();
+    const feedbacks = snapshot.docs.map((doc) => doc.data() as ExerciseFeedback);
+    return feedbacks;
+  } catch (error) {
+    console.error('Error fetching feedbacks:', error);
+    return null;
+  }
+}
