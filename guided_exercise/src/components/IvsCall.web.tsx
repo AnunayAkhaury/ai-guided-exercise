@@ -10,6 +10,10 @@ type IvsBroadcastSdk = {
     AUDIO_ONLY: unknown;
     NONE: unknown;
   };
+  InitialLayerPreference?: {
+    HIGHEST_QUALITY?: unknown;
+    LOWEST_QUALITY?: unknown;
+  };
   StageEvents: {
     ERROR: string;
     STAGE_CONNECTION_STATE_CHANGED: string;
@@ -58,6 +62,8 @@ type IvsStageStrategy = {
   stageStreamsToPublish: () => IvsLocalStageStream[];
   shouldPublishParticipant: (participant: IvsStageParticipant) => boolean;
   shouldSubscribeToParticipant: (participant: IvsStageParticipant) => unknown;
+  subscribeConfiguration?: (participant: IvsStageParticipant) => Record<string, unknown> | undefined;
+  preferredLayerForStream?: (participant: IvsStageParticipant, stream: IvsStageStream & Record<string, any>) => unknown;
 };
 
 type RegisteredStageListener = {
@@ -86,6 +92,34 @@ declare global {
 
 const IVS_WEB_BROADCAST_SDK_URL = 'https://web-broadcast.live-video.net/1.34.0/amazon-ivs-web-broadcast.js';
 const REMOTE_TILE_MIN_WIDTH = 260;
+const WEB_CAMERA_CONSTRAINTS: MediaStreamConstraints = {
+  audio: {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true
+  },
+  video: {
+    width: { min: 960, ideal: 1280, max: 1280 },
+    height: { min: 540, ideal: 720, max: 720 },
+    frameRate: { ideal: 30, max: 30 }
+  }
+};
+const WEB_CAMERA_FALLBACK_CONSTRAINTS: MediaStreamConstraints = {
+  audio: true,
+  video: {
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    frameRate: { ideal: 30, max: 30 }
+  }
+};
+const WEB_VIDEO_STAGE_STREAM_CONFIG = {
+  minBitrate: 1200,
+  maxBitrate: 2800,
+  maxFramerate: 30,
+  simulcast: {
+    enabled: true
+  }
+};
 
 function firstNonEmptyString(...values: unknown[]): string | null {
   for (const value of values) {
@@ -222,6 +256,18 @@ function loadIvsBroadcastSdk(): Promise<IvsBroadcastSdk> {
   });
 
   return window.__ivsWebBroadcastClientPromise__;
+}
+
+async function getPreferredLocalMediaStream(): Promise<MediaStream> {
+  try {
+    return await navigator.mediaDevices.getUserMedia(WEB_CAMERA_CONSTRAINTS);
+  } catch (error) {
+    const errorName = error instanceof DOMException ? error.name : '';
+    if (errorName !== 'OverconstrainedError' && errorName !== 'ConstraintNotSatisfiedError') {
+      throw error;
+    }
+    return navigator.mediaDevices.getUserMedia(WEB_CAMERA_FALLBACK_CONSTRAINTS);
+  }
 }
 
 function resolveJoinPrerequisiteError(publishOnJoin: boolean): string | null {
@@ -597,13 +643,7 @@ export default function IvsCallWeb({
       let videoStageStream: IvsLocalStageStream | null = null;
 
       if (publishOnJoin) {
-        localMediaStream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
-        });
+        localMediaStream = await getPreferredLocalMediaStream();
 
         const audioTrack = localMediaStream.getAudioTracks()[0];
         const videoTrack = localMediaStream.getVideoTracks()[0];
@@ -614,7 +654,7 @@ export default function IvsCallWeb({
         }
 
         audioStageStream = new sdk.LocalStageStream(audioTrack);
-        videoStageStream = new sdk.LocalStageStream(videoTrack);
+        videoStageStream = new sdk.LocalStageStream(videoTrack, WEB_VIDEO_STAGE_STREAM_CONFIG);
         audioStageStream.setMuted(true);
         videoStageStream.setMuted(false);
       }
@@ -629,6 +669,21 @@ export default function IvsCallWeb({
         },
         shouldSubscribeToParticipant() {
           return sdk.SubscribeType.AUDIO_VIDEO;
+        },
+        subscribeConfiguration() {
+          const highestQualityPreference = sdk.InitialLayerPreference?.HIGHEST_QUALITY;
+          return highestQualityPreference
+            ? {
+                simulcast: {
+                  initialLayerPreference: highestQualityPreference
+                }
+              }
+            : undefined;
+        },
+        preferredLayerForStream(_participant, stream) {
+          return typeof stream.getHighestQualityLayer === 'function'
+            ? stream.getHighestQualityLayer()
+            : undefined;
         }
       };
 
@@ -1295,17 +1350,13 @@ function teardownStageRuntime({
 }
 
 const shellStyle: CSSProperties = {
-  height: '100dvh',
-  maxHeight: '100dvh',
+  minHeight: '100vh',
   display: 'flex',
   flexDirection: 'column',
   gap: 20,
   padding: 24,
+  paddingBottom: 112,
   boxSizing: 'border-box',
-  overflowY: 'auto',
-  overflowX: 'hidden',
-  overscrollBehavior: 'contain',
-  WebkitOverflowScrolling: 'touch',
   background: 'radial-gradient(circle at top, rgba(229, 220, 255, 0.9) 0%, #F5F2FF 42%, #FFFFFF 100%)'
 };
 

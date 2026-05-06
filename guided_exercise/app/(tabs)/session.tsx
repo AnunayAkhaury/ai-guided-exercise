@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import IvsCall from '@/src/components/IvsCall';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -172,8 +172,7 @@ export default function SharedSessionScreen() {
     );
   }
 
-  return (
-    <View style={styles.container}>
+  const callView = (
       <IvsCall
         token={normalizedToken}
         publishOnJoin
@@ -303,6 +302,21 @@ export default function SharedSessionScreen() {
         participantRolesById={participantRoleById}
         localParticipantRole={normalizedRole}
       />
+  );
+
+  return (
+    <View style={styles.container}>
+      {Platform.OS === 'web' ? (
+        <ScrollView
+          contentContainerStyle={styles.webScrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {callView}
+        </ScrollView>
+      ) : (
+        callView
+      )}
     </View>
   );
 }
@@ -311,6 +325,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F2FF'
+  },
+  webScrollContent: {
+    flexGrow: 1
   },
   title: {
     fontSize: 20,

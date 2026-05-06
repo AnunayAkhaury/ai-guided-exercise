@@ -85,8 +85,7 @@ export default function Students() {
       <Header title="Students" />
 
       <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: isSmallPhone ? 14 : 20, paddingVertical: isSmallPhone ? 14 : 20 }}
+        contentContainerStyle={{ paddingHorizontal: isSmallPhone ? 14 : 20, paddingVertical: isSmallPhone ? 14 : 20, paddingBottom: 30 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
