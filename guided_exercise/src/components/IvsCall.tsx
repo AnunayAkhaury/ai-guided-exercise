@@ -104,9 +104,10 @@ export default function IvsCall({
   const insets = useSafeAreaInsets();
   const isSmallPhone = width < 380 || height < 760;
   const compactControls = isSmallPhone || fontScale > 1.15;
-  const localVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.56)));
-  const remoteVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.56)));
-  const gridVideoHeight = Math.max(190, Math.min(260, Math.round(((width - 38) / 2) * 1.35)));
+  const localVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.5625)));
+  const remoteVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.5625)));
+  const gridVideoWidth = (width - 38) / 2;
+  const gridVideoHeight = Math.max(130, Math.min(210, Math.round(gridVideoWidth * 0.5625)));
   const controlBarPaddingBottom = isSmallPhone ? 6 : 10;
   const contentBottomPadding = isSmallPhone ? 6 : 14;
 
@@ -403,7 +404,7 @@ export default function IvsCall({
               <Text style={styles.participantLabel}>{localParticipantLabel?.trim() || 'You'}</Text>
             </View>
             <View style={[styles.localVideoFrame, { height: localVideoHeight }]}>
-              <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} scaleMode="fill" />
+              <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} scaleMode="fit" />
               {isVideoMuted && (
                 <View style={styles.cameraOffOverlay}>
                   <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
@@ -428,7 +429,7 @@ export default function IvsCall({
                   participantId={instructorRemote.participantId}
                   deviceUrn={instructorRemote.deviceUrn}
                   style={StyleSheet.absoluteFillObject}
-                  scaleMode="fill"
+                  scaleMode="fit"
                 />
               </View>
             ) : (
@@ -453,7 +454,7 @@ export default function IvsCall({
                 { height: useGridForStudents ? gridVideoHeight : remoteVideoHeight }
               ]}
             >
-              <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} scaleMode="fill" />
+              <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} scaleMode="fit" />
               {isVideoMuted && (
                 <View style={styles.cameraOffOverlay}>
                   <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
@@ -485,7 +486,7 @@ export default function IvsCall({
                   participantId={participant.participantId}
                   deviceUrn={participant.deviceUrn}
                   style={StyleSheet.absoluteFillObject}
-                  scaleMode="fill"
+                  scaleMode="fit"
                 />
               </View>
             ) : (
@@ -703,9 +704,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12
   },
-  localVideoFrame: { width: '100%', overflow: 'hidden' },
-  remoteVideoFrame: { width: '100%', overflow: 'hidden' },
-  gridVideoFrame: { width: '100%', overflow: 'hidden' },
+  localVideoFrame: { width: '100%', overflow: 'hidden', backgroundColor: '#000000' },
+  remoteVideoFrame: { width: '100%', overflow: 'hidden', backgroundColor: '#000000' },
+  gridVideoFrame: { width: '100%', overflow: 'hidden', backgroundColor: '#000000' },
   cameraOffOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#000000',

@@ -425,7 +425,7 @@ function ParticipantTile({
           style={{
             width: '100%',
             height: '100%',
-            objectFit: 'cover',
+            objectFit: 'contain',
             display: 'block',
             background: '#171428',
             opacity: showCameraOff ? 0.2 : 1
@@ -493,8 +493,8 @@ export default function IvsCallWeb({
   const localIsInstructor = localParticipantRole === 'instructor';
   const viewportWidth = typeof window === 'undefined' ? 1280 : window.innerWidth;
   const isCompactDesktop = viewportWidth < 1180;
-  const heroHeight = isCompactDesktop ? 320 : 400;
-  const gridTileHeight = isCompactDesktop ? 220 : 260;
+  const heroHeight = isCompactDesktop ? 360 : 560;
+  const gridTileHeight = isCompactDesktop ? 180 : 220;
 
   useEffect(() => {
     setActiveToken(token);
