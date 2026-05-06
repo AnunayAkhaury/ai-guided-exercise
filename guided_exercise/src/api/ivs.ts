@@ -75,6 +75,12 @@ export type IvsRecordingPlayback = {
   objectKey?: string;
 };
 
+export type IvsRecordingProcessResponse = {
+  message: string;
+  recording: IvsRecording;
+  taskArn?: string;
+};
+
 type CreateSessionRequest = {
   sessionName: string;
   instructorUid: string;
@@ -314,4 +320,8 @@ export function listIvsRecordingsByUser(userId: string): Promise<IvsRecording[]>
 
 export function getIvsRecordingPlayback(recordingId: string): Promise<IvsRecordingPlayback> {
   return getJson<IvsRecordingPlayback>(`/api/recordings/${encodeURIComponent(recordingId)}/playback`);
+}
+
+export function startIvsRecordingProcessing(recordingId: string): Promise<IvsRecordingProcessResponse> {
+  return postJson<IvsRecordingProcessResponse>(`/api/recordings/${encodeURIComponent(recordingId)}/process`, {});
 }

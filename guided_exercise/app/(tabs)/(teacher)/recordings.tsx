@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import Typography from '@/src/components/ui/Typography';
-import { getIvsRecordingPlayback, listIvsRecordingsByUser, type IvsRecording } from '@/src/api/ivs';
+import { getIvsRecordingPlayback, listIvsRecordingsByUser, startIvsRecordingProcessing, type IvsRecording } from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
 
 function formatDate(value: string | null) {
@@ -29,6 +29,25 @@ function formatDuration(durationMs: number | null) {
   return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
 }
 
+function getStatusCopy(status: IvsRecording['status']) {
+  switch (status) {
+    case 'queued':
+      return 'Queued for processing';
+    case 'processing':
+      return 'Processing video';
+    case 'completed':
+      return 'Ready to watch';
+    case 'failed':
+      return 'Processing failed';
+    default:
+      return status;
+  }
+}
+
+function canPlayRecording(recording: IvsRecording) {
+  return recording.status === 'completed' && Boolean(recording.processedVideoUrl);
+}
+
 export default function TeacherRecordingsScreen() {
   const { width, height } = useWindowDimensions();
   const isSmallPhone = width < 380 || height < 760;
@@ -38,8 +57,9 @@ export default function TeacherRecordingsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
+  const [processingRecordingId, setProcessingRecordingId] = useState<string | null>(null);
 
-  const loadRecordings = useCallback(async () => {
+  const loadRecordings = useCallback(async (options?: { silent?: boolean }) => {
     if (!uid) {
       setRecordings([]);
       return;
@@ -47,6 +67,9 @@ export default function TeacherRecordingsScreen() {
 
     const data = await listIvsRecordingsByUser(uid);
     setRecordings(data);
+    if (!options?.silent) {
+      setLoading(false);
+    }
   }, [uid]);
 
   useEffect(() => {
@@ -62,6 +85,19 @@ export default function TeacherRecordingsScreen() {
 
     void run();
   }, [loadRecordings]);
+
+  const hasPendingRecordings = useMemo(
+    () => recordings.some((recording) => recording.status === 'queued' || recording.status === 'processing'),
+    [recordings]
+  );
+
+  useEffect(() => {
+    if (!hasPendingRecordings) return;
+    const interval = setInterval(() => {
+      void loadRecordings({ silent: true }).catch(() => undefined);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [hasPendingRecordings, loadRecordings]);
 
   const onRefresh = useCallback(async () => {
     try {
@@ -100,6 +136,18 @@ export default function TeacherRecordingsScreen() {
     }
   }, []);
 
+  const handleProcess = useCallback(async (recordingId: string) => {
+    try {
+      setProcessingRecordingId(recordingId);
+      await startIvsRecordingProcessing(recordingId);
+      await loadRecordings({ silent: true });
+    } catch (error: any) {
+      Alert.alert('Processing failed', error?.message || 'Unable to start recording processing.');
+    } finally {
+      setProcessingRecordingId(null);
+    }
+  }, [loadRecordings]);
+
   return (
     <View className="flex-1 bg-white">
       <Header title="Recordings" />
@@ -137,9 +185,9 @@ export default function TeacherRecordingsScreen() {
                     <Typography font="inter-semibold" className="text-[#2F2A5A]">
                       {formatDate(recording.recordingStart)}
                     </Typography>
-                    <View className="px-2 py-1 rounded-full bg-[#E5DCFF]">
+                    <View className={`px-2 py-1 rounded-full ${recording.status === 'failed' ? 'bg-[#FFE3E8]' : recording.status === 'completed' ? 'bg-[#DDF8E8]' : 'bg-[#E5DCFF]'}`}>
                       <Typography font="inter-medium" className="text-[#6155F5] text-xs">
-                        {recording.status}
+                        {getStatusCopy(recording.status)}
                       </Typography>
                     </View>
                   </View>
@@ -153,11 +201,20 @@ export default function TeacherRecordingsScreen() {
                       Session: {recording.sessionId}
                     </Typography>
                   ) : null}
+                  {recording.error ? (
+                    <Typography className="text-[#B32646] mt-2">
+                      {recording.error}
+                    </Typography>
+                  ) : recording.status !== 'completed' ? (
+                    <Typography className="text-[#5B5685] mt-2">
+                      Playback will be available after processing completes.
+                    </Typography>
+                  ) : null}
 
                   <Pressable
                     onPress={() => void handlePlay(recording.recordingId)}
-                    disabled={playingRecordingId === recording.recordingId}
-                    className="mt-4 rounded-xl bg-[#6155F5] px-4 py-3 flex-row items-center justify-center"
+                    disabled={playingRecordingId === recording.recordingId || !canPlayRecording(recording)}
+                    className={`mt-4 rounded-xl px-4 py-3 flex-row items-center justify-center ${canPlayRecording(recording) ? 'bg-[#6155F5]' : 'bg-[#B8B3DF]'}`}
                   >
                     {playingRecordingId === recording.recordingId ? (
                       <ActivityIndicator color="#fff" />
@@ -170,6 +227,24 @@ export default function TeacherRecordingsScreen() {
                       </>
                     )}
                   </Pressable>
+                  {(recording.status === 'queued' || recording.status === 'failed') ? (
+                    <Pressable
+                      onPress={() => void handleProcess(recording.recordingId)}
+                      disabled={processingRecordingId === recording.recordingId}
+                      className="mt-3 rounded-xl border border-[#6155F5] px-4 py-3 flex-row items-center justify-center"
+                    >
+                      {processingRecordingId === recording.recordingId ? (
+                        <ActivityIndicator color="#6155F5" />
+                      ) : (
+                        <>
+                          <Ionicons name="refresh" size={18} color="#6155F5" />
+                          <Typography font="inter-semibold" className="text-[#6155F5] ml-2">
+                            {recording.status === 'failed' ? 'Retry Processing' : 'Process Recording'}
+                          </Typography>
+                        </>
+                      )}
+                    </Pressable>
+                  ) : null}
                 </View>
               ))}
             </View>
