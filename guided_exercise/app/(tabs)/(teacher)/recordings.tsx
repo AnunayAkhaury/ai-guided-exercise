@@ -117,7 +117,8 @@ export default function TeacherRecordingsScreen() {
         params: {
           link: playback.playbackUrl,
           title: clip.exercise,
-          feedback: clip.feedback
+          feedback: clip.feedback,
+          feedbackRef: clip.feedbackRef
         }
       });
     } catch (error: any) {

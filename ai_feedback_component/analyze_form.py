@@ -1,149 +1,168 @@
 import json
-import sys
 import os
 import numpy as np
-from scipy.signal import find_peaks, savgol_filter
+from scipy.signal import savgol_filter
+from fastdtw import fastdtw
+from scipy.spatial.distance import euclidean
 
-# Threshold for flagging deviations (percent)
-DEVIATION_THRESHOLD = 25.0
-SAVGOL_WINDOW = 11
-SAVGOL_POLY   = 2
+# Modern MoviePy 2.0+ Imports
+from moviepy import VideoFileClip, clips_array, concatenate_videoclips
+from moviepy.video.fx.Margin import Margin
 
-def load_angles(path: str) -> list[dict]:
-    with open(path, "r") as f:
-        data = json.load(f)
-    return data["frames"]
+# --- CONFIGURATION ---
+ANGLE_DEVIATION_THRESHOLD = 20.0 
+SAVGOL_WINDOW = 21 
+SAVGOL_POLY = 2
+FPS = 30
 
-def load_rep_boundaries(path: str) -> list[dict]:
-    """Loads the pre-calculated consensus boundaries."""
-    with open(path, "r") as f:
-        data = json.load(f)
-    return data["student_reps"]
-
-def load_baseline(path: str) -> dict:
-    """Load the ideal baseline JSON."""
-    with open(path, "r") as f:
-        data = json.load(f)
-    return data["joints"]
-
-def _series(frames: list[dict], joint: str) -> np.ndarray:
+def _get_clean_series(frames: list[dict], joint: str) -> np.ndarray:
     raw_values = []
     for f in frames:
-        is_valid = f["usableDict"].get(joint, False)
-        val = f["angles"].get(joint)
+        is_valid = f.get("usableDict", {}).get(joint, False)
+        val = f.get("angles", {}).get(joint)
         raw_values.append(val if (is_valid and val is not None) else np.nan)
     
     series = np.array(raw_values, dtype=float)
     nans = np.isnan(series)
-    if not np.all(nans):
-        series[nans] = np.interp(np.flatnonzero(nans), np.flatnonzero(~nans), series[~nans])
-        if len(series) > SAVGOL_WINDOW:
-            series = savgol_filter(series, window_length=SAVGOL_WINDOW, polyorder=SAVGOL_POLY)
+    
+    # 1. Check if the series is entirely NaN
+    if np.all(nans):
+        return np.zeros_like(series) # Return zeros if no data exists at all
+
+    # 2. Enhanced Interpolation
+    # We use np.interp but also handle the edges
+    non_nan_indices = np.flatnonzero(~nans)
+    nan_indices = np.flatnonzero(nans)
+    
+    series[nans] = np.interp(
+        nan_indices, 
+        non_nan_indices, 
+        series[~nans],
+        left=series[non_nan_indices[0]],  # Fill leading NaNs with first valid value
+        right=series[non_nan_indices[-1]] # Fill trailing NaNs with last valid value
+    )
+
+    # 3. Safe Savgol Filter
+    # Only apply if we have enough points, otherwise smoothing isn't possible
+    if len(series) >= SAVGOL_WINDOW:
+        series = savgol_filter(series, window_length=SAVGOL_WINDOW, polyorder=SAVGOL_POLY)
+    
+    # 4. Final Safety Check
+    # Ensure no weird infs or NaNs remain after filtering
+    series = np.nan_to_num(series, nan=0.0, posinf=0.0, neginf=0.0)
+    
     return series
 
-def find_form_extrema(frames: list[dict], baseline: dict) -> list[dict]:
-    """Find peaks and valleys for each joint using baseline prominence."""
-    extrema = []
-    for joint, info in baseline.items():
-        series = _series(frames, joint)
-        prominence = info["prominence"]
+def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
+    # Paths
+    student_video_path = os.path.join(data_dir, f"{video_name}.mp4")
+    inst_video_path = os.path.join(data_dir, f"{instructor_video_name}.mp4")
+    
+    s_angles_path = os.path.join(data_dir, f"{video_name}-angles.json")
+    rep_info_path = os.path.join(data_dir, f"{video_name}-rep-boundaries.json")
+    i_angles_path = os.path.join(data_dir, f"{instructor_video_name}-angles.json")
+    
+    output_json = os.path.join(data_dir, f"{video_name}-bad-reps.json")
+    output_video = os.path.join(data_dir, f"{video_name}-comparison.mp4")
 
-        peak_indices, _ = find_peaks(series, prominence=prominence)
-        valley_indices, _ = find_peaks(-series, prominence=prominence)
+    # Load Data
+    with open(s_angles_path, "r") as f: s_frames = json.load(f)["frames"]
+    with open(rep_info_path, "r") as f: rep_data = json.load(f)
+    with open(i_angles_path, "r") as f: i_frames = json.load(f)["frames"]
 
-        for idx in peak_indices:
-            extrema.append({
-                "frameIndex": frames[idx]["frameIndex"],
-                "timestampMs": frames[idx]["timestampMs"],
-                "joint": joint,
-                "type": "Peak",
-                "actual_angle": float(series[idx]),
-            })
+    s_clip = VideoFileClip(student_video_path)
+    i_clip = VideoFileClip(inst_video_path)
 
-        for idx in valley_indices:
-            extrema.append({
-                "frameIndex": frames[idx]["frameIndex"],
-                "timestampMs": frames[idx]["timestampMs"],
-                "joint": joint,
-                "type": "Valley",
-                "actual_angle": float(series[idx]),
-            })
-    return extrema
+    all_flagged_events = []
+    comparison_clips = []
 
-def assign_rep_index(extrema: list[dict], rep_boundaries: list[dict]) -> list[dict]:
-    """
-    Tags each extremum with a 1-based rep_index based on boundaries.
-    If an extremum falls outside all boundaries, it is tagged as rep_index 0.
-    """
-    for entry in extrema:
-        ts = entry["timestampMs"]
-        found_rep = 0
-        for i, rep in enumerate(rep_boundaries):
-            if rep["start_ms"] <= ts <= rep["end_ms"]:
-                # Use the rep_index from JSON if available, otherwise use 1-based loop index
-                found_rep = rep.get("rep_index", i + 1)
-                break
-        entry["rep_index"] = found_rep
-    return extrema
-
-def flag_deviations(extrema: list[dict], baseline: dict, threshold: float = DEVIATION_THRESHOLD) -> list[dict]:
-    flagged = []
-    for entry in extrema:
-        # Only process extrema that actually fell inside a detected rep
-        if entry["rep_index"] == 0:
+    # 3. PROCESS EACH REP (New Data Format Logic)
+    for s_rep in rep_data["student_reps"]:
+        rep_idx = s_rep["rep_index"]
+        s_bound = s_rep["student_boundary"]
+        i_tmpl = s_rep["instructor_template"] # Pulled per-rep now
+        
+        # Filter frames for this specific student rep and instructor template
+        s_rep_frames = [f for f in s_frames if s_bound["start_frame"] <= f["frameIndex"] <= s_bound["end_frame"]]
+        i_rep_frames = [f for f in i_frames if i_tmpl["start_frame"] <= f["frameIndex"] <= i_tmpl["end_frame"]]
+        
+        if not s_rep_frames or not i_rep_frames:
             continue
 
-        joint = entry["joint"]
-        info = baseline[joint]
-        expected = info["avg_peak"] if entry["type"] == "Peak" else info["avg_valley"]
-        actual = entry["actual_angle"]
-        
-        if expected == 0: continue
-        diff_pct = abs(actual - expected) / expected * 100.0
+        # Use the joint that defined this specific rep for DTW mapping
+        mapping_joint = i_tmpl["joint"]
+        s_map_series = _get_clean_series(s_rep_frames, mapping_joint)
+        i_map_series = _get_clean_series(i_rep_frames, mapping_joint)
 
-        if diff_pct > threshold:
-            flagged.append({
-                "frameIndex": entry["frameIndex"],
-                "timestampMs": entry["timestampMs"],
-                "rep_index": entry["rep_index"],
-                "joint": joint,
-                "type": entry["type"],
-                "expected_angle": round(expected, 4),
-                "actual_angle": round(actual, 4),
-                "diff_pct": round(diff_pct, 2),
-            })
+        # Apply FastDTW to align the student's timing to the instructor's
+        _, raw_path = fastdtw(s_map_series.reshape(-1, 1), i_map_series.reshape(-1, 1), dist=euclidean)
 
-    flagged.sort(key=lambda x: (x["timestampMs"], x["frameIndex"]))
-    return flagged
+        # Enforce strict monotonicity (no jumping back in time)
+        clean_path = []
+        highest_s_idx = -1
+        highest_i_idx = -1
+        for s_idx, i_idx in raw_path:
+            if s_idx > highest_s_idx and i_idx > highest_i_idx:
+                clean_path.append((s_idx, i_idx))
+                highest_s_idx = s_idx
+                highest_i_idx = i_idx
 
-def run_form_analysis(video_name, ideal_base_name=None, data_dir="./data"):
-    ideal_file = ideal_base_name if ideal_base_name else video_name
-    
-    baseline_path   = os.path.join(data_dir, f"{ideal_file}-ideal.json")
-    input_path      = os.path.join(data_dir, f"{video_name}-angles.json")
-    boundaries_path = os.path.join(data_dir, f"{video_name}-rep-boundaries.json")
-    output_path     = os.path.join(data_dir, f"{video_name}-bad-reps.json")
+        # Analyze all available joints for this aligned path
+        available_joints = list(s_rep_frames[0]["angles"].keys())
+        current_rep_s_data = {j: _get_clean_series(s_rep_frames, j) for j in available_joints}
+        current_rep_i_data = {j: _get_clean_series(i_rep_frames, j) for j in available_joints}
 
-    if not os.path.exists(boundaries_path):
-        print(f"Boundaries not found at {boundaries_path}")
-        return
+        rep_frames_for_viz = []
 
-    # Load everything
-    baseline = load_baseline(baseline_path)
-    form_frames = load_angles(input_path)
-    rep_boundaries = load_rep_boundaries(boundaries_path)
+        for s_idx, i_idx in clean_path:
+            current_frame_errors = []
+            s_frame_obj = s_rep_frames[s_idx]
+            
+            for joint in available_joints:
+                s_val = current_rep_s_data[joint][s_idx]
+                i_val = current_rep_i_data[joint][i_idx]
+                diff = abs(s_val - i_val)
 
-    # Original Pipeline
-    extrema = find_form_extrema(form_frames, baseline)
-    
-    # Updated Assignment (Uses your new JSON boundaries)
-    extrema = assign_rep_index(extrema, rep_boundaries)
-    
-    # Original Flagging logic
-    results = flag_deviations(extrema, baseline)
+                if diff > ANGLE_DEVIATION_THRESHOLD:
+                    diff_pct = (diff / max(abs(i_val), 1.0)) * 100
+                    
+                    error_entry = {
+                        "frameIndex": s_frame_obj["frameIndex"],
+                        "timestampMs": s_frame_obj["timestampMs"],
+                        "rep_index": rep_idx,
+                        "joint": joint,
+                        "expected_angle": round(float(i_val), 2),
+                        "actual_angle": round(float(s_val), 2),
+                        "diff_deg": round(float(diff), 2)
+                    }
+                    all_flagged_events.append(error_entry)
+                    current_frame_errors.append(error_entry)
 
-    with open(output_path, "w") as f:
-        json.dump(results, f, indent=2)
+            # --- VIDEO COMPOSITION ---
+            s_ts = s_frame_obj["timestampMs"] / 1000.0
+            i_ts = i_rep_frames[i_idx]["timestampMs"] / 1000.0
 
-    flagged_reps = len({r["rep_index"] for r in results})
-    print(f"Wrote {len(results)} flag(s) across {flagged_reps} flagged rep(s) to {output_path}")
+            # Side-by-side frames (Synchronized by DTW)
+            i_img = i_clip.to_ImageClip(t=i_ts).with_duration(1/FPS).resized(width=640)
+            s_img = s_clip.to_ImageClip(t=s_ts).with_duration(1/FPS).resized(width=640)
+
+            # Red border highlights frames where form deviations were found
+            border_color = (255, 0, 0) if current_frame_errors else (0, 0, 0)
+            s_img = s_img.with_effects([Margin(top=10, bottom=10, left=10, right=10, color=border_color)])
+
+            combined = clips_array([[i_img, s_img]])
+            rep_frames_for_viz.append(combined)
+
+        if rep_frames_for_viz:
+            rep_clip = concatenate_videoclips(rep_frames_for_viz, method="compose")
+            comparison_clips.append(rep_clip)
+
+    # Save Output
+    if comparison_clips:
+        final_video = concatenate_videoclips(comparison_clips, method="compose")
+        final_video.write_videofile(output_video, fps=FPS, codec="libx264")
+
+    with open(output_json, "w") as f:
+        json.dump(all_flagged_events, f, indent=2)
+
+    print(f"Analysis Complete. Flags: {len(all_flagged_events)}. Output: {output_video}")

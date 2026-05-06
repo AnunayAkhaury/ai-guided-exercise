@@ -28,3 +28,41 @@ export async function addExerciseTimestamp(timestamp: ExerciseTimestamp) {
     throw new Error(`Error Adding Timestamp.`);
   }
 }
+
+export interface RepFeedback {
+  timestampStart: number;
+  timestampEnd: number;
+  feedback: string;
+}
+
+export interface ExerciseFeedback {
+  summary: string;
+  score: number;
+  data: RepFeedback[];
+}
+
+export async function getFeedbackFromRef(feedbackRef: string): Promise<ExerciseFeedback | null> {
+  const url = `${process.env.EXPO_PUBLIC_API_URL}/api/feedback/${feedbackRef}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    // 1. Check if the server actually returned a 200 OK
+    if (!response.ok) {
+      const errorText = await response.text(); // Get the HTML/Error body
+      console.error(`Fetch failed with status ${response.status}. Body:`, errorText);
+      return null;
+    }
+
+    // 2. Try to parse the JSON
+    return await response.json();
+  } catch (error) {
+    console.error('Network or Parsing Error in getFeedbackFromRef:', error);
+    return null;
+  }
+}

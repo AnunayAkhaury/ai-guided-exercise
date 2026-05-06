@@ -66,11 +66,13 @@ export type IvsRecording = {
 };
 
 import { ExerciseType } from '../components/session/exercise-sheet';
+
 export type IvsClipWithDate = {
   clipId: string;
   duration: string;
   exercise: ExerciseType;
   feedback: string;
+  feedbackRef: string | null;
   processedVideoUrl: string;
   recordingId: string;
   userId: string;
