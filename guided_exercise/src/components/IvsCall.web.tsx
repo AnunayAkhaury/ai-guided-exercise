@@ -114,7 +114,7 @@ const WEB_CAMERA_FALLBACK_CONSTRAINTS: MediaStreamConstraints = {
 };
 const WEB_VIDEO_STAGE_STREAM_CONFIG = {
   minBitrate: 1200,
-  maxBitrate: 2800,
+  maxBitrate: 2500,
   maxFramerate: 30,
   simulcast: {
     enabled: true
