@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, FlatList, Alert, useWindowDimensions } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Header from '@/src/components/ui/Header';
@@ -20,10 +20,11 @@ import { useUserStore } from '@/src/store/userStore';
 export default function ClassesScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
   const isSmallPhone = width < 380 || height < 760;
   const horizontalPadding = isSmallPhone ? 14 : 20;
   const topPadding = isSmallPhone ? 16 : 24;
-  const upcomingTopPadding = isSmallPhone ? 28 : 80;
+  const upcomingTopPadding = isSmallPhone ? 26 : 40;
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
   const uid = useUserStore((state) => state.uid);
@@ -155,88 +156,175 @@ export default function ClassesScreen() {
   };
 
   return (
-    <View className="bg-white flex-grow">
+    <View style={styles.page}>
       <Header title="Classes" />
 
-      <View style={{ paddingHorizontal: horizontalPadding, paddingTop: topPadding }}>
-        <View className="pb-6 flex flex-row items-center gap-2">
-          <Typography font="inter-semibold">Live / Starting Soon</Typography>
-          <FontAwesome6 name="dumbbell" size={16} color="black" className="-rotate-45" />
-        </View>
-
-        <FlatList
-          data={topSessions}
-          keyExtractor={(item) => item.sessionId}
-          ListEmptyComponent={
-            <Typography className="text-[#7a7a7a]">
-              {sessionsLoading
-                ? 'Loading sessions...'
-                : sessionsError
-                  ? 'Unable to load sessions right now.'
-                  : 'No live or ready sessions right now.'}
-            </Typography>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: isWeb ? 32 : horizontalPadding,
+            paddingTop: isWeb ? 30 : topPadding
           }
-          renderItem={({ item }) => {
-            const { start, end } = getSessionWindow(item);
-            const isLive = item.status === 'live';
-            return (
-              <TeacherActiveClassCard
-                start={start}
-                end={end}
-                title={item.sessionName}
-                desc={`${isLive ? 'Live' : 'Ready'} • Code: ${item.sessionCode}`}
-                active={isLive}
-                subtitle={`Coach: ${item.coachName || item.instructorUid}`}
-                startLabel={
-                  isLive
-                    ? joiningSessionId === item.sessionId
-                      ? 'Joining...'
-                      : 'Join Meeting'
-                    : 'Waiting for Coach'
-                }
-                actionsDisabled={Boolean(joiningSessionId) || !isLive}
-                showSecondaryAction={false}
-                onStartPress={() => {
-                  if (isLive) {
-                    void handleJoinSession(item.sessionCode, item.sessionId);
-                  }
-                }}
-              />
-            );
-          }}
-        />
+        ]}
+      >
+        <View style={styles.contentShell}>
+          <View style={styles.topBar}>
+            <View style={styles.headingRow}>
+              <Typography font="inter-bold" style={styles.pageTitle}>Classes</Typography>
+              <Typography font="inter" style={styles.pageSubtitle}>
+                Join live classes and see your upcoming scheduled sessions.
+              </Typography>
+            </View>
+          </View>
 
-        <View style={{ paddingTop: upcomingTopPadding }} className="pb-6 flex flex-row items-center gap-2">
-          <Typography font="inter-semibold">Upcoming Sessions</Typography>
-          <Ionicons name="calendar-clear-sharp" size={17} color="black" />
+          <View style={styles.sectionHeader}>
+            <Typography font="inter-semibold" style={styles.sectionTitle}>Live / Starting Soon</Typography>
+            <FontAwesome6 name="dumbbell" size={16} color="black" className="-rotate-45" />
+          </View>
+
+          {topSessions.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Typography font="inter" style={styles.emptyText}>
+                {sessionsLoading
+                  ? 'Loading sessions...'
+                  : sessionsError
+                    ? 'Unable to load sessions right now.'
+                    : 'No live or ready sessions right now.'}
+              </Typography>
+            </View>
+          ) : (
+            <View style={styles.cardGrid}>
+              {topSessions.map((item) => {
+                const { start, end } = getSessionWindow(item);
+                const isLive = item.status === 'live';
+                return (
+                  <TeacherActiveClassCard
+                    key={item.sessionId}
+                    start={start}
+                    end={end}
+                    title={item.sessionName}
+                    desc={`${isLive ? 'Live' : 'Ready'} • Code: ${item.sessionCode}`}
+                    active={isLive}
+                    subtitle={`Coach: ${item.coachName || item.instructorUid}`}
+                    startLabel={
+                      isLive
+                        ? joiningSessionId === item.sessionId
+                          ? 'Joining...'
+                          : 'Join Meeting'
+                        : 'Waiting for Coach'
+                    }
+                    actionsDisabled={Boolean(joiningSessionId) || !isLive}
+                    showSecondaryAction={false}
+                    onStartPress={() => {
+                      if (isLive) {
+                        void handleJoinSession(item.sessionCode, item.sessionId);
+                      }
+                    }}
+                  />
+                );
+              })}
+            </View>
+          )}
+
+          <View style={[styles.sectionHeader, { paddingTop: isWeb ? 22 : upcomingTopPadding }]}>
+            <Typography font="inter-semibold" style={styles.sectionTitle}>Upcoming Sessions</Typography>
+            <Ionicons name="calendar-clear-sharp" size={17} color="#6155F5" />
+          </View>
+
+          {upcomingScheduledSessions.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Typography font="inter" style={styles.emptyText}>
+                {sessionsError ? 'Unable to load upcoming sessions right now.' : 'No upcoming sessions.'}
+              </Typography>
+            </View>
+          ) : (
+            <View style={styles.cardGrid}>
+              {upcomingScheduledSessions.map((item) => {
+                const { start, end } = getSessionWindow(item);
+                return (
+                  <TeacherActiveClassCard
+                    key={`scheduled-${item.sessionId}`}
+                    start={start}
+                    end={end}
+                    title={item.sessionName}
+                    desc={`Coach: ${item.coachName || item.instructorUid} • Code: ${item.sessionCode}`}
+                    active={false}
+                    subtitle="Upcoming scheduled class"
+                    startLabel="Available 5 min before"
+                    actionsDisabled
+                    showSecondaryAction={false}
+                  />
+                );
+              })}
+            </View>
+          )}
         </View>
-
-        <FlatList
-          data={upcomingScheduledSessions}
-          keyExtractor={(item) => item.sessionId}
-          ListEmptyComponent={
-            <Typography className="text-[#7a7a7a]">
-              {sessionsError ? 'Unable to load upcoming sessions right now.' : 'No upcoming sessions.'}
-            </Typography>
-          }
-          renderItem={({ item }) => {
-            const { start, end } = getSessionWindow(item);
-            return (
-              <TeacherActiveClassCard
-                start={start}
-                end={end}
-                title={item.sessionName}
-                desc={`Coach: ${item.coachName || item.instructorUid} • Code: ${item.sessionCode}`}
-                active={false}
-                subtitle="Upcoming scheduled class"
-                startLabel="Available 5 min before"
-                actionsDisabled
-                showSecondaryAction={false}
-              />
-            );
-          }}
-        />
-      </View>
+      </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  page: {
+    flex: 1,
+    backgroundColor: '#F7F5FF'
+  },
+  scrollContent: {
+    paddingBottom: 42
+  },
+  contentShell: {
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? 1120 : undefined,
+    alignSelf: 'center'
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 26
+  },
+  headingRow: {
+    flex: 1,
+    minWidth: 0
+  },
+  pageTitle: {
+    fontSize: Platform.OS === 'web' ? 32 : 24,
+    color: '#17142B'
+  },
+  pageSubtitle: {
+    marginTop: 6,
+    fontSize: 15,
+    color: '#6B6594'
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 14
+  },
+  sectionTitle: {
+    fontSize: 17,
+    color: '#18152E'
+  },
+  cardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 18,
+    alignItems: 'flex-start'
+  },
+  emptyState: {
+    borderWidth: 1,
+    borderColor: '#E1DBF5',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    marginBottom: 10
+  },
+  emptyText: {
+    color: '#6F698E'
+  }
+});
