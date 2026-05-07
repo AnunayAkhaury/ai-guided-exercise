@@ -32,6 +32,11 @@ import {
   startSessionController,
   upsertSessionParticipantController
 } from '@/controllers/session-controller.js';
+import {
+  registerPushTokenController,
+  sendDueClassRemindersController,
+  unregisterPushTokenController
+} from '@/controllers/notification-controller.js';
 
 const router = Router();
 router.get('/', helloWorldController);
@@ -60,6 +65,9 @@ router.post('/api/ivs/sessions/participants/upsert', upsertSessionParticipantCon
 router.post('/api/ivs/sessions/participants/heartbeat', heartbeatSessionParticipantController);
 router.post('/api/ivs/sessions/participants/leave', leaveSessionParticipantController);
 router.get('/api/ivs/sessions/:sessionId/participants', listSessionParticipantsController);
+router.post('/api/notifications/register-token', registerPushTokenController);
+router.post('/api/notifications/unregister-token', unregisterPushTokenController);
+router.post('/api/notifications/class-reminders/send-due', sendDueClassRemindersController);
 router.post('/api/aws/uploadVideo', uploadVideoController);
 router.post('/api/aws/getVideo', getVideoUrlController);
 router.post('/api/firebase/getAchievements', getUserAchievementsController);

@@ -13,6 +13,7 @@ import {
   updateSessionStatus
 } from '@/services/Firebase/firebase-session.js';
 import type { SessionStatus } from '@/services/Firebase/firebase-session.js';
+import { sendNotificationToRole } from '@/services/notification-service.js';
 import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
 type CreateSessionRequest = {
@@ -53,6 +54,28 @@ type ParticipantHeartbeatRequest = {
 const VALID_STATUSES: SessionStatus[] = ['scheduled', 'live', 'ended'];
 const DEFAULT_REGION = process.env.AWS_REGION || 'us-west-2';
 const START_WINDOW_MINUTES = 5;
+
+async function sendStudentSessionNotification(input: {
+  title: string;
+  body: string;
+  type: string;
+  sessionId: string;
+  sessionCode: string;
+}) {
+  try {
+    await sendNotificationToRole('student', {
+      title: input.title,
+      body: input.body,
+      data: {
+        type: input.type,
+        sessionId: input.sessionId,
+        sessionCode: input.sessionCode
+      }
+    });
+  } catch (err) {
+    console.error('[notifications] Failed to send session notification', err);
+  }
+}
 
 async function disconnectKnownParticipantsForSession(session: {
   sessionId: string;
@@ -119,6 +142,14 @@ export async function createSessionController(req: Request, res: Response) {
       stageArn: effectiveStageArn,
       ...(parsedScheduledStartAt ? { scheduledStartAt: parsedScheduledStartAt } : {}),
       ...(parsedScheduledEndAt ? { scheduledEndAt: parsedScheduledEndAt } : {})
+    });
+
+    void sendStudentSessionNotification({
+      title: 'New class scheduled',
+      body: `${session.sessionName} was added to the class schedule.`,
+      type: 'class_scheduled',
+      sessionId: session.sessionId,
+      sessionCode: session.sessionCode
     });
 
     return res.status(200).json(session);
@@ -229,6 +260,15 @@ export async function startSessionController(req: Request, res: Response) {
     await endOtherLiveSessions(sessionId);
     await updateSessionStatus(sessionId, 'live');
     const updated = await getSessionById(sessionId);
+    if (updated) {
+      void sendStudentSessionNotification({
+        title: 'Class is live',
+        body: `${updated.sessionName} is ready to join.`,
+        type: 'class_live',
+        sessionId: updated.sessionId,
+        sessionCode: updated.sessionCode
+      });
+    }
     return res.status(200).json(updated);
   } catch (err: any) {
     logControllerError(req, err, 'startSessionController failed');
@@ -252,6 +292,15 @@ export async function endSessionController(req: Request, res: Response) {
     }
     await updateSessionStatus(sessionId, 'ended');
     const updated = await getSessionById(sessionId);
+    if (existing.status === 'scheduled') {
+      void sendStudentSessionNotification({
+        title: 'Class canceled',
+        body: `${existing.sessionName} was canceled.`,
+        type: 'class_canceled',
+        sessionId: existing.sessionId,
+        sessionCode: existing.sessionCode
+      });
+    }
     return res.status(200).json(updated ?? { ...existing, status: 'ended' });
   } catch (err: any) {
     logControllerError(req, err, 'endSessionController failed');

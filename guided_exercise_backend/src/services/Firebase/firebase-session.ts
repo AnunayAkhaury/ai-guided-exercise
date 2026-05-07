@@ -17,6 +17,7 @@ export type SessionDocument = {
   updatedAt: Date;
   startedAt: Date | null;
   endedAt: Date | null;
+  reminderSentAt: Date | null;
 };
 
 export type SessionParticipantDocument = {
@@ -94,7 +95,8 @@ function mapSessionDoc(
     createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
     updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
     startedAt: data.startedAt?.toDate ? data.startedAt.toDate() : data.startedAt ?? null,
-    endedAt: data.endedAt?.toDate ? data.endedAt.toDate() : data.endedAt ?? null
+    endedAt: data.endedAt?.toDate ? data.endedAt.toDate() : data.endedAt ?? null,
+    reminderSentAt: data.reminderSentAt?.toDate ? data.reminderSentAt.toDate() : data.reminderSentAt ?? null
   } as SessionDocument;
 }
 
@@ -115,7 +117,8 @@ export async function createSession(input: CreateSessionInput): Promise<SessionD
     createdAt: now,
     updatedAt: now,
     startedAt: null,
-    endedAt: null
+    endedAt: null,
+    reminderSentAt: null
   };
 
   await ref.set(payload);
@@ -200,6 +203,17 @@ export async function updateSessionStatus(sessionId: string, status: SessionStat
     payload.endedAt = now;
   }
   await db.collection(SESSIONS_COLLECTION).doc(sessionId).update(payload);
+}
+
+export async function markSessionReminderSent(sessionId: string): Promise<void> {
+  const now = new Date();
+  await db.collection(SESSIONS_COLLECTION).doc(sessionId).set(
+    {
+      reminderSentAt: now,
+      updatedAt: now
+    },
+    { merge: true }
+  );
 }
 
 export async function listSessions(statuses?: SessionStatus[]): Promise<SessionDocument[]> {

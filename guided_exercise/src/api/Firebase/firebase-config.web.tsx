@@ -8,7 +8,7 @@ import {
   initializeAuth
 } from 'firebase/auth';
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: 'AIzaSyAQNGH2BNurUfZlPn2mWgkHcQb5kbD3QX8',
   authDomain: 'ai-guided-exercise-feedback.firebaseapp.com',
   projectId: 'ai-guided-exercise-feedback',

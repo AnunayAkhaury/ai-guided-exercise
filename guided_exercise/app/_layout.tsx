@@ -14,6 +14,7 @@ import {
 } from '@expo-google-fonts/istok-web';
 import { Text } from 'react-native';
 import { ToastProvider } from '@/src/components/ui/ToastProvider';
+import { PushNotificationProvider } from '@/src/components/notifications/PushNotificationProvider';
 
 export default function RootLayout() {
   const [interLoaded, interError] = useFontsInter({
@@ -34,7 +35,9 @@ export default function RootLayout() {
 
   return (
     <ToastProvider>
-      <Stack screenOptions={{ headerShown: false }} />
+      <PushNotificationProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </PushNotificationProvider>
     </ToastProvider>
   );
 }
