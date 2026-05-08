@@ -10,13 +10,14 @@ from moviepy import VideoFileClip, clips_array, concatenate_videoclips
 from moviepy.video.fx.Margin import Margin
 
 # --- CONFIGURATION ---
-ANGLE_DEVIATION_THRESHOLD = 20.0 
-SAVGOL_WINDOW = 21 
+ANGLE_DEVIATION_THRESHOLD = 20.0
+SAVGOL_WINDOW = 21
 SAVGOL_POLY = 2
 FPS = 30
-PERSISTENCE_THRESHOLD_FRAMES = 30 
+PERSISTENCE_THRESHOLD_FRAMES = 30
 DTW_RADIUS = 30         # Max frames to drift from the diagonal
 DROPOUT_THRESHOLD = 0.5 # Exclude joint from alignment if >50% of rep is NaN/unusable
+NUM_JOINTS = 16
 
 def _get_clean_series(frames: list[dict], joint: str, is_student: bool = True) -> np.ndarray:
     """
@@ -75,11 +76,20 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
     with open(i_angles_path, "r") as f: i_all_frames = json.load(f)["frames"]
     with open(imp_joints_path, "r") as f: primary_joints = json.load(f)["primary_joints"]
 
+    num_priority_joints = len(primary_joints)
+    inverse_priority_joint_ratio = NUM_JOINTS / (NUM_JOINTS - num_priority_joints) if num_priority_joints < NUM_JOINTS else float("inf")
+
     s_clip = VideoFileClip(os.path.join(data_dir, f"{video_name}.mp4"))
     i_clip = VideoFileClip(os.path.join(data_dir, f"{instructor_video_name}.mp4"))
 
-    all_flagged_events = []
-    comparison_clips = []
+    total_errors_running = 0
+    quality_sum_total = 0.0
+    rep_count = 0
+    temp_clip_paths = []
+
+    out_f = open(output_json, "w")
+    out_f.write('{\n  "reps": [\n')
+    first_rep = True
 
     for s_rep in rep_data["student_reps"]:
         rep_idx = s_rep["rep_index"]
@@ -142,9 +152,12 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
 
         persistence_tracker = {j: 0 for j in primary_joints}
         rep_frames_for_viz = []
+        rep_flagged_events = []
+        quality_sum = 0.0
 
         for s_idx, i_idx in clean_path:
             current_frame_errors = []
+            num_flagged_joints_in_frame = 0
             s_frame_obj = s_rep_frames[s_idx]
             i_frame_obj = i_rep_frames[i_idx] 
             
@@ -169,6 +182,7 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
                 diff = abs(s_val - i_val)
 
                 if diff > ANGLE_DEVIATION_THRESHOLD:
+                    num_flagged_joints_in_frame += 1
                     persistence_tracker[joint] += 1
                 else:
                     persistence_tracker[joint] = 0
@@ -188,8 +202,10 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
                         "actual": round(float(s_val), 2),
                         "diff": round(float(diff), 2)
                     }
-                    all_flagged_events.append(error_entry)
+                    rep_flagged_events.append(error_entry)
                     current_frame_errors.append(error_entry)
+
+            quality_sum += (NUM_JOINTS - num_flagged_joints_in_frame) / NUM_JOINTS
 
             # --- VIDEO COMPOSITION ---
             i_ts, s_ts = i_frame_obj["timestampMs"]/1000.0, s_frame_obj["timestampMs"]/1000.0
@@ -204,15 +220,49 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
             s_img = s_img.with_effects([Margin(top=10, bottom=10, left=10, right=10, color=border_color)])
             rep_frames_for_viz.append(clips_array([[i_img, s_img]]))
 
+        num_frames = len(clean_path)
+        quality_modifier = quality_sum / num_frames if num_frames > 0 else 1.0
+
+        rep_result = {
+            "rep_index": rep_idx,
+            "quality_modifier": round(quality_modifier, 4),
+            "flagged_events": rep_flagged_events
+        }
+        total_errors_running += len(rep_flagged_events)
+        quality_sum_total += quality_modifier
+        rep_count += 1
+
+        if not first_rep:
+            out_f.write(',\n')
+        out_f.write('    ' + json.dumps(rep_result))
+        first_rep = False
+
         if rep_frames_for_viz:
-            comparison_clips.append(concatenate_videoclips(rep_frames_for_viz, method="compose"))
+            rep_clip = concatenate_videoclips(rep_frames_for_viz, method="compose")
+            temp_path = os.path.join(data_dir, f"_temp_rep_{rep_idx}.mp4")
+            rep_clip.write_videofile(temp_path, fps=FPS, codec="libx264", logger=None)
+            rep_clip.close()
+            temp_clip_paths.append(temp_path)
+            rep_frames_for_viz = []
 
-    # Final Save
-    if comparison_clips:
-        final_video = concatenate_videoclips(comparison_clips, method="compose")
+    overall_quality = (NUM_JOINTS - total_errors_running) / NUM_JOINTS
+    points = round(rep_count * overall_quality * inverse_priority_joint_ratio * 1000 / 5) * 5
+
+    out_f.write('\n  ],\n')
+    out_f.write(f'  "total_reps": {rep_count},\n')
+    out_f.write(f'  "quality_modifier": {round(overall_quality, 4)},\n')
+    out_f.write(f'  "inverse_priority_joint_ratio": {round(inverse_priority_joint_ratio, 4)},\n')
+    out_f.write(f'  "points": {points}\n')
+    out_f.write('}\n')
+    out_f.close()
+
+    if temp_clip_paths:
+        final_clips = [VideoFileClip(p) for p in temp_clip_paths]
+        final_video = concatenate_videoclips(final_clips, method="compose")
         final_video.write_videofile(output_video, fps=FPS, codec="libx264")
+        for c in final_clips:
+            c.close()
+        for p in temp_clip_paths:
+            os.remove(p)
 
-    with open(output_json, "w") as f:
-        json.dump(all_flagged_events, f, indent=2)
-
-    print(f"Analysis Complete. {len(all_flagged_events)} errors flagged.")
+    print(f"Analysis Complete. {total_errors_running} errors flagged across {rep_count} reps.")
