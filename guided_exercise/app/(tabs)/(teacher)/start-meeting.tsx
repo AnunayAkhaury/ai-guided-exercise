@@ -14,7 +14,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   cacheIvsToken,
-  createIvsSession,
+  createAndStartIvsSession,
   getIvsToken,
   getReusableIvsToken,
   sendIvsTelemetry,
@@ -81,14 +81,11 @@ export default function StartMeeting() {
     try {
       const liveSession = normalizedSessionId
         ? await startIvsSession(normalizedSessionId, effectiveUid)
-        : await (async () => {
-            const createdSession = await createIvsSession({
-              sessionName: trimmedSession,
-              instructorUid: effectiveUid,
-              coachName: trimmedName
-            });
-            return startIvsSession(createdSession.sessionId, effectiveUid);
-          })();
+        : await createAndStartIvsSession({
+            sessionName: trimmedSession,
+            instructorUid: effectiveUid,
+            coachName: trimmedName
+          });
 
       const cached = getReusableIvsToken({
         sessionId: liveSession.sessionId,

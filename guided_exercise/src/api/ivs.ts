@@ -268,6 +268,10 @@ export function createIvsSession(request: CreateSessionRequest): Promise<IvsSess
   return postJson<IvsSession>('/api/ivs/sessions/create', request);
 }
 
+export function createAndStartIvsSession(request: CreateSessionRequest): Promise<IvsSession> {
+  return postJson<IvsSession>('/api/ivs/sessions/create-and-start', request);
+}
+
 export function startIvsSession(sessionId: string, requesterUid?: string): Promise<IvsSession> {
   return postJson<IvsSession>('/api/ivs/sessions/start', { sessionId, requesterUid });
 }

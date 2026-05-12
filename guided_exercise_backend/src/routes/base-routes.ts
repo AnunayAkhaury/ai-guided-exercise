@@ -21,6 +21,7 @@ import {
   upsertRecordingController
 } from '@/controllers/recording-controller.js';
 import {
+  createAndStartSessionController,
   createSessionController,
   endSessionController,
   getSessionByIdController,
@@ -56,6 +57,7 @@ router.get('/api/recordings/:recordingId/playback', getRecordingPlaybackControll
 router.post('/api/ivs/token', createIvsTokenController);
 router.post('/api/ivs/telemetry', addIvsTelemetryController);
 router.post('/api/ivs/sessions/create', createSessionController);
+router.post('/api/ivs/sessions/create-and-start', createAndStartSessionController);
 router.post('/api/ivs/sessions/join', joinSessionByCodeController);
 router.post('/api/ivs/sessions/start', startSessionController);
 router.post('/api/ivs/sessions/end', endSessionController);
