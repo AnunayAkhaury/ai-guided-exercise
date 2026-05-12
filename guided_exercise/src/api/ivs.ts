@@ -50,6 +50,7 @@ export type IvsRecordingStatus = 'queued' | 'processing' | 'completed' | 'failed
 export type IvsRecording = {
   recordingId: string;
   sessionId: string;
+  sessionName?: string | null;
   participantId: string;
   userId: string | null;
   rawS3Prefix: string;

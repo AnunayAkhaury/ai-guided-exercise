@@ -49,6 +49,10 @@ function canPlayRecording(recording: IvsRecording) {
   return recording.status === 'completed' && Boolean(recording.processedVideoUrl);
 }
 
+function getRecordingSessionLabel(recording: IvsRecording) {
+  return recording.sessionName?.trim() || 'Untitled session';
+}
+
 export default function StudentRecordingsScreen() {
   const { showToast } = useToast();
   const { width, height } = useWindowDimensions();
@@ -191,6 +195,9 @@ export default function StudentRecordingsScreen() {
                   </View>
                   <Typography className="text-[#5B5685] mt-2">
                     Duration: {formatDuration(recording.durationMs)}
+                  </Typography>
+                  <Typography className="text-[#5B5685] mt-1" numberOfLines={1}>
+                    Session: {getRecordingSessionLabel(recording)}
                   </Typography>
                   {recording.error ? (
                     <Typography className="text-[#B32646] mt-2">

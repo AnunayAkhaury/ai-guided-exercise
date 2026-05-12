@@ -49,6 +49,10 @@ function canPlayRecording(recording: IvsRecording) {
   return recording.status === 'completed' && Boolean(recording.processedVideoUrl);
 }
 
+function getRecordingSessionLabel(recording: IvsRecording) {
+  return recording.sessionName?.trim() || 'Untitled session';
+}
+
 export default function TeacherRecordingsScreen() {
   const { showToast } = useToast();
   const { width, height } = useWindowDimensions();
@@ -199,11 +203,9 @@ export default function TeacherRecordingsScreen() {
                     Duration: {formatDuration(recording.durationMs)}
                   </Typography>
 
-                  {recording.sessionId ? (
-                    <Typography className="text-[#5B5685] mt-1" numberOfLines={1}>
-                      Session: {recording.sessionId}
-                    </Typography>
-                  ) : null}
+                  <Typography className="text-[#5B5685] mt-1" numberOfLines={1}>
+                    Session: {getRecordingSessionLabel(recording)}
+                  </Typography>
                   {recording.error ? (
                     <Typography className="text-[#B32646] mt-2">
                       {recording.error}

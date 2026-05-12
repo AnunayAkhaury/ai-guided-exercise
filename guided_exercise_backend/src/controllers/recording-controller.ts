@@ -50,6 +50,26 @@ type WorkerCompleteRequest = {
 const DEFAULT_REGION = process.env.AWS_REGION || 'us-west-2';
 const PLAYBACK_URL_TTL_SECONDS = 10 * 60;
 
+type RecordingResponse = RecordingDocument & {
+  sessionName: string | null;
+};
+
+async function withSessionNames(recordings: RecordingDocument[]): Promise<RecordingResponse[]> {
+  const uniqueSessionIds = Array.from(new Set(recordings.map((recording) => recording.sessionId).filter(Boolean)));
+  const entries = await Promise.all(
+    uniqueSessionIds.map(async (sessionId) => {
+      const session = await getSessionById(sessionId);
+      return [sessionId, session?.sessionName ?? null] as const;
+    })
+  );
+  const sessionNameById = Object.fromEntries(entries);
+
+  return recordings.map((recording) => ({
+    ...recording,
+    sessionName: sessionNameById[recording.sessionId] ?? null
+  }));
+}
+
 async function notifyRecordingOwner(recording: RecordingDocument, input: { title: string; body: string; type: string }) {
   if (!recording.userId?.trim()) {
     return;
@@ -273,7 +293,7 @@ export async function listRecordingsBySessionController(req: Request, res: Respo
     }
 
     const recordings = await listRecordingsBySessionId(sessionId);
-    return res.status(200).json(recordings);
+    return res.status(200).json(await withSessionNames(recordings));
   } catch (err: any) {
     logControllerError(req, err, 'listRecordingsBySessionController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to list recordings by session.');
@@ -288,7 +308,7 @@ export async function listRecordingsByUserController(req: Request, res: Response
     }
 
     const recordings = await listRecordingsByUserId(userId);
-    return res.status(200).json(recordings);
+    return res.status(200).json(await withSessionNames(recordings));
   } catch (err: any) {
     logControllerError(req, err, 'listRecordingsByUserController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to list recordings by user.');
