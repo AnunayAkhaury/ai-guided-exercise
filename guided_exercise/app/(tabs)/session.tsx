@@ -62,12 +62,19 @@ export default function SharedSessionScreen() {
   const normalizedParticipantId = Array.isArray(participantId) ? participantId[0] : participantId;
   const [currentParticipantId, setCurrentParticipantId] = useState<string | undefined>(normalizedParticipantId);
   const [isInStage, setIsInStage] = useState(false);
-  const normalizedLocalLabel = useMemo(
-    () => normalizedUserName || (normalizedRole === 'instructor' ? 'Instructor' : 'Student'),
-    [normalizedRole, normalizedUserName]
-  );
-  const classesRoute = normalizedRole === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/(student)/classes';
   const { data: session, loading: sessionLoading, error: sessionError } = useFirestoreSession(normalizedSessionId, Boolean(normalizedSessionId));
+  const sessionRole = useMemo<'student' | 'instructor'>(() => {
+    const effectiveUid = uid?.trim();
+    if (effectiveUid && session?.instructorUid) {
+      return session.instructorUid === effectiveUid ? 'instructor' : 'student';
+    }
+    return normalizedRole;
+  }, [normalizedRole, session?.instructorUid, uid]);
+  const normalizedLocalLabel = useMemo(
+    () => normalizedUserName || (sessionRole === 'instructor' ? 'Instructor' : 'Student'),
+    [sessionRole, normalizedUserName]
+  );
+  const classesRoute = storeRole === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/(student)/classes';
   const { data: participants, error: participantsError } = useFirestoreSessionParticipants(normalizedSessionId, Boolean(normalizedSessionId));
   const participantNameById = useMemo(
     () =>
@@ -135,7 +142,7 @@ export default function SharedSessionScreen() {
     }
     try {
       setEnding(true);
-      await endIvsSession(normalizedSessionId);
+      await endIvsSession(normalizedSessionId, uid?.trim());
       setInCall(false);
       router.replace(classesRoute as any);
     } catch (err: any) {
@@ -148,8 +155,8 @@ export default function SharedSessionScreen() {
   const handleInfoPress = () => {
     Alert.alert(
       'Session Info',
-      `Session: ${normalizedSessionName || 'Live Session'}\n${normalizedRole === 'instructor' ? 'Coach' : 'You'}: ${
-        normalizedUserName || (normalizedRole === 'instructor' ? 'Instructor' : 'Student')
+      `Session: ${normalizedSessionName || 'Live Session'}\n${sessionRole === 'instructor' ? 'Coach' : 'You'}: ${
+        normalizedUserName || (sessionRole === 'instructor' ? 'Instructor' : 'Student')
       }\nCode: ${normalizedSessionCode || 'N/A'}`
     );
   };
@@ -188,7 +195,7 @@ export default function SharedSessionScreen() {
                 sessionId: normalizedSessionId,
                 stageArn: normalizedStageArn,
                 userId: uid?.trim() || undefined,
-                role: normalizedRole,
+                role: sessionRole,
                 participantId: currentParticipantId
               });
             } catch (error) {
@@ -198,7 +205,7 @@ export default function SharedSessionScreen() {
                 sessionId: normalizedSessionId,
                 stageArn: normalizedStageArn,
                 userId: uid?.trim() || undefined,
-                role: normalizedRole,
+                role: sessionRole,
                 participantId: currentParticipantId,
                 details: {
                   message: String((error as any)?.message || 'unknown')
@@ -215,7 +222,7 @@ export default function SharedSessionScreen() {
             sessionId: normalizedSessionId,
             stageArn: normalizedStageArn,
             userId: uid?.trim() || undefined,
-            role: normalizedRole,
+            role: sessionRole,
             participantId: currentParticipantId
           });
         }}
@@ -225,7 +232,7 @@ export default function SharedSessionScreen() {
             sessionId: normalizedSessionId,
             stageArn: normalizedStageArn,
             userId: uid?.trim() || undefined,
-            role: normalizedRole,
+            role: sessionRole,
             participantId: currentParticipantId,
             details: { message }
           });
@@ -246,7 +253,7 @@ export default function SharedSessionScreen() {
               attributes: {
                 displayName: normalizedLocalLabel,
                 userId: effectiveUid,
-                role: normalizedRole,
+                role: sessionRole,
                 sessionId: normalizedSessionId,
                 sessionCode: normalizedSessionCode || ''
               }
@@ -256,7 +263,7 @@ export default function SharedSessionScreen() {
                 stageArn: normalizedStageArn,
                 sessionId: normalizedSessionId,
                 userId: effectiveUid,
-                role: normalizedRole
+                role: sessionRole
               },
               refreshed
             );
@@ -265,7 +272,7 @@ export default function SharedSessionScreen() {
               participantId: refreshed.participantId,
               userId: effectiveUid,
               displayName: normalizedLocalLabel,
-              role: normalizedRole
+              role: sessionRole
             });
             setCurrentParticipantId(refreshed.participantId);
             await sendIvsTelemetry({
@@ -273,7 +280,7 @@ export default function SharedSessionScreen() {
               sessionId: normalizedSessionId,
               stageArn: normalizedStageArn,
               userId: effectiveUid,
-              role: normalizedRole,
+              role: sessionRole,
               participantId: refreshed.participantId
             });
             return refreshed;
@@ -283,7 +290,7 @@ export default function SharedSessionScreen() {
               sessionId: normalizedSessionId,
               stageArn: normalizedStageArn,
               userId: effectiveUid,
-              role: normalizedRole,
+              role: sessionRole,
               participantId: currentParticipantId,
               details: {
                 message: String((error as any)?.message || 'unknown')
@@ -294,13 +301,13 @@ export default function SharedSessionScreen() {
         }}
         onInfoPress={handleInfoPress}
         onInStageChange={setIsInStage}
-        onEndSession={normalizedRole === 'instructor' ? handleEndSession : undefined}
+        onEndSession={sessionRole === 'instructor' ? handleEndSession : undefined}
         endSessionLabel={ending ? 'Ending...' : 'End Session'}
         endSessionDisabled={ending}
         localParticipantLabel={normalizedLocalLabel}
         participantNamesById={participantNameById}
         participantRolesById={participantRoleById}
-        localParticipantRole={normalizedRole}
+        localParticipantRole={sessionRole}
       />
   );
 

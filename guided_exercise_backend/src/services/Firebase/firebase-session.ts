@@ -283,19 +283,27 @@ export async function upsertSessionParticipant(
   sessionId: string,
   participantId: string,
   displayName: string,
-  role?: string,
+  _role?: string,
   userId?: string
 ): Promise<SessionParticipantDocument> {
   const now = new Date();
   const normalizedParticipantId = participantId.trim();
   const normalizedDisplayName = displayName.trim();
   const normalizedUserId = userId?.trim() || null;
+  const sessionRef = db.collection(SESSIONS_COLLECTION).doc(sessionId);
+  const sessionSnapshot = await sessionRef.get();
+  const sessionData = sessionSnapshot.data();
+  const sessionInstructorUid = typeof sessionData?.instructorUid === 'string' ? sessionData.instructorUid.trim() : null;
+  const effectiveRole =
+    normalizedUserId && sessionInstructorUid && normalizedUserId === sessionInstructorUid
+      ? 'instructor'
+      : 'student';
   const participantRef = db
     .collection(SESSIONS_COLLECTION)
     .doc(sessionId)
     .collection(PARTICIPANTS_SUBCOLLECTION)
     .doc(normalizedParticipantId);
-  const participantsCollectionRef = db.collection(SESSIONS_COLLECTION).doc(sessionId).collection(PARTICIPANTS_SUBCOLLECTION);
+  const participantsCollectionRef = sessionRef.collection(PARTICIPANTS_SUBCOLLECTION);
 
   const existing = await participantRef.get();
   const existingData = existing.data();
@@ -331,7 +339,7 @@ export async function upsertSessionParticipant(
       participantId: normalizedParticipantId,
       userId: normalizedUserId,
       displayName: normalizedDisplayName,
-      role: role?.trim() || null,
+      role: effectiveRole,
       active: true,
       joinedAt: existingJoinedAt,
       leftAt: null,
@@ -346,7 +354,7 @@ export async function upsertSessionParticipant(
     participantId: normalizedParticipantId,
     userId: normalizedUserId,
     displayName: normalizedDisplayName,
-    role: role?.trim() || null,
+    role: effectiveRole,
     active: true,
     joinedAt: existingJoinedAt,
     leftAt: null,

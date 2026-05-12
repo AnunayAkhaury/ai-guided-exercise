@@ -31,6 +31,7 @@ type SessionCodeRequest = {
 
 type SessionIdRequest = {
   sessionId?: string;
+  requesterUid?: string;
 };
 
 type UpsertParticipantRequest = {
@@ -230,7 +231,7 @@ export async function listSessionsController(req: Request, res: Response) {
 
 export async function startSessionController(req: Request, res: Response) {
   try {
-    const { sessionId } = req.body as SessionIdRequest;
+    const { sessionId, requesterUid } = req.body as SessionIdRequest;
     if (!sessionId?.trim()) {
       return sendErrorResponse(req, res, 400, 'sessionId is required.');
     }
@@ -238,6 +239,9 @@ export async function startSessionController(req: Request, res: Response) {
     const existing = await getSessionById(sessionId);
     if (!existing) {
       return sendErrorResponse(req, res, 404, 'Session not found.');
+    }
+    if (!requesterUid?.trim() || existing.instructorUid !== requesterUid.trim()) {
+      return sendErrorResponse(req, res, 403, 'Only the session creator can start this class.');
     }
     if (existing.status === 'ended') {
       return sendErrorResponse(req, res, 409, 'Cannot start an ended session.');
@@ -278,7 +282,7 @@ export async function startSessionController(req: Request, res: Response) {
 
 export async function endSessionController(req: Request, res: Response) {
   try {
-    const { sessionId } = req.body as SessionIdRequest;
+    const { sessionId, requesterUid } = req.body as SessionIdRequest;
     if (!sessionId?.trim()) {
       return sendErrorResponse(req, res, 400, 'sessionId is required.');
     }
@@ -286,6 +290,9 @@ export async function endSessionController(req: Request, res: Response) {
     const existing = await getSessionById(sessionId);
     if (!existing) {
       return sendErrorResponse(req, res, 404, 'Session not found.');
+    }
+    if (!requesterUid?.trim() || existing.instructorUid !== requesterUid.trim()) {
+      return sendErrorResponse(req, res, 403, 'Only the session creator can end or cancel this class.');
     }
     if (existing.status === 'live') {
       await disconnectKnownParticipantsForSession(existing);

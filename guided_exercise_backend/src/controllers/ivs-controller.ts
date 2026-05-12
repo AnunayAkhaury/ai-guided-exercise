@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { CreateParticipantTokenCommand, IVSRealTimeClient } from '@aws-sdk/client-ivs-realtime';
+import { getSessionById } from '@/services/Firebase/firebase-session.js';
 import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
 type IvsTokenRequest = {
@@ -16,6 +17,28 @@ type IvsTokenRequest = {
 const DEFAULT_REGION = process.env.AWS_REGION || 'us-west-2';
 const USER_NAME_MAX = 128;
 const MAX_DURATION_MINUTES = 720; // 12 hours
+
+async function resolveSessionScopedAttributes(input: {
+  attributes?: Record<string, string>;
+  userId?: string;
+}): Promise<Record<string, string>> {
+  const attributes = { ...(input.attributes ?? {}) };
+  const sessionId = attributes.sessionId?.trim();
+  const userId = input.userId?.trim() || attributes.userId?.trim();
+
+  if (!sessionId || !userId) {
+    return attributes;
+  }
+
+  const session = await getSessionById(sessionId);
+  if (!session) {
+    return attributes;
+  }
+
+  attributes.role = session.instructorUid === userId ? 'instructor' : 'student';
+  attributes.userId = userId;
+  return attributes;
+}
 
 export async function createIvsTokenController(req: Request, res: Response) {
   try {
@@ -76,8 +99,12 @@ export async function createIvsTokenController(req: Request, res: Response) {
 
     const client = new IVSRealTimeClient({ region: DEFAULT_REGION });
     const effectiveUserId = userId ?? userName ?? `user-${Date.now()}`;
+    const sessionScopedAttributes = await resolveSessionScopedAttributes({
+      ...(attributes ? { attributes } : {}),
+      userId: effectiveUserId
+    });
     const mergedAttributes = {
-      ...(attributes ?? {}),
+      ...sessionScopedAttributes,
       ...(userName ? { username: userName } : {})
     };
 

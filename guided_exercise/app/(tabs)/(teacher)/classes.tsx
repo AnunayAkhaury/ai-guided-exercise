@@ -31,6 +31,11 @@ function canStartSession(session: IvsSession) {
   return Date.now() >= earliestStart;
 }
 
+function getSessionRole(session: IvsSession, uid?: string | null): 'student' | 'instructor' {
+  const effectiveUid = uid?.trim();
+  return effectiveUid && session.instructorUid === effectiveUid ? 'instructor' : 'student';
+}
+
 export default function ClassesScreen() {
   const router = useRouter();
   const { showToast } = useToast();
@@ -80,7 +85,7 @@ export default function ClassesScreen() {
   const handleCancelScheduled = async (sessionId: string) => {
     try {
       setCancelingSessionId(sessionId);
-      await endIvsSession(sessionId);
+      await endIvsSession(sessionId, uid?.trim());
     } catch (error: any) {
       showToast({ title: 'Cancel failed', message: error?.message || 'Unable to cancel this session.', variant: 'error' });
     } finally {
@@ -91,6 +96,7 @@ export default function ClassesScreen() {
   const handleOpenLiveSession = async (session: IvsSession) => {
     const effectiveUid = uid?.trim();
     const displayName = fullname?.trim() || username?.trim() || 'Instructor';
+    const sessionRole = getSessionRole(session, effectiveUid);
 
     if (!effectiveUid) {
       showToast({ title: 'Missing profile', message: 'Missing profile uid. Please log out and log in again.', variant: 'error' });
@@ -104,7 +110,7 @@ export default function ClassesScreen() {
         sessionId: session.sessionId,
         stageArn: session.stageArn,
         userId: effectiveUid,
-        role: 'instructor'
+        role: sessionRole
       });
 
       if (cached) {
@@ -113,7 +119,7 @@ export default function ClassesScreen() {
           sessionId: session.sessionId,
           stageArn: session.stageArn,
           userId: effectiveUid,
-          role: 'instructor',
+          role: sessionRole,
           participantId: cached.participantId
         });
       }
@@ -130,7 +136,7 @@ export default function ClassesScreen() {
           attributes: {
             displayName,
             userId: effectiveUid,
-            role: 'instructor',
+            role: sessionRole,
             sessionId: session.sessionId,
             sessionCode: session.sessionCode
           }
@@ -141,7 +147,7 @@ export default function ClassesScreen() {
           sessionId: session.sessionId,
           stageArn: session.stageArn,
           userId: effectiveUid,
-          role: 'instructor'
+          role: sessionRole
         },
         tokenResult
       );
@@ -151,7 +157,7 @@ export default function ClassesScreen() {
         participantId: tokenResult.participantId,
         userId: effectiveUid,
         displayName,
-        role: 'instructor'
+        role: sessionRole
       });
 
       router.push({
@@ -163,7 +169,7 @@ export default function ClassesScreen() {
           sessionId: session.sessionId,
           stageArn: session.stageArn,
           participantId: tokenResult.participantId,
-          role: 'instructor',
+          role: sessionRole,
           token: tokenResult.token
         }
       });
@@ -226,6 +232,7 @@ export default function ClassesScreen() {
               {topSessions.map((item) => {
             const { start, end } = toSessionWindow(item);
             const isLive = item.status === 'live';
+            const isOwner = getSessionRole(item, uid) === 'instructor';
             return (
               <TeacherActiveClassCard
                 key={item.sessionId}
@@ -235,13 +242,16 @@ export default function ClassesScreen() {
                 desc={`${isLive ? 'Live' : 'Ready'} • Code: ${item.sessionCode}`}
                 active={isLive}
                 subtitle={`Coach: ${item.coachName || item.instructorUid}`}
-                startLabel={isLive ? (joiningSessionId === item.sessionId ? 'Joining...' : 'Open Live') : 'Start Meeting'}
+                startLabel={isLive ? (joiningSessionId === item.sessionId ? 'Joining...' : isOwner ? 'Open Live' : 'Join Class') : isOwner ? 'Start Meeting' : 'Waiting for coach'}
                 cancelLabel={cancelingSessionId === item.sessionId ? 'Canceling...' : 'Cancel'}
-                startDisabled={Boolean(cancelingSessionId) || Boolean(joiningSessionId)}
-                cancelDisabled={Boolean(cancelingSessionId) || Boolean(joiningSessionId)}
+                startDisabled={Boolean(cancelingSessionId) || Boolean(joiningSessionId) || (!isLive && !isOwner)}
+                cancelDisabled={Boolean(cancelingSessionId) || Boolean(joiningSessionId) || !isOwner}
                 onStartPress={() => {
                   if (isLive) {
                     void handleOpenLiveSession(item);
+                    return;
+                  }
+                  if (!isOwner) {
                     return;
                   }
                   router.push({
@@ -253,7 +263,7 @@ export default function ClassesScreen() {
                     }
                   });
                 }}
-                onCancelPress={() => handleCancelScheduled(item.sessionId)}
+                onCancelPress={isOwner ? () => handleCancelScheduled(item.sessionId) : undefined}
               />
             );
               })}
@@ -275,6 +285,7 @@ export default function ClassesScreen() {
             <View style={styles.cardGrid}>
               {upcomingScheduledSessions.map((item) => {
             const { start, end } = toSessionWindow(item);
+            const isOwner = getSessionRole(item, uid) === 'instructor';
             return (
               <TeacherActiveClassCard
                 key={`scheduled-${item.sessionId}`}
@@ -287,8 +298,8 @@ export default function ClassesScreen() {
                 startLabel="Available 5 min before"
                 cancelLabel={cancelingSessionId === item.sessionId ? 'Canceling...' : 'Cancel'}
                 startDisabled
-                cancelDisabled={Boolean(cancelingSessionId) || Boolean(joiningSessionId)}
-                onCancelPress={() => handleCancelScheduled(item.sessionId)}
+                cancelDisabled={Boolean(cancelingSessionId) || Boolean(joiningSessionId) || !isOwner}
+                onCancelPress={isOwner ? () => handleCancelScheduled(item.sessionId) : undefined}
               />
             );
               })}

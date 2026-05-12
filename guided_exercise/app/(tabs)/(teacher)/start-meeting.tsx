@@ -80,14 +80,14 @@ export default function StartMeeting() {
     setLoading(true);
     try {
       const liveSession = normalizedSessionId
-        ? await startIvsSession(normalizedSessionId)
+        ? await startIvsSession(normalizedSessionId, effectiveUid)
         : await (async () => {
             const createdSession = await createIvsSession({
               sessionName: trimmedSession,
               instructorUid: effectiveUid,
               coachName: trimmedName
             });
-            return startIvsSession(createdSession.sessionId);
+            return startIvsSession(createdSession.sessionId, effectiveUid);
           })();
 
       const cached = getReusableIvsToken({

@@ -267,12 +267,12 @@ export function createIvsSession(request: CreateSessionRequest): Promise<IvsSess
   return postJson<IvsSession>('/api/ivs/sessions/create', request);
 }
 
-export function startIvsSession(sessionId: string): Promise<IvsSession> {
-  return postJson<IvsSession>('/api/ivs/sessions/start', { sessionId });
+export function startIvsSession(sessionId: string, requesterUid?: string): Promise<IvsSession> {
+  return postJson<IvsSession>('/api/ivs/sessions/start', { sessionId, requesterUid });
 }
 
-export function endIvsSession(sessionId: string): Promise<IvsSession> {
-  return postJson<IvsSession>('/api/ivs/sessions/end', { sessionId });
+export function endIvsSession(sessionId: string, requesterUid?: string): Promise<IvsSession> {
+  return postJson<IvsSession>('/api/ivs/sessions/end', { sessionId, requesterUid });
 }
 
 export function joinIvsSessionByCode(sessionCode: string): Promise<IvsSession> {
