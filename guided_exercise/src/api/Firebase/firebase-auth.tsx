@@ -1,7 +1,7 @@
 import { useUserStore } from '@/src/store/userStore';
 import { auth } from './firebase-config';
 
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import type { UserCredential } from 'firebase/auth';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -143,6 +143,15 @@ export async function login(email: string, password: string) {
   } catch (err) {
     console.log(err);
     throw new Error(getErrorMessage(err, 'Failed to login.'));
+  }
+}
+
+export async function sendPasswordReset(email: string) {
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (err) {
+    console.log(err);
+    throw new Error(getErrorMessage(err, 'Failed to send password reset email.'));
   }
 }
 
