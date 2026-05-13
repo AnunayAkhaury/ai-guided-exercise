@@ -1,11 +1,9 @@
 import json
 import os
 import numpy as np
-from scipy.signal import savgol_filter
+from scipy.signal import savgol_filter, find_peaks
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
-
-# Modern MoviePy 2.0+ Imports
 from moviepy import VideoFileClip, clips_array, concatenate_videoclips
 from moviepy.video.fx.Margin import Margin
 
@@ -14,15 +12,40 @@ ANGLE_DEVIATION_THRESHOLD = 20.0
 SAVGOL_WINDOW = 21
 SAVGOL_POLY = 2
 FPS = 30
-PERSISTENCE_THRESHOLD_FRAMES = 30
-DTW_RADIUS = 30         # Max frames to drift from the diagonal
-DROPOUT_THRESHOLD = 0.5 # Exclude joint from alignment if >50% of rep is NaN/unusable
-NUM_JOINTS = 16
+PERSISTENCE_THRESHOLD_FRAMES = 12
+DTW_RADIUS = 30
+
+JOINT_TO_EXTREMITY = {
+    "left_elbow": "left_wrist",
+    "right_elbow": "right_wrist",
+    "left_shoulder": "left_shoulder",
+    "right_shoulder": "right_shoulder",
+    "left_knee": "left_ankle",
+    "right_knee": "right_ankle",
+    "left_hip": "left_hip",
+    "right_hip": "right_hip",
+}
+
+def _parse_pose_landmarks(frame_obj):
+    """
+    FORMATTING LOGIC:
+    Converts the nested JSON structure:
+    {"poses": [{"worldLandmarks": [{"name": "left_shoulder", "y": -0.13}, ...]}]}
+    Into a flat dictionary:
+    {"left_shoulder": [x, y, z], ...}
+    """
+    lm_dict = {}
+    # Access the 'poses' list
+    poses = frame_obj.get("poses", [])
+    if poses:
+        # Access the first pose's 'worldLandmarks'
+        landmarks = poses[0].get("worldLandmarks", [])
+        for lm in landmarks:
+            # Store coordinates by landmark name
+            lm_dict[lm["name"]] = [lm.get("x", 0), lm.get("y", 0), lm.get("z", 0)]
+    return lm_dict
 
 def _get_clean_series(frames: list[dict], joint: str, is_student: bool = True) -> np.ndarray:
-    """
-    Cleans data for DTW. If student, drops points based on usableDict.
-    """
     raw_values = []
     for f in frames:
         val = f.get("angles", {}).get(joint)
@@ -44,225 +67,232 @@ def _get_clean_series(frames: list[dict], joint: str, is_student: bool = True) -
     if len(series) >= SAVGOL_WINDOW:
         series = savgol_filter(series, window_length=SAVGOL_WINDOW, polyorder=SAVGOL_POLY)
     
-    return np.nan_to_num(series, nan=0.0, posinf=0.0, neginf=0.0)
+    return np.nan_to_num(series, nan=0.0)
 
-def extract_instructor_apex_indices(series: np.ndarray):
+def extract_instructor_apex_indices(series: np.ndarray, min_phase_length=12):
     """
-    Finds velocity zero-crossings to define phases and apex points.
+    Identifies the 'Deepest' and 'Highest' points of a movement.
+    For a pushup elbow, the 'Deepest' point is the apex at the bottom.
     """
-    velocity = np.gradient(series)
-    if len(velocity) > 15:
-        velocity = savgol_filter(velocity, 11, 2)
+    # 1. Light smoothing to keep the peaks sharp but remove sensor flicker
+    smoothed = savgol_filter(series, 7, 2)
     
-    apexes = [0, len(series) - 1]
-    for i in range(1, len(velocity)):
-        if np.sign(velocity[i]) != np.sign(velocity[i-1]) and velocity[i-1] != 0:
-            apexes.append(i)
-    return sorted(list(set(apexes)))
+    # 2. Find Peaks (Top of the pushup)
+    # distance = min frames between peaks
+    # prominence = how much the peak must 'stand out' from its surroundings
+    peaks, _ = find_peaks(smoothed, distance=min_phase_length, prominence=10)
+    
+    # 3. Find Valleys (Bottom of the pushup)
+    # We invert the signal to find the 'bottoms' as if they were peaks
+    valleys, _ = find_peaks(-smoothed, distance=min_phase_length, prominence=10)
+    
+    # 4. Combine and add start/end boundaries
+    apexes = sorted(list(set([0, len(series)-1] + list(peaks) + list(valleys))))
+    
+    return apexes
+
+def get_consensus_apexes(all_joint_series, min_phase_length=12):
+    """
+    all_joint_series: List of np.ndarrays (one for each primary joint)
+    """
+    raw_candidates = []
+    
+    # 1. Collect apexes from every joint
+    for series in all_joint_series:
+        joint_apexes = extract_instructor_apex_indices(series, min_phase_length)
+        raw_candidates.extend(joint_apexes)
+    
+    raw_candidates = sorted(list(set(raw_candidates)))
+    if not raw_candidates:
+        return [0]
+
+    # 2. Cluster apexes that are close together (e.g., within 5 frames)
+    # We want to find groups of frames that represent the same 'event'
+    consensus = []
+    if raw_candidates:
+        current_cluster = [raw_candidates[0]]
+        
+        for i in range(1, len(raw_candidates)):
+            # If the next candidate is within 5 frames, add to cluster
+            if raw_candidates[i] - current_cluster[-1] < 5:
+                current_cluster.append(raw_candidates[i])
+            else:
+                # Close the cluster and take the average (the consensus frame)
+                consensus.append(int(np.mean(current_cluster)))
+                current_cluster = [raw_candidates[i]]
+        
+        consensus.append(int(np.mean(current_cluster)))
+
+    # 3. Final cleanup: Ensure start and end are included
+    # (extract_instructor_apex_indices already adds 0 and len-1)
+    return sorted(list(set(consensus)))
 
 def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
-    # Path Setup
-    s_angles_path = os.path.join(data_dir, f"{video_name}-angles.json")
-    rep_info_path = os.path.join(data_dir, f"{video_name}-rep-boundaries.json")
-    i_angles_path = os.path.join(data_dir, f"{instructor_video_name}-angles.json")
-    imp_joints_path = os.path.join(data_dir, f"{instructor_video_name}-imp-joints.json")
+    # 1. LOAD ALL JSON FILES
+    with open(os.path.join(data_dir, f"{video_name}-angles.json"), "r") as f: 
+        s_angle_data = json.load(f)["frames"]
+    with open(os.path.join(data_dir, f"{video_name}-rep-boundaries.json"), "r") as f: 
+        rep_data = json.load(f)
     
-    output_json = os.path.join(data_dir, f"{video_name}-bad-reps.json")
-    output_video = os.path.join(data_dir, f"{video_name}-comparison.mp4")
-
-    # Load All Data
-    with open(s_angles_path, "r") as f: s_all_frames = json.load(f)["frames"]
-    with open(rep_info_path, "r") as f: rep_data = json.load(f)
-    with open(i_angles_path, "r") as f: i_all_frames = json.load(f)["frames"]
-    with open(imp_joints_path, "r") as f: primary_joints = json.load(f)["primary_joints"]
-
-    num_priority_joints = len(primary_joints)
-    inverse_priority_joint_ratio = NUM_JOINTS / (NUM_JOINTS - num_priority_joints) if num_priority_joints < NUM_JOINTS else float("inf")
+    with open(os.path.join(data_dir, f"{instructor_video_name}-angles.json"), "r") as f: 
+        i_angle_data = json.load(f)["frames"]
+    with open(os.path.join(data_dir, f"{instructor_video_name}-pose.json"), "r") as f: 
+        i_pose_data = json.load(f)["frames"]
+    with open(os.path.join(data_dir, f"{instructor_video_name}-imp-joints.json"), "r") as f: 
+        primary_joints = json.load(f)["primary_joints"]
 
     s_clip = VideoFileClip(os.path.join(data_dir, f"{video_name}.mp4"))
     i_clip = VideoFileClip(os.path.join(data_dir, f"{instructor_video_name}.mp4"))
 
-    total_errors_running = 0
-    quality_sum_total = 0.0
-    rep_count = 0
-    temp_clip_paths = []
 
+    output_json = os.path.join(data_dir, f"{video_name}-bad-reps.json")
     out_f = open(output_json, "w")
     out_f.write('{\n  "reps": [\n')
+    
+    all_rep_clips = []
     first_rep = True
 
+    # 3. LOOP THROUGH REPS
     for s_rep in rep_data["student_reps"]:
         rep_idx = s_rep["rep_index"]
         s_bound = s_rep["student_boundary"]
         i_tmpl = s_rep["instructor_template"]
         
-        s_rep_frames = [f for f in s_all_frames if s_bound["start_frame"] <= f["frameIndex"] <= s_bound["end_frame"]]
-        i_rep_frames = [f for f in i_all_frames if i_tmpl["start_frame"] <= f["frameIndex"] <= i_tmpl["end_frame"]]
+        # SLICE DATA
+        s_frames = [f for f in s_angle_data if s_bound["start_frame"] <= f["frameIndex"] <= s_bound["end_frame"]]
+        i_a_frames = [f for f in i_angle_data if i_tmpl["start_frame"] <= f["frameIndex"] <= i_tmpl["end_frame"]]
+        i_p_frames = [f for f in i_pose_data if i_tmpl["start_frame"] <= f["frameIndex"] <= i_tmpl["end_frame"]]
         
-        if not s_rep_frames or not i_rep_frames:
-            continue
+        if not s_frames or not i_a_frames: continue
 
-        # --- DYNAMIC FEATURE SELECTION FOR DTW ---
-        s_feature_stack = []
-        i_feature_stack = []
+        # DTW PREP
+        s_feats = [ _get_clean_series(s_frames, j) for j in primary_joints ]
+        i_feats = [ _get_clean_series(i_a_frames, j, is_student=False) for j in primary_joints ]
+
+        # Pass all processed primary joint series into the consensus function
+        apex_i_indices = get_consensus_apexes(i_feats, min_phase_length=12)
+
+        # Print the timestamps for all detected apexes first
+        print("--- Instructor Movement Apexes ---")
+        for idx, frame_idx in enumerate(apex_i_indices):
+            # Get the timestamp from the instructor angle data
+            # Use min() to ensure we don't out-of-bounds if apex is the last frame
+            safe_idx = min(frame_idx, len(i_a_frames) - 1)
+            ts_ms = i_a_frames[safe_idx].get("timestampMs", 0)
+            print(f"Apex {idx}: Frame {frame_idx} | Timestamp: {ts_ms/1000.0:.3f}s")
+        print("----------------------------------\n")
         
-        # We store all joints for error checking later, but only "good" ones for DTW sync
-        current_rep_s_data = {}
-        current_rep_i_data = {}
-
-        for joint in primary_joints:
-            # Check dropout rate using usableDict
-            usable_flags = [f.get("usableDict", {}).get(joint, False) for f in s_rep_frames]
-            dropout_rate = 1.0 - (sum(usable_flags) / len(usable_flags))
+        # Determine the pillar / load-bearing joints in each phase of the rep
+        phase_pillars = {}
+        for p_idx in range(len(apex_i_indices) - 1):
+            # Use +1 to include the last frame of the phase
+            start_i, end_i = apex_i_indices[p_idx], apex_i_indices[p_idx+1]
+            p_angle_slice = i_a_frames[start_i : end_i + 1]
+            p_pose_slice = i_p_frames[start_i : end_i + 1]
             
-            s_series = _get_clean_series(s_rep_frames, joint, is_student=True)
-            i_series = _get_clean_series(i_rep_frames, joint, is_student=False)
+            print(f"Phase {p_idx} | Frames: {len(p_pose_slice)}")
+
+            # In worldLandmarks, 0 is defined by the center of the hip and Y is positive for values going downward.
+            # WorldLandmarkers attempt to identify the height in meters of the landmarker away from the hip center.
+            # Joints on the floor are at the same height away from the hip center and this value would be the max Y
+            # of the pose.
+            all_i_y = [lm[1] for pf in p_pose_slice for lm in _parse_pose_landmarks(pf).values() if lm[1] > 0]
+            FLOOR_THRESHOLD = np.percentile(all_i_y, 85) if all_i_y else 0.5
+            GROUND_BUFFER = 0.1 # In case Mediapipe is noisy
             
-            current_rep_s_data[joint] = s_series
-            current_rep_i_data[joint] = i_series
+            pillars = []
+            for j_name in i_a_frames[0]["angles"].keys():
+                # 1. CALCULATE ROM (Stillness)
+                # ptp (peak-to-peak) gives the max difference in angles during this phase
+                phase_angles = [f["angles"].get(j_name, 0) for f in p_angle_slice]
+                rom = np.ptp(phase_angles) if phase_angles else 999
+                
+                # 2. CHECK GROUNDING (Proximity)
+                ext_name = JOINT_TO_EXTREMITY.get(j_name)
+                is_grnd = False
+                
+                if ext_name:
+                    y_vals = []
+                    for pf in p_pose_slice:
+                        frame_lms = _parse_pose_landmarks(pf)
+                        if ext_name in frame_lms:
+                            y_vals.append(frame_lms[ext_name][1])
+                    
+                    # Proximity check against your filtered FLOOR_THRESHOLD
+                    if y_vals and any(y > (FLOOR_THRESHOLD - GROUND_BUFFER) for y in y_vals):
+                        is_grnd = True
+                
+                # 3. COMBINE: Must be grounded AND static to be a Pillar
+                # 15 degrees is a good standard for 'static' in noisy pose data
+                if is_grnd:
+                    pillars.append(j_name)
+                    print(f"  [PILLAR FOUND] {j_name} | ROM: {rom:.2f} | Grounded: {is_grnd}")
+                else:
+                    # Useful for debugging why a grounded joint isn't a pillar
+                    print(f"  [SKIPPED] {j_name} not grounded. ROM: {rom:.2f}")
 
-            # Only include in DTW matrix if data is reliable for this rep
-            if dropout_rate < DROPOUT_THRESHOLD:
-                s_feature_stack.append(s_series)
-                i_feature_stack.append(i_series)
-            else:
-                print(f"Rep {rep_idx}: Joint '{joint}' excluded from alignment (Dropout: {dropout_rate:.2%})")
+            # Store the identified pillars for this phase
+            phase_pillars[p_idx + 1] = sorted(pillars) if sorted(pillars) != ['left_knee', 'right_knee'] else []
 
-        # Fallback: if all joints are bad, use the first one to avoid empty stack
-        if not s_feature_stack:
-            s_feature_stack = [current_rep_s_data[primary_joints[0]]]
-            i_feature_stack = [current_rep_i_data[primary_joints[0]]]
+        print("\nFinal Detected Phase Pillars:", phase_pillars)
 
-        s_features = np.column_stack(s_feature_stack)
-        i_features = np.column_stack(i_feature_stack)
-
-        # Extract apexes based on the first instructor series provided
-        apex_i_indices = extract_instructor_apex_indices(i_feature_stack[0])
-
-        # --- MULTIVARIATE DTW ---
-        _, raw_path = fastdtw(s_features, i_features, radius=DTW_RADIUS, dist=euclidean)
+        # DTW ALIGNMENT
+        _, raw_path = fastdtw(np.column_stack(s_feats), np.column_stack(i_feats), radius=DTW_RADIUS, dist=euclidean)
         
-        # Enforce monotonicity
-        clean_path = []
-        highest_s, highest_i = -1, -1
+        rep_events, viz_frames, persistence = [], [], {}
+
         for s_idx, i_idx in raw_path:
-            if s_idx > highest_s and i_idx > highest_i:
-                clean_path.append((s_idx, i_idx))
-                highest_s, highest_i = s_idx, i_idx
-
-        persistence_tracker = {j: 0 for j in primary_joints}
-        rep_frames_for_viz = []
-        rep_flagged_events = []
-        quality_sum = 0.0
-
-        for s_idx, i_idx in clean_path:
-            current_frame_errors = []
-            num_flagged_joints_in_frame = 0
-            s_frame_obj = s_rep_frames[s_idx]
-            i_frame_obj = i_rep_frames[i_idx] 
+            sf, ifr_a = s_frames[s_idx], i_a_frames[i_idx]
             
-            s_usable_dict = s_frame_obj.get("usableDict", {})
-            is_apex_frame = (i_idx in apex_i_indices)
-
-            # Phase Calculation
-            current_phase = 0
+            # Determine current phase
+            curr_phase = 1
             for p_idx in range(len(apex_i_indices) - 1):
                 if apex_i_indices[p_idx] <= i_idx <= apex_i_indices[p_idx+1]:
-                    current_phase = p_idx + 1
-                    break
-
-            for joint in primary_joints:
-                # Rule: Skip error flagging if student joint is not visible/usable in THIS frame
-                if not s_usable_dict.get(joint, False):
-                    persistence_tracker[joint] = 0
-                    continue
-
-                s_val = current_rep_s_data[joint][s_idx]
-                i_val = current_rep_i_data[joint][i_idx]
-                diff = abs(s_val - i_val)
-
-                if diff > ANGLE_DEVIATION_THRESHOLD:
-                    num_flagged_joints_in_frame += 1
-                    persistence_tracker[joint] += 1
-                else:
-                    persistence_tracker[joint] = 0
-
-                should_flag = (is_apex_frame and diff > ANGLE_DEVIATION_THRESHOLD) or \
-                             (persistence_tracker[joint] >= PERSISTENCE_THRESHOLD_FRAMES)
-
-                if should_flag:
-                    error_entry = {
-                        "frameIndex": s_frame_obj["frameIndex"],
-                        "timestampMs": s_frame_obj["timestampMs"],
-                        "rep_index": rep_idx,
-                        "phase_num": current_phase,
-                        "joint": joint,
-                        "is_apex": is_apex_frame,
-                        "expected": round(float(i_val), 2),
-                        "actual": round(float(s_val), 2),
-                        "diff": round(float(diff), 2)
-                    }
-                    rep_flagged_events.append(error_entry)
-                    current_frame_errors.append(error_entry)
-
-            quality_sum += (NUM_JOINTS - num_flagged_joints_in_frame) / NUM_JOINTS
-
-            # --- VIDEO COMPOSITION ---
-            i_ts, s_ts = i_frame_obj["timestampMs"]/1000.0, s_frame_obj["timestampMs"]/1000.0
+                    curr_phase = p_idx + 1; break
             
-            i_img = i_clip.to_ImageClip(t=i_ts).with_duration(1/FPS).resized(width=640)
-            s_img = s_clip.to_ImageClip(t=s_ts).with_duration(1/FPS).resized(width=640)
+            active_pils = phase_pillars.get(curr_phase, [])
 
-            border_color = (0, 0, 0)
-            if is_apex_frame: border_color = (0, 0, 255) # Blue for Apex
-            elif current_frame_errors: border_color = (255, 0, 0) # Red for Error
+            # Check Form
+            for joint, s_val in sf["angles"].items():
+                if not sf["usableDict"].get(joint, False): continue
+                i_val = ifr_a["angles"].get(joint, s_val)
+                diff = abs(s_val - i_val)
+                
+                is_prio = joint in primary_joints
+                is_pil = joint in active_pils
 
-            s_img = s_img.with_effects([Margin(top=10, bottom=10, left=10, right=10, color=border_color)])
-            rep_frames_for_viz.append(clips_array([[i_img, s_img]]))
+                if (is_prio or is_pil) and diff > ANGLE_DEVIATION_THRESHOLD:
+                    persistence[joint] = persistence.get(joint, 0) + 1
+                    if (i_idx in apex_i_indices) or (persistence[joint] >= PERSISTENCE_THRESHOLD_FRAMES):
+                        rep_events.append({
+                            "frameIndex": sf["frameIndex"], "joint": joint, "phase": curr_phase,
+                            "issue": "stability" if is_pil else "execution",
+                            "actual": round(s_val, 2), "expected": round(i_val, 2)
+                        })
+                        persistence[joint] = 0
+                else: persistence[joint] = 0
 
-        num_frames = len(clean_path)
-        quality_modifier = quality_sum / num_frames if num_frames > 0 else 1.0
+            # Visuals
+            i_img = i_clip.to_ImageClip(t=ifr_a["timestampMs"]/1000.0).with_duration(1/FPS).resized(width=640)
+            s_img = s_clip.to_ImageClip(t=sf["timestampMs"]/1000.0).with_duration(1/FPS).resized(width=640)
+            err = any(e["frameIndex"] == sf["frameIndex"] for e in rep_events)
+            s_img = s_img.with_effects([Margin(top=10, bottom=10, left=10, right=10, color=(255,0,0) if err else (0,0,0))])
+            viz_frames.append(clips_array([[i_img, s_img]]))
 
-        rep_result = {
-            "rep_index": rep_idx,
-            "quality_modifier": round(quality_modifier, 4),
-            "flagged_events": rep_flagged_events
-        }
-        total_errors_running += len(rep_flagged_events)
-        quality_sum_total += quality_modifier
-        rep_count += 1
-
-        if not first_rep:
-            out_f.write(',\n')
-        out_f.write('    ' + json.dumps(rep_result))
+        # JSON Rep Logging
+        if not first_rep: out_f.write(',\n')
+        out_f.write('    ' + json.dumps({"rep_index": rep_idx, "events": rep_events}))
         first_rep = False
+        if viz_frames: 
+            all_rep_clips.append(concatenate_videoclips(viz_frames, method="compose"))
 
-        if rep_frames_for_viz:
-            rep_clip = concatenate_videoclips(rep_frames_for_viz, method="compose")
-            temp_path = os.path.join(data_dir, f"_temp_rep_{rep_idx}.mp4")
-            rep_clip.write_videofile(temp_path, fps=FPS, codec="libx264", logger=None)
-            rep_clip.close()
-            temp_clip_paths.append(temp_path)
-            rep_frames_for_viz = []
-
-    overall_quality = (NUM_JOINTS - total_errors_running) / NUM_JOINTS
-    points = round(rep_count * overall_quality * inverse_priority_joint_ratio * 1000 / 5) * 5
-
-    out_f.write('\n  ],\n')
-    out_f.write(f'  "total_reps": {rep_count},\n')
-    out_f.write(f'  "quality_modifier": {round(overall_quality, 4)},\n')
-    out_f.write(f'  "inverse_priority_joint_ratio": {round(inverse_priority_joint_ratio, 4)},\n')
-    out_f.write(f'  "points": {points}\n')
-    out_f.write('}\n')
+    out_f.write('\n  ]\n}')
     out_f.close()
-
-    if temp_clip_paths:
-        final_clips = [VideoFileClip(p) for p in temp_clip_paths]
-        final_video = concatenate_videoclips(final_clips, method="compose")
-        final_video.write_videofile(output_video, fps=FPS, codec="libx264")
-        for c in final_clips:
-            c.close()
-        for p in temp_clip_paths:
-            os.remove(p)
-
-    print(f"Analysis Complete. {total_errors_running} errors flagged across {rep_count} reps.")
+    
+    # FINAL RENDER
+    if all_rep_clips:
+        final = concatenate_videoclips(all_rep_clips, method="compose")
+        final.write_videofile(os.path.join(data_dir, f"{video_name}-comparison.mp4"), fps=FPS, codec="libx264")
+        final.close()
+        for c in all_rep_clips: c.close()
+    s_clip.close(); i_clip.close()
