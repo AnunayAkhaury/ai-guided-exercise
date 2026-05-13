@@ -14,6 +14,7 @@ SAVGOL_POLY = 2
 FPS = 30
 PERSISTENCE_THRESHOLD_FRAMES = 12
 DTW_RADIUS = 30
+NUM_JOINTS = 16
 
 JOINT_TO_EXTREMITY = {
     "left_elbow": "left_wrist",
@@ -133,7 +134,6 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
         s_angle_data = json.load(f)["frames"]
     with open(os.path.join(data_dir, f"{video_name}-rep-boundaries.json"), "r") as f: 
         rep_data = json.load(f)
-    
     with open(os.path.join(data_dir, f"{instructor_video_name}-angles.json"), "r") as f: 
         i_angle_data = json.load(f)["frames"]
     with open(os.path.join(data_dir, f"{instructor_video_name}-pose.json"), "r") as f: 
@@ -141,9 +141,14 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
     with open(os.path.join(data_dir, f"{instructor_video_name}-imp-joints.json"), "r") as f: 
         primary_joints = json.load(f)["primary_joints"]
 
+    # Points Calculation Setup
+    num_priority_joints = len(primary_joints)
+    inverse_priority_joint_ratio = NUM_JOINTS / (NUM_JOINTS - num_priority_joints) if num_priority_joints < NUM_JOINTS else 1.0
+    total_errors_running = 0
+    rep_count = 0
+
     s_clip = VideoFileClip(os.path.join(data_dir, f"{video_name}.mp4"))
     i_clip = VideoFileClip(os.path.join(data_dir, f"{instructor_video_name}.mp4"))
-
 
     output_json = os.path.join(data_dir, f"{video_name}-bad-reps.json")
     out_f = open(output_json, "w")
@@ -152,36 +157,21 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
     all_rep_clips = []
     first_rep = True
 
-    # 3. LOOP THROUGH REPS
     for s_rep in rep_data["student_reps"]:
         rep_idx = s_rep["rep_index"]
         s_bound = s_rep["student_boundary"]
         i_tmpl = s_rep["instructor_template"]
         
-        # SLICE DATA
         s_frames = [f for f in s_angle_data if s_bound["start_frame"] <= f["frameIndex"] <= s_bound["end_frame"]]
         i_a_frames = [f for f in i_angle_data if i_tmpl["start_frame"] <= f["frameIndex"] <= i_tmpl["end_frame"]]
         i_p_frames = [f for f in i_pose_data if i_tmpl["start_frame"] <= f["frameIndex"] <= i_tmpl["end_frame"]]
         
         if not s_frames or not i_a_frames: continue
 
-        # DTW PREP
         s_feats = [ _get_clean_series(s_frames, j) for j in primary_joints ]
         i_feats = [ _get_clean_series(i_a_frames, j, is_student=False) for j in primary_joints ]
-
-        # Pass all processed primary joint series into the consensus function
         apex_i_indices = get_consensus_apexes(i_feats, min_phase_length=12)
 
-        # Print the timestamps for all detected apexes first
-        print("--- Instructor Movement Apexes ---")
-        for idx, frame_idx in enumerate(apex_i_indices):
-            # Get the timestamp from the instructor angle data
-            # Use min() to ensure we don't out-of-bounds if apex is the last frame
-            safe_idx = min(frame_idx, len(i_a_frames) - 1)
-            ts_ms = i_a_frames[safe_idx].get("timestampMs", 0)
-            print(f"Apex {idx}: Frame {frame_idx} | Timestamp: {ts_ms/1000.0:.3f}s")
-        print("----------------------------------\n")
-        
         # Determine the pillar / load-bearing joints in each phase of the rep
         phase_pillars = {}
         for p_idx in range(len(apex_i_indices) - 1):
@@ -243,8 +233,6 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
 
         for s_idx, i_idx in raw_path:
             sf, ifr_a = s_frames[s_idx], i_a_frames[i_idx]
-            
-            # Determine current phase
             curr_phase = 1
             for p_idx in range(len(apex_i_indices) - 1):
                 if apex_i_indices[p_idx] <= i_idx <= apex_i_indices[p_idx+1]:
@@ -252,14 +240,12 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
             
             active_pils = phase_pillars.get(curr_phase, [])
 
-            # Check Form
             for joint, s_val in sf["angles"].items():
                 if not sf["usableDict"].get(joint, False): continue
                 i_val = ifr_a["angles"].get(joint, s_val)
                 diff = abs(s_val - i_val)
                 
-                is_prio = joint in primary_joints
-                is_pil = joint in active_pils
+                is_prio, is_pil = joint in primary_joints, joint in active_pils
 
                 if (is_prio or is_pil) and diff > ANGLE_DEVIATION_THRESHOLD:
                     persistence[joint] = persistence.get(joint, 0) + 1
@@ -269,30 +255,41 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
                             "issue": "stability" if is_pil else "execution",
                             "actual": round(s_val, 2), "expected": round(i_val, 2)
                         })
+                        total_errors_running += 1 # Tracking for overall quality
                         persistence[joint] = 0
                 else: persistence[joint] = 0
 
-            # Visuals
+            # Rendering frame logic...
             i_img = i_clip.to_ImageClip(t=ifr_a["timestampMs"]/1000.0).with_duration(1/FPS).resized(width=640)
             s_img = s_clip.to_ImageClip(t=sf["timestampMs"]/1000.0).with_duration(1/FPS).resized(width=640)
             err = any(e["frameIndex"] == sf["frameIndex"] for e in rep_events)
             s_img = s_img.with_effects([Margin(top=10, bottom=10, left=10, right=10, color=(255,0,0) if err else (0,0,0))])
             viz_frames.append(clips_array([[i_img, s_img]]))
 
-        # JSON Rep Logging
+        # Rep JSON and video aggregation
         if not first_rep: out_f.write(',\n')
         out_f.write('    ' + json.dumps({"rep_index": rep_idx, "events": rep_events}))
         first_rep = False
-        if viz_frames: 
-            all_rep_clips.append(concatenate_videoclips(viz_frames, method="compose"))
+        rep_count += 1
+        if viz_frames: all_rep_clips.append(concatenate_videoclips(viz_frames, method="compose"))
 
-    out_f.write('\n  ]\n}')
+    # --- FINAL SCORE CALCULATION ---
+    overall_quality = (NUM_JOINTS - total_errors_running) / NUM_JOINTS
+    # Avoid negative or overly low quality modifiers from high error counts
+    overall_quality = max(0.1, overall_quality) 
+    points = round(rep_count * overall_quality * inverse_priority_joint_ratio * 1000 / 5) * 5
+
+    out_f.write('\n  ],\n')
+    out_f.write(f'  "total_reps": {rep_count},\n')
+    out_f.write(f'  "quality_modifier": {round(overall_quality, 4)},\n')
+    out_f.write(f'  "points": {points}\n')
+    out_f.write('}')
     out_f.close()
     
-    # FINAL RENDER
+    # RENDER FINAL VIDEO
     if all_rep_clips:
         final = concatenate_videoclips(all_rep_clips, method="compose")
         final.write_videofile(os.path.join(data_dir, f"{video_name}-comparison.mp4"), fps=FPS, codec="libx264")
         final.close()
-        for c in all_rep_clips: c.close()
     s_clip.close(); i_clip.close()
+    print(f"Analysis Complete. Reps: {rep_count} | Quality: {overall_quality:.2f} | Points: {points}")
