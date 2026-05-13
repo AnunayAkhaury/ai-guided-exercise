@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Tuple
-from feedback_component.feedback_main import generate_comparison
+from ai_feedback_component.feedback_main import generate_comparison
 import json
 
 import boto3
@@ -228,7 +228,7 @@ def feedback_pipeline(s3_client, output_bucket):
             json_dir = workdir / "json"
             json_dir.mkdir(parents=True, exist_ok=True)
             model_path = Path(base_dir / "feedback_component" / "pose_landmarker_heavy.task").resolve()            
-            feedback = generate_comparison(exercise_name=exercise, video_file=clip_path, ideal_file=get_ideal_path(exercise), json_dir=json_dir, model_path=model_path)
+            feedback = generate_comparison(exercise_name=exercise, video_file=clip_path, ideal_file=get_ideal_path(exercise), json_dir=json_dir)
 
             # Store clips + feedback
             clip_output_key = build_output_key_clip(recording_id=recording_id, index=i)

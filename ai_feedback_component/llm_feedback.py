@@ -19,9 +19,9 @@ class OutputFeedback(BaseModel):
         le=10
     )
 
-def llm_generate_feedback(exercise_name, base_name, data_dir="./data"):
+def llm_generate_feedback(exercise_name, json_dir):
 
-    bad_reps_file_path = os.path.join(data_dir, f"{base_name}-bad-reps.json")
+    bad_reps_file_path = json_dir / "bad-reps.json"
 
     client = genai.Client()
     

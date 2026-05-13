@@ -237,7 +237,7 @@ class DeepCycleCounter:
             plt.scatter(peaks, scores[peaks], color='red')
             plt.axhline(y=max(0.3, np.max(scores) * 0.5), color='r', linestyle='--')
             plt.title(f"Similarity Score (Template stretched to {stud_period} frames)")
-            plt.show()
+            # plt.show()
 
             to_ms = lambda f: round((f / self.fps) * 1000, 2)
 
@@ -284,11 +284,11 @@ def find_start_frame(ideal_angles_path, comparison_angles_path, joints, max_avg_
     return 0
 
 
-def align_reps(base_name, ideal_base_name, data_dir="./data"):
-    imp_joints_path = os.path.join(data_dir, f"{ideal_base_name}-imp-joints.json")
-    baseline_path = os.path.join(data_dir, f"{ideal_base_name}-angles.json")
-    input_path    = os.path.join(data_dir, f"{base_name}-angles.json")
-    output_path   = os.path.join(data_dir, f"{base_name}-rep-boundaries.json")
+def align_reps(json_dir, exercise_name):
+    imp_joints_path = f"ideals/{exercise_name}/imp-joints.json"
+    baseline_path = f"ideals/{exercise_name}/angles.json"
+    input_path = f"{json_dir}/angles.json"
+    output_path = f"{json_dir}/rep-boundaries.json"
     
     if not os.path.exists(imp_joints_path):
         print(f"Baseline file not found: {imp_joints_path}")

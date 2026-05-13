@@ -125,17 +125,17 @@ def get_consensus_apexes(all_joint_series, min_phase_length=12):
     # 3. Final cleanup: Ensure start and end are included
     return sorted(list(set(consensus)))
 
-def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
+def run_form_analysis(json_dir, exercise_name):
     # 1. LOAD ALL JSON FILES
-    with open(os.path.join(data_dir, f"{video_name}-angles.json"), "r") as f: 
+    with open(json_dir /"angles.json", "r") as f: 
         s_angle_data = json.load(f)["frames"]
-    with open(os.path.join(data_dir, f"{video_name}-rep-boundaries.json"), "r") as f: 
+    with open(json_dir / "rep-boundaries.json", "r") as f: 
         rep_data = json.load(f)
-    with open(os.path.join(data_dir, f"{instructor_video_name}-angles.json"), "r") as f: 
+    with open(f"ideals/{exercise_name}/angles.json", "r") as f: 
         i_angle_data = json.load(f)["frames"]
-    with open(os.path.join(data_dir, f"{instructor_video_name}-pose.json"), "r") as f: 
+    with open(f"ideals/{exercise_name}/pose.json", "r") as f: 
         i_pose_data = json.load(f)["frames"]
-    with open(os.path.join(data_dir, f"{instructor_video_name}-imp-joints.json"), "r") as f: 
+    with open(f"ideals/{exercise_name}/imp-joints.json", "r") as f: 
         primary_joints = json.load(f)["primary_joints"]
 
     # Points Calculation Setup
@@ -144,7 +144,7 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
     total_errors_running = 0
     rep_count = 0
 
-    output_json = os.path.join(data_dir, f"{video_name}-bad-reps.json")
+    output_json = json_dir / "bad-reps.json"
     out_f = open(output_json, "w")
     out_f.write('{\n  "reps": [\n')
     

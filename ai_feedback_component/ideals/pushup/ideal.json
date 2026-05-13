@@ -1,0 +1,91 @@
+{
+  "sourceFile": "ideals\\pushup\\ideal.json",
+  "generatedAt": "2026-05-13T20:29:16.722109+00:00",
+  "joints": {
+    "left_elbow": {
+      "avg_peak": 153.62560000000002,
+      "avg_valley": 73.739175,
+      "prominence": 17.1753,
+      "rom": 85.8765,
+      "rep_boundaries": [
+        1916,
+        4041,
+        6208,
+        8500,
+        10791,
+        12791,
+        15333,
+        17541
+      ]
+    },
+    "right_elbow": {
+      "avg_peak": 150.3832857142857,
+      "avg_valley": 70.22456249999999,
+      "prominence": 16.990900000000003,
+      "rom": 84.95450000000001,
+      "rep_boundaries": [
+        1875,
+        4000,
+        5833,
+        8375,
+        10666,
+        13000,
+        15166,
+        17208
+      ]
+    },
+    "left_shoulder": {
+      "avg_peak": 72.57924285714286,
+      "avg_valley": 25.406087499999998,
+      "prominence": 11.69106,
+      "rom": 58.455299999999994,
+      "rep_boundaries": [
+        1666,
+        3791,
+        5833,
+        8375,
+        10500,
+        13000,
+        15041,
+        17208
+      ]
+    },
+    "right_shoulder": {
+      "avg_peak": 58.26554285714286,
+      "avg_valley": 22.49035,
+      "prominence": 9.13088,
+      "rom": 45.654399999999995,
+      "rep_boundaries": [
+        1916,
+        3750,
+        5875,
+        8083,
+        10500,
+        12750,
+        14916,
+        17166
+      ]
+    },
+    "right_hip": {
+      "avg_peak": 163.17991363636364,
+      "avg_valley": 155.32052173913044,
+      "prominence": 3.075920000000002,
+      "rom": 15.37960000000001,
+      "rep_boundaries": []
+    },
+    "left_ankle": {
+      "avg_peak": 100.5107,
+      "avg_valley": 81.4362875,
+      "prominence": 4.91642,
+      "rom": 24.582099999999997,
+      "rep_boundaries": []
+    },
+    "right_ankle": {
+      "avg_peak": 82.57221111111112,
+      "avg_valley": 60.58979000000001,
+      "prominence": 6.193900000000001,
+      "rom": 30.969500000000004,
+      "rep_boundaries": []
+    }
+  }
+}

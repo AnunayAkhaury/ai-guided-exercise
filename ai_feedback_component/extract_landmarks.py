@@ -49,15 +49,13 @@ def filter_pose_to_schema(landmarks):
         })
     return {"worldLandmarks": world_landmarks}
 
-def extract_landmarks(base_name, data_dir="./data"):
-    video_path = os.path.join(data_dir, f"{base_name}.mp4")
-    output_path = os.path.join(data_dir, f"{base_name}-pose.json")
-
-    if not os.path.exists(video_path):
-        print(f"Video not found: {video_path}")
+def extract_landmarks(video_file, json_dir):
+    
+    if not os.path.exists(video_file):
+        print(f"Video not found: {video_file}")
         return
 
-    base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
+    base_options = python.BaseOptions(model_asset_path="./pose_landmarker_heavy.task")
     options = vision.PoseLandmarkerOptions(
         base_options=base_options,
         running_mode=vision.RunningMode.VIDEO,
@@ -67,13 +65,13 @@ def extract_landmarks(base_name, data_dir="./data"):
     )
 
     detector = vision.PoseLandmarker.create_from_options(options)
-    cap = cv2.VideoCapture(video_path)
+    cap = cv2.VideoCapture(video_file)
     
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
     frames_list = []
     frame_idx = 0
 
-    print(f"Processing {base_name} with high-res sampling...")
+    print(f"Processing {video_file} with high-res sampling...")
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -107,15 +105,15 @@ def extract_landmarks(base_name, data_dir="./data"):
 
     # Final JSON structure matching extract_landmarks.py format
     output = {
-        "videoFile": f"{base_name}.mp4",
+        "videoFile": str(video_file),
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "captureRate": int(fps),
         "totalFrames": len(frames_list),
         "landmarks": BODY_LANDMARK_NAMES,
         "frames": frames_list
     }
-
-    with open(output_path, "w") as f:
+    
+    with open(json_dir / "pose.json", "w") as f:
         json.dump(output, f, indent=2)
 
-    print(f"\nDone -> {output_path}")
+    print(f"\nDone -> {video_file} landmarks extracted.")

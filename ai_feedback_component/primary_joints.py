@@ -90,10 +90,9 @@ def select_top_joints(score, joint_names):
     return selected_names
 
 
-def generate_primary_joints(base_name, data_dir="./data", mode="instructor"):
-    input_json = os.path.join(data_dir, f"{base_name}-angles.json")
-    important_joints_csv = os.path.join(data_dir, f"{base_name}-important-joints.csv")
-    output_json = os.path.join(data_dir, f"{base_name}-imp-joints.json")
+def generate_primary_joints(video_file, json_dir):
+    input_json = json_dir / "angles.json"
+    output_json = json_dir / "imp-joints.json"
 
     # 1. Load and Compute
     joint_names, velocities = load_json_and_compute_velocity(input_json)
@@ -105,7 +104,7 @@ def generate_primary_joints(base_name, data_dir="./data", mode="instructor"):
     score = compute_joint_scores(velocities_smooth)
     top_joint_names = select_top_joints(score, joint_names)
 
-    print(f"Selected joints for {base_name}:")
+    print(f"Selected joints for {video_file}:")
     for j in top_joint_names:
         print(f"  - {j}")
 

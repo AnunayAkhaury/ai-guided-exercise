@@ -44,10 +44,10 @@ def compute_angles(lm_dict: dict) -> dict:
             usable_dict[joint] = False
     return angles, usable_dict
 
-def calculate_joint_angles(base_name, data_dir="./data"):
-    pose_json_path = os.path.join(data_dir, f"{base_name}-pose.json")
-    angles_json_path = os.path.join(data_dir, f"{base_name}-angles.json")
-
+def calculate_joint_angles(json_dir):
+    pose_json_path = json_dir / "pose.json"
+    angles_json_path = json_dir / "angles.json"
+    
     if not os.path.exists(pose_json_path):
         print(f"File not found: {pose_json_path}")
         return
@@ -76,7 +76,7 @@ def calculate_joint_angles(base_name, data_dir="./data"):
         })
 
     angles_output = {
-        "sourceFile": f"{base_name}-pose.json",
+        "sourceFile": str(json_dir / "pose.json"),
         "generatedAt": now_iso,
         "captureRate": pose_data["captureRate"],
         "joints": JOINT_NAMES,

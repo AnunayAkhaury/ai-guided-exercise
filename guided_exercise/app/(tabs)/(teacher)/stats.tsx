@@ -1,9 +1,9 @@
 import { LineGraph } from 'react-native-graph';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
 import Typography from '@/src/components/ui/Typography';
 import Header from '@/src/components/ui/Header';
 import { ExerciseFeedback } from '@/src/api/Firebase/firebase-feedback';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { getFeedbackFromUserId } from '@/src/api/Firebase/firebase-feedback';
 import { useUserStore } from '@/src/store/userStore';
 
@@ -15,65 +15,46 @@ type GraphPoint = {
 export default function Stats() {
   const [scores, setScores] = useState<ExerciseFeedback[]>([]);
   const [points, setPoints] = useState<GraphPoint[]>([]);
+  const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const uid = useUserStore((state) => state.uid);
 
+  // 1. Fetch data
   useEffect(() => {
     if (!uid) return;
-
     async function fetchData() {
       try {
         setLoading(true);
-        setError(null);
-
         const res = await getFeedbackFromUserId(uid!);
-        if (!res || res.length === 0) {
-          console.log('No scores found');
-          setScores([]);
-        } else {
-          console.log(res);
-          setScores(res);
+        setScores(res || []);
+        // Set initial tab if data exists
+        if (res && res.length > 0) {
+          setSelectedExercise(res[0].exercise);
         }
-      } catch (e: any) {
-        console.error(e);
+      } catch (e) {
         setError('Unable to load stats');
       } finally {
         setLoading(false);
       }
     }
-
     fetchData();
   }, [uid]);
 
-  useEffect(() => {
-    if (!scores || scores.length === 0) return;
-
-    const formatted: GraphPoint[] = scores
-      .map((s) => {
-        // 1. Get the timestamp from the first rep in the data array
-        // 2. Fallback to current time if for some reason data is empty
-        const firstRepTimestamp = s.data && s.data.length > 0 ? s.data[0].timestampStart : Date.now();
-
-        return {
-          value: Number(s.score),
-          date: new Date(firstRepTimestamp)
-        };
-      })
-      // 3. Crucial: Sort by date so the line draws correctly left-to-right
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
-
-    setPoints(formatted);
+  // 2. Derive unique exercise names for tabs
+  const exerciseTypes = useMemo(() => {
+    return Array.from(new Set(scores.map((s) => s.exercise))).sort();
   }, [scores]);
 
+  // 3. Format and Filter points based on selected tab
   useEffect(() => {
-    if (!scores || scores.length === 0) return;
+    if (!scores.length || !selectedExercise) return;
 
-    const formatted: GraphPoint[] = scores
+    const formatted = scores
+      .filter((s) => s.exercise === selectedExercise)
       .map((s) => {
         const firstRepTimestamp = s.data && s.data.length > 0 ? s.data[0].timestampStart : Date.now();
-
         return {
           value: Number(s.score),
           date: new Date(firstRepTimestamp)
@@ -81,42 +62,61 @@ export default function Stats() {
       })
       .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    console.log(formatted);
     setPoints(formatted);
-  }, [scores]);
+  }, [scores, selectedExercise]);
 
   return (
     <View className="flex-1 bg-[#FAF8FF]">
       <Header title="Your Progress" />
 
       <View className="px-5 pt-5">
+        {/* Tabs Section */}
+        {!loading && exerciseTypes.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-6">
+            {exerciseTypes.map((type) => (
+              <TouchableOpacity
+                key={type}
+                onPress={() => setSelectedExercise(type)}
+                className={`mr-2 px-5 py-2 rounded-full border ${
+                  selectedExercise === type ? 'bg-[#5B4BFF] border-[#5B4BFF]' : 'bg-white border-[#E3DAFF]'
+                }`}>
+                <Typography
+                  className={selectedExercise === type ? 'text-white' : 'text-[#6B6490]'}
+                  font={selectedExercise === type ? 'inter-semibold' : 'inter-medium'}>
+                  {type}
+                </Typography>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
         <Typography font="inter-semibold" className="text-[#4B3F7A] text-base mb-3">
-          Score Trend
+          {selectedExercise ? `${selectedExercise} Score Trend` : 'Score Trend'}
         </Typography>
 
-        {/* Card */}
+        {/* Graph Card */}
         <View className="rounded-2xl border border-[#E3DAFF] bg-[#F6F3FF] p-4 shadow-sm overflow-hidden">
           {loading ? (
             <View className="items-center py-10">
               <ActivityIndicator color="#5B4BFF" />
-              <Typography className="text-[#6B6490] mt-3">Loading your stats...</Typography>
+              <Typography className="text-[#6B6490] mt-3">Loading stats...</Typography>
             </View>
           ) : error ? (
             <View className="items-center py-8">
               <Typography font="inter-semibold" className="text-[#5B4BFF]">
-                Something went wrong
+                Error
               </Typography>
-              <Typography className="text-[#6B6490] mt-2 text-center">{error}</Typography>
+              <Typography className="text-[#6B6490] text-center">{error}</Typography>
             </View>
           ) : points.length < 2 ? (
             <View className="items-center py-8">
               <Typography font="inter-semibold" className="text-[#5B4BFF]">
-                {points.length === 0 ? 'No data yet' : 'Collect more data'}
+                {points.length === 0 ? 'No data yet' : 'Keep going!'}
               </Typography>
               <Typography className="text-[#6B6490] mt-2 text-center">
                 {points.length === 0
-                  ? 'Complete some exercises to see your progress.'
-                  : 'You need at least 2 sessions to see a trend line.'}
+                  ? `You haven't recorded any ${selectedExercise} sessions.`
+                  : `Record one more ${selectedExercise} session to see your trend.`}
               </Typography>
             </View>
           ) : (
@@ -126,9 +126,7 @@ export default function Stats() {
                 animated={true}
                 color="#5B4BFF"
                 enablePanGesture
-                // This ensures the SVG fills the View container
                 style={{ width: '100%', height: '100%' }}
-                // Optional: Keeps the scale consistent (0-10)
                 range={{ y: { min: 0, max: 10 } }}
               />
             </View>

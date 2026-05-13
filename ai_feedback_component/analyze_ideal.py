@@ -72,12 +72,12 @@ def analyze_good_form(frames: list[dict]) -> dict:
 
     return baseline
 
-def generate_ideal_baseline(base_name, data_dir="./data"):
+def generate_ideal_baseline(video_file, json_dir):
     """
     Main logic: Reads angles, processes peaks, and writes the baseline JSON.
     """
-    input_path = os.path.join(data_dir, f"{base_name}-angles.json")
-    output_path = os.path.join(data_dir, f"{base_name}-ideal.json")
+    input_path = json_dir / "angles.json"
+    output_path = json_dir / "ideal.json"
 
     if not os.path.exists(input_path):
         print(f"File not found: {input_path}")
@@ -87,13 +87,13 @@ def generate_ideal_baseline(base_name, data_dir="./data"):
     baseline = analyze_good_form(frames)
 
     if not baseline:
-        print(f"No active joints found for {base_name} — check STATIC_ROM_THRESHOLD.", file=sys.stderr)
+        print(f"No active joints found for {video_file} — check STATIC_ROM_THRESHOLD.", file=sys.stderr)
         return
 
     boundary_joints = [j for j, info in baseline.items() if info["rep_boundaries"]]
 
     output = {
-        "sourceFile":    os.path.basename(input_path),
+        "sourceFile":    str(output_path),
         "generatedAt":   datetime.now(timezone.utc).isoformat(),
         "joints":        baseline,
     }

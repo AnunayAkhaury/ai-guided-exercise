@@ -20,6 +20,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY ai_feedback_component/ /app/ai_feedback_component/
+COPY video_worker/ /app
 
 CMD ["python", "main.py"]
