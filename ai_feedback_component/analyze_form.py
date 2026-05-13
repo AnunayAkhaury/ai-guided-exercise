@@ -4,8 +4,6 @@ import numpy as np
 from scipy.signal import savgol_filter, find_peaks
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
-from moviepy import VideoFileClip, clips_array, concatenate_videoclips
-from moviepy.video.fx.Margin import Margin
 
 # --- CONFIGURATION ---
 ANGLE_DEVIATION_THRESHOLD = 20.0
@@ -125,7 +123,6 @@ def get_consensus_apexes(all_joint_series, min_phase_length=12):
         consensus.append(int(np.mean(current_cluster)))
 
     # 3. Final cleanup: Ensure start and end are included
-    # (extract_instructor_apex_indices already adds 0 and len-1)
     return sorted(list(set(consensus)))
 
 def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
@@ -147,14 +144,10 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
     total_errors_running = 0
     rep_count = 0
 
-    s_clip = VideoFileClip(os.path.join(data_dir, f"{video_name}.mp4"))
-    i_clip = VideoFileClip(os.path.join(data_dir, f"{instructor_video_name}.mp4"))
-
     output_json = os.path.join(data_dir, f"{video_name}-bad-reps.json")
     out_f = open(output_json, "w")
     out_f.write('{\n  "reps": [\n')
     
-    all_rep_clips = []
     first_rep = True
 
     for s_rep in rep_data["student_reps"]:
@@ -180,8 +173,6 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
             p_angle_slice = i_a_frames[start_i : end_i + 1]
             p_pose_slice = i_p_frames[start_i : end_i + 1]
             
-            print(f"Phase {p_idx} | Frames: {len(p_pose_slice)}")
-
             # In worldLandmarks, 0 is defined by the center of the hip and Y is positive for values going downward.
             # WorldLandmarkers attempt to identify the height in meters of the landmarker away from the hip center.
             # Joints on the floor are at the same height away from the hip center and this value would be the max Y
@@ -216,20 +207,19 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
                 # 15 degrees is a good standard for 'static' in noisy pose data
                 if is_grnd:
                     pillars.append(j_name)
-                    print(f"  [PILLAR FOUND] {j_name} | ROM: {rom:.2f} | Grounded: {is_grnd}")
+                    # print(f"  [PILLAR FOUND] {j_name} | ROM: {rom:.2f} | Grounded: {is_grnd}")
                 else:
                     # Useful for debugging why a grounded joint isn't a pillar
-                    print(f"  [SKIPPED] {j_name} not grounded. ROM: {rom:.2f}")
+                    # print(f"  [SKIPPED] {j_name} not grounded. ROM: {rom:.2f}")
+                    pass
 
             # Store the identified pillars for this phase
             phase_pillars[p_idx + 1] = sorted(pillars) if sorted(pillars) != ['left_knee', 'right_knee'] else []
 
-        print("\nFinal Detected Phase Pillars:", phase_pillars)
-
         # DTW ALIGNMENT
         _, raw_path = fastdtw(np.column_stack(s_feats), np.column_stack(i_feats), radius=DTW_RADIUS, dist=euclidean)
         
-        rep_events, viz_frames, persistence = [], [], {}
+        rep_events, persistence = [], {}
 
         for s_idx, i_idx in raw_path:
             sf, ifr_a = s_frames[s_idx], i_a_frames[i_idx]
@@ -259,19 +249,11 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
                         persistence[joint] = 0
                 else: persistence[joint] = 0
 
-            # Rendering frame logic...
-            i_img = i_clip.to_ImageClip(t=ifr_a["timestampMs"]/1000.0).with_duration(1/FPS).resized(width=640)
-            s_img = s_clip.to_ImageClip(t=sf["timestampMs"]/1000.0).with_duration(1/FPS).resized(width=640)
-            err = any(e["frameIndex"] == sf["frameIndex"] for e in rep_events)
-            s_img = s_img.with_effects([Margin(top=10, bottom=10, left=10, right=10, color=(255,0,0) if err else (0,0,0))])
-            viz_frames.append(clips_array([[i_img, s_img]]))
-
         # Rep JSON and video aggregation
         if not first_rep: out_f.write(',\n')
         out_f.write('    ' + json.dumps({"rep_index": rep_idx, "events": rep_events}))
         first_rep = False
         rep_count += 1
-        if viz_frames: all_rep_clips.append(concatenate_videoclips(viz_frames, method="compose"))
 
     # --- FINAL SCORE CALCULATION ---
     overall_quality = (NUM_JOINTS - total_errors_running) / NUM_JOINTS
@@ -285,11 +267,4 @@ def run_form_analysis(video_name, instructor_video_name, data_dir="./data"):
     out_f.write(f'  "points": {points}\n')
     out_f.write('}')
     out_f.close()
-    
-    # RENDER FINAL VIDEO
-    if all_rep_clips:
-        final = concatenate_videoclips(all_rep_clips, method="compose")
-        final.write_videofile(os.path.join(data_dir, f"{video_name}-comparison.mp4"), fps=FPS, codec="libx264")
-        final.close()
-    s_clip.close(); i_clip.close()
     print(f"Analysis Complete. Reps: {rep_count} | Quality: {overall_quality:.2f} | Points: {points}")
