@@ -1,5 +1,4 @@
 import json
-import os
 import numpy as np
 from scipy.signal import savgol_filter, find_peaks
 from fastdtw import fastdtw
@@ -241,7 +240,9 @@ def run_form_analysis(json_dir, exercise_name):
                     persistence[joint] = persistence.get(joint, 0) + 1
                     if (i_idx in apex_i_indices) or (persistence[joint] >= PERSISTENCE_THRESHOLD_FRAMES):
                         rep_events.append({
-                            "frameIndex": sf["frameIndex"], "joint": joint, "phase": curr_phase,
+                            "timestampMs": sf["timestampMs"],
+                            "joint": joint,
+                            "phase": curr_phase,
                             "issue": "stability" if is_pil else "execution",
                             "actual": round(s_val, 2), "expected": round(i_val, 2)
                         })
@@ -251,7 +252,7 @@ def run_form_analysis(json_dir, exercise_name):
 
         # Rep JSON and video aggregation
         if not first_rep: out_f.write(',\n')
-        out_f.write('    ' + json.dumps({"rep_index": rep_idx, "events": rep_events}))
+        out_f.write('\n' + json.dumps({"rep_index": rep_idx, "events": rep_events}))
         first_rep = False
         rep_count += 1
 
