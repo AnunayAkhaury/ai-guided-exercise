@@ -39,7 +39,7 @@ export interface ExerciseFeedback {
   summary: string;
   score: number;
   data: RepFeedback[];
-  exericse: string;
+  exercise: string;
 }
 
 export async function getFeedbackFromRef(feedbackRef: string): Promise<ExerciseFeedback | null> {

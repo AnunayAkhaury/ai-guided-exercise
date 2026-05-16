@@ -510,14 +510,9 @@ export async function completeRecordingProcessingController(req: Request, res: R
       });
     }
 
-    const processedVideoUrl = body.processedVideoUrl?.trim();
-    if (!processedVideoUrl) {
-      return sendErrorResponse(req, res, 400, 'processedVideoUrl is required for a successful worker callback.');
-    }
-
     const completedRecording = await updateRecordingById(recordingId, {
       status: 'completed',
-      processedVideoUrl,
+      processedVideoUrl: '',
       ...(body.feedbackJsonUrl?.trim() ? { feedbackJsonUrl: body.feedbackJsonUrl.trim() } : {}),
       error: null
     });

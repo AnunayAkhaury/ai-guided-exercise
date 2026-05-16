@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import {
-  addClipWithFeedback,
+  addClip,
+  addFeedback,
   addExerciseTimestamp,
   getFeedbackFromRef,
   getFeedbackFromUserId
@@ -18,7 +19,7 @@ export async function addExerciseTimestampController(req: Request, res: Response
   }
 }
 
-export async function addClipWithFeedbackController(req: Request, res: Response) {
+export async function addClipController(req: Request, res: Response) {
   const expectedWorkerSecret = process.env.WORKER_SHARED_SECRET?.trim();
   if (!expectedWorkerSecret) {
     return sendErrorResponse(req, res, 500, 'Worker shared secret is not configured on server.');
@@ -29,10 +30,31 @@ export async function addClipWithFeedbackController(req: Request, res: Response)
     return sendErrorResponse(req, res, 401, 'Unauthorized worker callback request.');
   }
 
-  const { recordingId, processedVideoUrl, exercise, feedback, userId, duration } = req.body;
+  const { clipId, clipUrl, exercise, userId, duration, starttime } = req.body;
   try {
-    await addClipWithFeedback(recordingId, processedVideoUrl, exercise, feedback, userId, duration);
-    return res.status(200).json({ message: 'Clip with feedback added.' });
+    const clidId = await addClip(clipId, clipUrl, exercise, userId, duration, starttime);
+    return res.status(200).json({ clipId: clipId });
+  } catch (err: any) {
+    logControllerError(req, err, 'feedbackController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
+  }
+}
+
+export async function addFeedbackController(req: Request, res: Response) {
+  const expectedWorkerSecret = process.env.WORKER_SHARED_SECRET?.trim();
+  if (!expectedWorkerSecret) {
+    return sendErrorResponse(req, res, 500, 'Worker shared secret is not configured on server.');
+  }
+
+  const providedWorkerSecret = req.header('x-worker-secret');
+  if (!providedWorkerSecret || providedWorkerSecret !== expectedWorkerSecret) {
+    return sendErrorResponse(req, res, 401, 'Unauthorized worker callback request.');
+  }
+
+  const { clipId, exercise, feedbackJson, starttime } = req.body;
+  try {
+    const feedback_id = await addFeedback(clipId, exercise, feedbackJson, starttime);
+    return res.status(200).json({ feedback_id: feedback_id });
   } catch (err: any) {
     logControllerError(req, err, 'feedbackController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');

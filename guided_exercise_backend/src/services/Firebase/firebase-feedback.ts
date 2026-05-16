@@ -23,42 +23,46 @@ export interface ExerciseFeedback {
   summary: string;
   score: number;
   data: RepFeedback[];
-  exercise: string;
 }
 
-export async function addClipWithFeedback(
-  recordingId: string,
-  processedVideoUrl: string,
+export async function addClip(
+  clipId: string,
+  clipUrl: string,
   exercise: string,
-  rawFeedbackJson: string,
   userId: string,
-  duration: string
+  duration: string,
+  starttime: string
 ) {
   try {
-    const processedFeedback = await parseFeedbackString(rawFeedbackJson);
-
-    let feedbackRef: string | null = null;
-
-    if (processedFeedback) {
-      const feedbackDoc = await db.collection('feedbacks').add({
-        ...processedFeedback,
-        userId,
-        recordingId,
-        createdAt: new Date().toISOString()
-      });
-      feedbackRef = feedbackDoc.id;
-    }
-
-    await db.collection('clips').add({
-      recordingId,
-      processedVideoUrl,
+    const clip = await db.collection('clips').add({
+      clipId,
+      clipUrl,
       exercise,
       userId,
       duration,
-      feedbackRef,
-      feedback: rawFeedbackJson,
-      createdAt: new Date().toISOString()
+      starttime: starttime,
+      feedbackRef: null
     });
+    return clip.id;
+  } catch (error) {
+    console.error('Failed to save to database:', error);
+    throw error;
+  }
+}
+
+export async function addFeedback(clipId: string, exercise: string, feedbackJson: string, starttime: string) {
+  const processedFeedback = await parseFeedbackString(feedbackJson);
+
+  try {
+    const feedback = await db.collection('feedbacks').add({
+      exercise: exercise,
+      parsedFeedback: processedFeedback,
+      feedbackJson: feedbackJson,
+      starttime: starttime
+    });
+
+    await db.collection('clips').doc(clipId).update({ feedbackRef: feedback.id });
+    return feedback.id;
   } catch (error) {
     console.error('Failed to save to database:', error);
     throw error;
@@ -80,7 +84,6 @@ async function parseFeedbackString(jsonString: string): Promise<ExerciseFeedback
     return {
       summary: raw.summary || 'No summary available.',
       score: raw.score || 0,
-      exercise: 'lunge',
       data: formattedData.sort((a, b) => a.timestampStart - b.timestampStart)
     };
   } catch (error) {
