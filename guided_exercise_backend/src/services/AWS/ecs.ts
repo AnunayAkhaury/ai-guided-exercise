@@ -36,6 +36,7 @@ function buildContainerEnvironment(input: StartRecordingWorkerTaskInput): KeyVal
     ['OUTPUT_BUCKET', optionalEnv('WORKER_OUTPUT_BUCKET')],
     ['BACKEND_UPDATE_URL', optionalEnv('WORKER_CALLBACK_URL')],
     ['BACKEND_ADD_CLIP_URL', optionalEnv('ADD_CLIP_CALLBACK_URL')],
+    ['BACKEND_ADD_FEEDBACK_URL', optionalEnv('ADD_FEEDBACK_CALLBACK_URL')],
     ['WORKER_SECRET', optionalEnv('WORKER_SHARED_SECRET')],
     ['RECORDING_START_MS', input.recordingStart?.toString() ?? null],
     ['TIMESTAMPS_JSON', input.timestamps ? JSON.stringify(input.timestamps) : null],

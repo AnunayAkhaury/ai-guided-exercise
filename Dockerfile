@@ -17,10 +17,15 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY video_worker/requirements.txt /app/video_worker/requirements.txt
+RUN pip install --no-cache-dir -r /app/video_worker/requirements.txt
+
+COPY ai_feedback_component/requirements.txt /app/ai_feedback_component/requirements.txt
+RUN pip install --no-cache-dir -r /app/ai_feedback_component/requirements.txt
 
 COPY ai_feedback_component/ /app/ai_feedback_component/
 COPY video_worker/ /app/video_worker/
 
-CMD ["python", "main.py"]
+ENV PYTHONPATH=/app
+
+CMD ["python", "video_worker/main.py"]

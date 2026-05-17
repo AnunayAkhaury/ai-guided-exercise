@@ -61,7 +61,6 @@ def ensure_clean_dir(path: Path) -> None:
         shutil.rmtree(path)
     path.mkdir(parents=True, exist_ok=True)
 
-
 def download_prefix(s3_client, bucket: str, prefix: str, destination: Path) -> int:
     paginator = s3_client.get_paginator("list_objects_v2")
     count = 0
@@ -144,7 +143,6 @@ def maybe_callback(
     print("Backend callback succeeded:", response.text)
 
 def save_clip_callback(
-    clip_id: str,
     processed_clip_url: str,
     exercise: str,
     user_id:str,
@@ -158,7 +156,6 @@ def save_clip_callback(
         return
 
     payload = {
-        "clipId": clip_id,
         "clipUrl": processed_clip_url,
         "exercise": exercise,
         "userId": user_id,
@@ -185,6 +182,7 @@ def save_feedback_callback(
     exercise: str,
     feedback: str,
     user_id:str,
+    start_time: str,
 ) -> None:
     backend_add_clip_url = os.getenv("BACKEND_ADD_FEEDBACK_URL")
     if not backend_add_clip_url:
@@ -195,7 +193,8 @@ def save_feedback_callback(
         "clipId": clip_id,
         "exercise": exercise,
         "feedbackJson": feedback,
-        "starttime": user_id,
+        "userId": user_id,
+        "starttime": start_time,
     }
 
     headers = {"Content-Type": "application/json"}
@@ -261,7 +260,7 @@ def feedback_pipeline(s3_client, output_bucket):
             processed_video_url = upload_file(s3_client, clip_path, output_bucket, clip_output_key)
             duration = t["endtime"] - t["starttime"]
 
-            clip_id = save_clip_callback(clip_id=clip_output_key, processed_clip_url=processed_video_url, exercise=exercise, user_id=user_id, duration=duration)
+            clip_id = save_clip_callback(processed_clip_url=processed_video_url, exercise=exercise, user_id=user_id, duration=duration, start_time=t["starttime"])
             clip_ids.append(clip_id)
             print("Clip saved:", clip_path, processed_video_url)
 
@@ -270,7 +269,7 @@ def feedback_pipeline(s3_client, output_bucket):
             json_dir.mkdir(parents=True, exist_ok=True)
             feedback = generate_comparison(exercise, clip_path, json_dir)
 
-            save_feedback_callback(clip_id=clip_id, exercise=exercise, feedback=feedback, user_id=user_id)
+            save_feedback_callback(clip_id=clip_id, exercise=exercise, feedback=feedback, user_id=user_id, start_time=t["starttime"])
 
         except Exception as e:
             print(f"generate_comparison failed for {clip_path}: {e}")
@@ -316,13 +315,14 @@ def main() -> int:
     if not output_file.exists():
         raise RuntimeError("ffmpeg did not produce an output file")
 
+    maybe_callback(recording_id, '', output_bucket, output_key)
+    print("Video worker completed successfully.")
+
     try:
         feedback_pipeline(s3_client, output_bucket)
     except Exception as e:
         print(f"feedback pipeline failed (skipping): {e}")
 
-    maybe_callback(recording_id, '', output_bucket, output_key)
-    print("Video worker completed successfully.")
     ensure_clean_dir(workdir)
 
     return 0

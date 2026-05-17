@@ -1,7 +1,14 @@
-__pycache__/
-*.pyc
-.pytest_cache/
-.venv/
-guided_exercise/
-guided_exercise_backend/
+# Python cache
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+
+# Virtual environments
+**/venv/
+
+# Project-specific ignores
+ai_feedback_component/data/
+ai_feedback_component/tests/
+
+# Docs
 README.md

@@ -42,7 +42,13 @@ export async function addClip(clipUrl: string, exercise: string, userId: string,
   }
 }
 
-export async function addFeedback(clipId: string, exercise: string, feedbackJson: string, starttime: string) {
+export async function addFeedback(
+  clipId: string,
+  exercise: string,
+  feedbackJson: string,
+  starttime: string,
+  userId: string
+) {
   const processedFeedback = await parseFeedbackString(feedbackJson);
 
   try {
@@ -50,6 +56,7 @@ export async function addFeedback(clipId: string, exercise: string, feedbackJson
       exercise,
       feedbackJson,
       starttime,
+      userId,
 
       summary: processedFeedback?.summary ?? null,
       score: processedFeedback?.score ?? 0,

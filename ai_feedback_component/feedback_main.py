@@ -1,11 +1,11 @@
 import sys
-from extract_landmarks import extract_landmarks
-from calculate_joint_angles import calculate_joint_angles
-from analyze_ideal import generate_ideal_baseline
-from analyze_form import run_form_analysis
-from align_reps import align_reps
-from primary_joints import generate_primary_joints
-from llm_feedback import llm_generate_feedback
+from ai_feedback_component.extract_landmarks import extract_landmarks
+from ai_feedback_component.calculate_joint_angles import calculate_joint_angles
+from ai_feedback_component.analyze_ideal import generate_ideal_baseline
+from ai_feedback_component.analyze_form import run_form_analysis
+from ai_feedback_component.align_reps import align_reps
+from ai_feedback_component.primary_joints import generate_primary_joints
+from ai_feedback_component.llm_feedback import llm_generate_feedback
 from pathlib import Path
 
 def generate_ideal(video_file, json_dir):

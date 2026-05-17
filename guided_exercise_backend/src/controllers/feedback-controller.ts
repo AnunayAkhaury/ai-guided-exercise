@@ -51,9 +51,9 @@ export async function addFeedbackController(req: Request, res: Response) {
     return sendErrorResponse(req, res, 401, 'Unauthorized worker callback request.');
   }
 
-  const { clipId, exercise, feedbackJson, starttime } = req.body;
+  const { clipId, exercise, feedbackJson, starttime, userId } = req.body;
   try {
-    const feedback_id = await addFeedback(clipId, exercise, feedbackJson, starttime);
+    const feedback_id = await addFeedback(clipId, exercise, feedbackJson, starttime, userId);
     return res.status(200).json({ feedback_id: feedback_id });
   } catch (err: any) {
     logControllerError(req, err, 'feedbackController failed');
