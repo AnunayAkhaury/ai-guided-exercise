@@ -284,15 +284,11 @@ export async function getClipsByUserId(userId: string): Promise<ClipWithDocId[]>
 export async function getClipById(clipId: string): Promise<Clip | null> {
   const normalizedClipId = clipId.trim();
 
-  const snapshot = await db.collection(CLIPS_COLLECTION).where('clipId', '==', normalizedClipId).limit(1).get();
+  const snapshot = await db.collection(CLIPS_COLLECTION).doc(normalizedClipId).get();
 
-  const doc = snapshot.docs[0];
-
-  if (!doc) {
+  if (!snapshot.exists) {
     return null;
   }
 
-  return {
-    ...(doc.data() as Clip)
-  };
+  return snapshot.data() as Clip;
 }

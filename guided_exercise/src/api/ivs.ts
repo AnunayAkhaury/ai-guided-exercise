@@ -318,6 +318,7 @@ export function getIvsRecordingPlayback(recordingId: string): Promise<IvsRecordi
   return getJson<IvsRecordingPlayback>(`/api/recordings/${encodeURIComponent(recordingId)}/playback`);
 }
 
-export function getIvsClipsPlayback(clipId: string): Promise<IvsRecordingPlayback> {
+export function getIvsClipPlayback(clipId: string): Promise<IvsRecordingPlayback> {
+  console.log('clip', clipId);
   return getJson<IvsRecordingPlayback>(`/api/clip/${encodeURIComponent(clipId)}/playback`);
 }

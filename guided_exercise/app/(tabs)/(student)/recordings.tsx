@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import Typography from '@/src/components/ui/Typography';
-import { getIvsClipsPlayback, IvsClip, getIvsClipsByUserId } from '@/src/api/ivs';
+import { getIvsClipPlayback, IvsClip, getIvsClipsByUserId } from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
 
 function formatDate(value: string) {
@@ -117,7 +117,7 @@ export default function StudentRecordingSession() {
     try {
       setPlayingClipId(clip.id);
 
-      const playback = await getIvsClipsPlayback(clip.id);
+      const playback = await getIvsClipPlayback(clip.id);
 
       router.push({
         pathname: '/(extra)/recording-display',
