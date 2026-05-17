@@ -64,9 +64,6 @@ export default function Stats() {
 
           const timestamp = Number(f.starttime);
 
-          console.log(timestamp, cutoff, '.');
-          console.log(timestamp < cutoff);
-
           if (timestamp < cutoff) return false;
           return true;
         })
@@ -76,7 +73,6 @@ export default function Stats() {
         }))
         .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-      console.log(cleaned);
       return cleaned;
     } catch (e) {
       console.error('Failed to process feedback data:', e);
