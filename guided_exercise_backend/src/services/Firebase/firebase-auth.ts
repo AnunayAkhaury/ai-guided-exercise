@@ -1,6 +1,7 @@
 import { auth, db } from './firebase-service.js';
 
 type UserProfile = {
+  uid?: string;
   role: string;
   username: string;
   fullname: string;
@@ -67,6 +68,85 @@ export async function getProfile(uid: string) {
       email: user?.email ?? null,
       createdAt: user?.createdAt?.toDate ? user.createdAt.toDate() : user?.createdAt ?? null,
       updatedAt: user?.updatedAt?.toDate ? user.updatedAt.toDate() : user?.updatedAt ?? null
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function listProfilesByRole(role?: string) {
+  try {
+    let query: FirebaseFirestore.Query = db.collection('users');
+    if (role?.trim()) {
+      query = query.where('role', '==', role.trim());
+    }
+
+    const snapshot = await query.get();
+    const profiles = snapshot.docs.map((doc) => {
+      const user = doc.data();
+      return {
+        uid: doc.id,
+        role: user?.role ?? '',
+        username: user?.username ?? '',
+        fullname: user?.fullname ?? '',
+        email: user?.email ?? null,
+        createdAt: user?.createdAt?.toDate ? user.createdAt.toDate() : user?.createdAt ?? null,
+        updatedAt: user?.updatedAt?.toDate ? user.updatedAt.toDate() : user?.updatedAt ?? null
+      };
+    });
+
+    profiles.sort((a, b) => {
+      const aName = `${a.fullname || ''} ${a.username || ''}`.trim().toLowerCase();
+      const bName = `${b.fullname || ''} ${b.username || ''}`.trim().toLowerCase();
+      return aName.localeCompare(bName);
+    });
+
+    return profiles;
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function updateProfile(uid: string, input: {
+  username?: string;
+  fullname?: string;
+}) {
+  try {
+    const userRef = db.collection('users').doc(uid);
+    const snapshot = await userRef.get();
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    const existingData = snapshot.data() ?? {};
+    const now = new Date();
+    const nextUsername = input.username?.trim() ?? existingData.username ?? '';
+    const nextFullname = input.fullname?.trim() ?? existingData.fullname ?? '';
+
+    if (!nextUsername) {
+      throw new Error('username is required');
+    }
+    if (!nextFullname) {
+      throw new Error('fullname is required');
+    }
+
+    await userRef.set(
+      {
+        username: nextUsername,
+        fullname: nextFullname,
+        updatedAt: now
+      },
+      { merge: true }
+    );
+
+    return {
+      uid,
+      role: existingData.role ?? '',
+      username: nextUsername,
+      fullname: nextFullname,
+      email: existingData.email ?? null,
+      createdAt: existingData.createdAt?.toDate ? existingData.createdAt.toDate() : existingData.createdAt ?? null,
+      updatedAt: now
     };
   } catch (error) {
     throw error;

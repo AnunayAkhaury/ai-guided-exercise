@@ -3,6 +3,7 @@ import admin from 'firebase-admin';
 import type { ServiceAccount } from 'firebase-admin';
 import type { Auth } from 'firebase-admin/auth';
 import type { Firestore } from 'firebase-admin/firestore';
+import type { Messaging } from 'firebase-admin/messaging';
 
 if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_PRIVATE_KEY || !process.env.FIREBASE_CLIENT_EMAIL) {
   console.warn('[firebase] Missing Firebase environment variables. Firebase services are disabled until configured.');
@@ -20,3 +21,4 @@ admin.initializeApp({
 
 export const auth: Auth = admin.apps.length ? admin.auth() : (null as unknown as Auth);
 export const db: Firestore = admin.apps.length ? admin.firestore() : (null as unknown as Firestore);
+export const messaging: Messaging = admin.apps.length ? admin.messaging() : (null as unknown as Messaging);

@@ -9,6 +9,8 @@ import {
 } from '@expo-google-fonts/inter';
 import { useFonts as useFontsIstokWeb, IstokWeb_400Regular, IstokWeb_700Bold } from '@expo-google-fonts/istok-web';
 import { Text } from 'react-native';
+import { ToastProvider } from '@/src/components/ui/ToastProvider';
+import { PushNotificationProvider } from '@/src/components/notifications/PushNotificationProvider';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
@@ -32,8 +34,14 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
+        (
+    <ToastProvider>
+      <PushNotificationProvider>
         <Stack screenOptions={{ headerShown: false }} />
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
+  )
+      </PushNotificationProvider>
+    </ToastProvider>
   );
 }

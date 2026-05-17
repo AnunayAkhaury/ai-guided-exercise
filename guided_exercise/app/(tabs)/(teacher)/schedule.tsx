@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,8 +15,10 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useRouter } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import { createIvsSession } from '@/src/api/ivs';
+import { auth } from '@/src/api/Firebase/firebase-config';
 import { useUserStore } from '@/src/store/userStore';
 import { resolvePreferredDisplayName } from '@/src/utils/display-name';
+import { useToast } from '@/src/components/ui/ToastProvider';
 
 function withRoundedHour(date: Date) {
   const next = new Date(date);
@@ -28,13 +29,24 @@ function withRoundedHour(date: Date) {
 
 export default function ScheduleScreen() {
   const router = useRouter();
+  const { showToast } = useToast();
   const { width, height } = useWindowDimensions();
   const isSmallPhone = width < 380 || height < 760;
+  const uid = useUserStore((state) => state.uid);
   const username = useUserStore((state) => state.username);
   const fullname = useUserStore((state) => state.fullname);
+  const effectiveInstructorId = useMemo(
+    () =>
+      uid?.trim() ||
+      auth.currentUser?.uid ||
+      username?.trim() ||
+      fullname?.trim() ||
+      `instructor-${Date.now()}`,
+    [fullname, uid, username]
+  );
   const instructorId = useMemo(
-    () => username?.trim() || fullname?.trim() || `instructor-${Date.now()}`,
-    [fullname, username]
+    () => effectiveInstructorId,
+    [effectiveInstructorId]
   );
   const coachName = useMemo(
     () =>
@@ -90,13 +102,12 @@ export default function ScheduleScreen() {
   const handleCreateScheduled = async () => {
     const trimmedSessionName = sessionName.trim();
     if (!trimmedSessionName) {
-      Alert.alert('Missing title', 'Please enter a session title.');
+      showToast({ title: 'Missing title', message: 'Please enter a session title.', variant: 'error' });
       return;
     }
-
     const parsedDuration = Number(durationMinutes);
     if (!Number.isInteger(parsedDuration) || parsedDuration < 15 || parsedDuration > 240) {
-      Alert.alert('Invalid duration', 'Duration must be between 15 and 240 minutes.');
+      showToast({ title: 'Invalid duration', message: 'Duration must be between 15 and 240 minutes.', variant: 'error' });
       return;
     }
     if (isSubmitting) return;
@@ -113,17 +124,19 @@ export default function ScheduleScreen() {
         scheduledEndAt: endAt.toISOString()
       });
       if (!created.scheduledStartAt || !created.scheduledEndAt) {
-        Alert.alert(
-          'Backend update needed',
-          'Scheduled time was not saved by backend. Deploy latest backend changes and try again.'
-        );
+        showToast({
+          title: 'Backend update needed',
+          message: 'Scheduled time was not saved by backend. Deploy latest backend changes and try again.',
+          variant: 'error',
+          durationMs: 5200
+        });
         return;
       }
-      Alert.alert('Scheduled', 'Your class was added to upcoming sessions.');
+      showToast({ title: 'Class scheduled', message: 'Your class was added to upcoming sessions.', variant: 'success' });
       setSessionName('');
       router.replace('/(tabs)/(teacher)/classes');
     } catch (error: any) {
-      Alert.alert('Unable to schedule', error?.message || 'Please try again.');
+      showToast({ title: 'Unable to schedule', message: error?.message || 'Please try again.', variant: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -135,7 +148,7 @@ export default function ScheduleScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
     >
-      <Header title="Schedule Class" />
+      <Header title="Schedule Class" showBack backFallback="/(tabs)/(teacher)/classes" />
       <ScrollView
         contentContainerStyle={[
           styles.content,

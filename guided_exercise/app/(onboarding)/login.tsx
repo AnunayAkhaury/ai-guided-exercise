@@ -4,7 +4,6 @@ import {
   StyleSheet,
   View,
   Pressable,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -13,11 +12,13 @@ import {
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import React, { useState } from 'react';
-import { login } from '@/src/api/Firebase/firebase-auth';
+import { login, sendPasswordReset } from '@/src/api/Firebase/firebase-auth';
 import { useUserStore } from '@/src/store/userStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useToast } from '@/src/components/ui/ToastProvider';
 
 export default function Login() {
+  const { showToast } = useToast();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isSmallPhone = width < 380 || height < 760;
@@ -26,11 +27,12 @@ export default function Login() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   const handleLogin = async () => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
-      Alert.alert('Missing info', 'Please enter your email and password.');
+      showToast({ title: 'Missing info', message: 'Please enter your email and password.', variant: 'error' });
       return;
     }
     if (isSubmitting) return;
@@ -46,9 +48,42 @@ export default function Login() {
       }
     } catch (error: any) {
       console.error('Login failed:', error);
-      Alert.alert('Login failed', error?.message || 'Please check your email/password and try again.');
+      showToast({
+        title: 'Login failed',
+        message: error?.message || 'Please check your email/password and try again.',
+        variant: 'error'
+      });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      showToast({ title: 'Email required', message: 'Enter your email first so we know where to send the reset link.', variant: 'error' });
+      return;
+    }
+    if (isResettingPassword) return;
+
+    try {
+      setIsResettingPassword(true);
+      await sendPasswordReset(trimmedEmail);
+      showToast({
+        title: 'Reset email sent',
+        message: 'Check your inbox for a link to reset your password.',
+        variant: 'success',
+        durationMs: 5200
+      });
+    } catch (error: any) {
+      console.error('Password reset failed:', error);
+      showToast({
+        title: 'Reset failed',
+        message: error?.message || 'Unable to send a password reset email.',
+        variant: 'error'
+      });
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -80,6 +115,11 @@ export default function Login() {
               value={password}
             />
           </View>
+          <Pressable onPress={handleForgotPassword} disabled={isResettingPassword} style={styles.forgotPasswordButton}>
+            <Text style={[styles.forgotPasswordText, isResettingPassword && styles.linkDisabled]}>
+              {isResettingPassword ? 'Sending reset email...' : 'Forgot password?'}
+            </Text>
+          </Pressable>
           <Pressable
             style={[styles.button, isSubmitting && styles.buttonDisabled]}
             onPress={handleLogin}
@@ -172,5 +212,17 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     color: '#6155F5',
     textAlign: 'center'
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginTop: -6,
+    paddingVertical: 4
+  },
+  forgotPasswordText: {
+    color: '#6155F5',
+    fontWeight: '600'
+  },
+  linkDisabled: {
+    opacity: 0.6
   }
 });

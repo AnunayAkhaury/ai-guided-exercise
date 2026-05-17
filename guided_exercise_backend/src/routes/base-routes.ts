@@ -4,7 +4,9 @@ import {
   createProfileController,
   getProfileController,
   getUserRecordingsController,
-  getUserAchievementsController
+  getUserAchievementsController,
+  listProfilesController,
+  updateProfileController
 } from '@/controllers/firebase-controller.js';
 import { addRecordingController } from '@/controllers/firebase-controller.js';
 import { uploadVideoController, getVideoUrlController } from '@/controllers/aws-controller.js';
@@ -24,6 +26,7 @@ import {
   createSessionController,
   endSessionController,
   getSessionByIdController,
+  heartbeatSessionParticipantController,
   joinSessionByCodeController,
   leaveSessionParticipantController,
   listSessionParticipantsController,
@@ -32,18 +35,27 @@ import {
   upsertSessionParticipantController
 } from '@/controllers/session-controller.js';
 import {
+<<<<<<< HEAD
   addExerciseTimestampController,
   addClipController,
   addFeedbackController,
   getFeedbackFromIdController,
   getFeedbackFromUserIdController
 } from '@/controllers/feedback-controller.js';
+=======
+  registerPushTokenController,
+  sendDueClassRemindersController,
+  unregisterPushTokenController
+} from '@/controllers/notification-controller.js';
+>>>>>>> main
 
 const router = Router();
 router.get('/', helloWorldController);
 router.get('/health', helloWorldController);
 router.post('/api/firebase/createProfile', createProfileController);
 router.post('/api/firebase/getProfile', getProfileController);
+router.post('/api/firebase/updateProfile', updateProfileController);
+router.get('/api/firebase/users', listProfilesController);
 router.post('/api/firebase/addRecording', addRecordingController);
 router.post('/api/firebase/getUserRecordings', getUserRecordingsController);
 router.post('/api/firebase/addTimestamp', addExerciseTimestampController);
@@ -68,8 +80,12 @@ router.post('/api/ivs/sessions/end', endSessionController);
 router.get('/api/ivs/sessions', listSessionsController);
 router.get('/api/ivs/sessions/:sessionId', getSessionByIdController);
 router.post('/api/ivs/sessions/participants/upsert', upsertSessionParticipantController);
+router.post('/api/ivs/sessions/participants/heartbeat', heartbeatSessionParticipantController);
 router.post('/api/ivs/sessions/participants/leave', leaveSessionParticipantController);
 router.get('/api/ivs/sessions/:sessionId/participants', listSessionParticipantsController);
+router.post('/api/notifications/register-token', registerPushTokenController);
+router.post('/api/notifications/unregister-token', unregisterPushTokenController);
+router.post('/api/notifications/class-reminders/send-due', sendDueClassRemindersController);
 router.post('/api/aws/uploadVideo', uploadVideoController);
 router.post('/api/aws/getVideo', getVideoUrlController);
 router.post('/api/firebase/getAchievements', getUserAchievementsController);

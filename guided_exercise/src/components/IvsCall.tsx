@@ -20,25 +20,7 @@ import {
 import type { Participant } from 'expo-realtime-ivs-broadcast';
 import BottomSheetModal from '@gorhom/bottom-sheet/lib/typescript/components/bottomSheetModal/BottomSheetModal';
 import { addExerciseTimestamp, ExerciseTimestamp } from '../api/Firebase/firebase-feedback';
-
-type IvsCallProps = {
-  token?: string;
-  publishOnJoin?: boolean;
-  onLeave?: () => void | Promise<void>;
-  onInfoPress?: () => void;
-  onEndSession?: () => void;
-  endSessionLabel?: string;
-  endSessionDisabled?: boolean;
-  onInStageChange?: (inStage: boolean) => void;
-  onRequestFreshToken?: () => Promise<{ token: string; participantId?: string } | null>;
-  onJoinAttempt?: () => void | Promise<void>;
-  onJoinFailed?: (message: string) => void | Promise<void>;
-  localParticipantLabel?: string;
-  participantNamesById?: Record<string, string>;
-  participantRolesById?: Record<string, string>;
-  localParticipantRole?: 'student' | 'instructor';
-  sessionId: string;
-};
+import type { IvsCallProps } from './IvsCall.types';
 
 type RemoteParticipantInfo = {
   participantId: string;
@@ -126,14 +108,16 @@ export default function IvsCall({
   const insets = useSafeAreaInsets();
   const isSmallPhone = width < 380 || height < 760;
   const compactControls = isSmallPhone || fontScale > 1.15;
-  const localVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.56)));
-  const remoteVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.56)));
-  const gridVideoHeight = Math.max(190, Math.min(260, Math.round(((width - 38) / 2) * 1.35)));
+  const localVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.5625)));
+  const remoteVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.5625)));
+  const gridVideoWidth = (width - 38) / 2;
+  const gridVideoHeight = Math.max(130, Math.min(210, Math.round(gridVideoWidth * 0.5625)));
   const controlBarPaddingBottom = isSmallPhone ? 6 : 10;
   const contentBottomPadding = isSmallPhone ? 6 : 14;
 
   const [isInStage, setIsInStage] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [error, setError] = useState('');
@@ -361,10 +345,16 @@ export default function IvsCall({
   };
 
   const handleLeave = async () => {
-    hasJoinAttemptRef.current = false;
-    await leaveStage();
-    if (onLeave) {
-      await Promise.resolve(onLeave());
+    setIsLeaving(true);
+    try {
+      hasJoinAttemptRef.current = false;
+      await leaveStage();
+      if (onLeave) {
+        await Promise.resolve(onLeave());
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to leave the session.');
+      setIsLeaving(false);
     }
   };
 
@@ -393,6 +383,17 @@ export default function IvsCall({
   };
 
   // not in session yet, show join screen
+  if (isLeaving) {
+    return (
+      <View style={[styles.preJoinContainer, isSmallPhone && styles.preJoinContainerCompact]}>
+        <View style={styles.joinCard}>
+          <Text style={styles.joinTitle}>Leaving Class</Text>
+          <Text style={styles.joinSubtitle}>Returning you to classes...</Text>
+        </View>
+      </View>
+    );
+  }
+
   if (!isInStage) {
     return (
       <View style={[styles.preJoinContainer, isSmallPhone && styles.preJoinContainerCompact]}>
@@ -426,7 +427,7 @@ export default function IvsCall({
               <Text style={styles.participantLabel}>{localParticipantLabel?.trim() || 'You'}</Text>
             </View>
             <View style={[styles.localVideoFrame, { height: localVideoHeight }]}>
-              <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} scaleMode="fill" />
+              <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} scaleMode="fit" />
               {isVideoMuted && (
                 <View style={styles.cameraOffOverlay}>
                   <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
@@ -451,7 +452,7 @@ export default function IvsCall({
                   participantId={instructorRemote.participantId}
                   deviceUrn={instructorRemote.deviceUrn}
                   style={StyleSheet.absoluteFillObject}
-                  scaleMode="fill"
+                  scaleMode="fit"
                 />
               </View>
             ) : (
@@ -475,7 +476,7 @@ export default function IvsCall({
                 useGridForStudents ? styles.gridVideoFrame : styles.remoteVideoFrame,
                 { height: useGridForStudents ? gridVideoHeight : remoteVideoHeight }
               ]}>
-              <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} scaleMode="fill" />
+              <ExpoIVSStagePreviewView style={StyleSheet.absoluteFillObject} scaleMode="fit" />
               {isVideoMuted && (
                 <View style={styles.cameraOffOverlay}>
                   <Ionicons name="videocam-off" size={30} color="#FFFFFF" />
@@ -506,7 +507,7 @@ export default function IvsCall({
                   participantId={participant.participantId}
                   deviceUrn={participant.deviceUrn}
                   style={StyleSheet.absoluteFillObject}
-                  scaleMode="fill"
+                  scaleMode="fit"
                 />
               </View>
             ) : (
@@ -777,9 +778,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12
   },
-  localVideoFrame: { width: '100%', overflow: 'hidden' },
-  remoteVideoFrame: { width: '100%', overflow: 'hidden' },
-  gridVideoFrame: { width: '100%', overflow: 'hidden' },
+  localVideoFrame: { width: '100%', overflow: 'hidden', backgroundColor: '#000000' },
+  remoteVideoFrame: { width: '100%', overflow: 'hidden', backgroundColor: '#000000' },
+  gridVideoFrame: { width: '100%', overflow: 'hidden', backgroundColor: '#000000' },
   cameraOffOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#000000',

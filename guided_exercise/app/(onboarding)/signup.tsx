@@ -4,7 +4,6 @@ import {
   StyleSheet,
   View,
   Pressable,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -17,10 +16,12 @@ import { createAccount, createProfile } from '@/src/api/Firebase/firebase-auth';
 import { auth } from '@/src/api/Firebase/firebase-config';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useToast } from '@/src/components/ui/ToastProvider';
 
 const INSTRUCTOR_SIGNUP_CODE = 'UCDavis123';
 
 export default function Signup() {
+  const { showToast } = useToast();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isSmallPhone = width < 380 || height < 760;
@@ -39,26 +40,26 @@ export default function Signup() {
     const trimmedUsername = username.trim();
     const trimmedInstructorCode = instructorCode.trim();
     if (!trimmedEmail || !trimmedUsername || !password || !retypePassword) {
-      Alert.alert('Missing info', 'Please enter email, username, and password.');
+      showToast({ title: 'Missing info', message: 'Please enter email, username, and password.', variant: 'error' });
       return;
     }
     if (password !== retypePassword) {
-      Alert.alert('Password mismatch', 'Passwords do not match.');
+      showToast({ title: 'Password mismatch', message: 'Passwords do not match.', variant: 'error' });
       return;
     }
     if (role === 'instructor' && trimmedInstructorCode !== INSTRUCTOR_SIGNUP_CODE) {
-      Alert.alert('Invalid instructor code', 'Please enter a valid instructor signup code.');
+      showToast({ title: 'Invalid instructor code', message: 'Please enter a valid instructor signup code.', variant: 'error' });
       return;
     }
     if (trimmedUsername.length < 3) {
-      Alert.alert('Username too short', 'Username must be at least 3 characters.');
+      showToast({ title: 'Username too short', message: 'Username must be at least 3 characters.', variant: 'error' });
       return;
     }
     if (isSubmitting) return;
 
     const normalizedName = trimmedUsername.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 30);
     if (!normalizedName) {
-      Alert.alert('Invalid username', 'Use letters, numbers, underscores, periods, or hyphens.');
+      showToast({ title: 'Invalid username', message: 'Use letters, numbers, underscores, periods, or hyphens.', variant: 'error' });
       return;
     }
     const defaultFullName = normalizedName;
@@ -84,14 +85,16 @@ export default function Signup() {
           routeByRole();
           return;
         } catch {
-          Alert.alert(
-            'Email already exists',
-            'An account with this email already exists. Use Login Instead, or confirm your password to restore access.'
-          );
+          showToast({
+            title: 'Email already exists',
+            message: 'Use Login Instead, or confirm your password to restore access.',
+            variant: 'error',
+            durationMs: 5200
+          });
           return;
         }
       }
-      Alert.alert('Signup failed', err?.message || 'Unable to create account.');
+      showToast({ title: 'Signup failed', message: err?.message || 'Unable to create account.', variant: 'error' });
     } finally {
       setIsSubmitting(false);
     }

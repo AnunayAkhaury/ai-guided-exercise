@@ -1,8 +1,9 @@
-import { Tabs, usePathname } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Tabs, usePathname, useSegments } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useUserStore } from '@/src/store/userStore';
 import { AntDesign, Entypo, Ionicons, Octicons } from '@expo/vector-icons';
-import { Alert } from 'react-native';
+import { Alert, Platform, useWindowDimensions } from 'react-native';
 import { useCallStore } from '@/src/store/callStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,10 +11,43 @@ export default function TabLayout() {
   const role = useUserStore((state) => state.role);
   const inCall = useCallStore((state) => state.inCall);
   const pathname = usePathname();
-  const skipAuth = __DEV__ && role == null;
+  const segments = useSegments();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const normalizedPath = (pathname || '').toLowerCase();
   const isSessionRoute = normalizedPath.endsWith('/session');
-  const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === 'web';
+  const isCompactPhone = width < 390 || height < 760;
+  const routeSegments = segments as string[];
+  const routeRole = routeSegments.includes('(teacher)')
+    ? 'instructor'
+    : routeSegments.includes('(student)')
+      ? 'student'
+      : null;
+  const [devRoleOverride, setDevRoleOverride] = useState<'student' | 'instructor' | null>(
+    routeRole ?? (__DEV__ ? 'instructor' : null)
+  );
+
+  useEffect(() => {
+    if (role === 'student' || role === 'instructor') {
+      setDevRoleOverride(role);
+      return;
+    }
+
+    if (routeRole === 'student' || routeRole === 'instructor') {
+      setDevRoleOverride(routeRole);
+    }
+  }, [role, routeRole]);
+
+  const effectiveRole = role ?? (__DEV__ ? devRoleOverride : null);
+  const showStudentTabs = effectiveRole === 'student';
+  const showInstructorTabs = effectiveRole === 'instructor';
+  const tabBarTopPadding = isWeb ? 8 : isCompactPhone ? 8 : 10;
+  const tabBarBottomPadding = isWeb ? 12 : Math.max(insets.bottom, isCompactPhone ? 8 : 10);
+  const tabBarHeight = (isWeb ? 70 : isCompactPhone ? 54 : 60) + tabBarBottomPadding;
+  const tabBarLabelFontSize = isWeb ? 12 : isCompactPhone ? 11 : 12;
+  const recordingsTitle = isCompactPhone ? 'Videos' : 'Recordings';
+  const startMeetingTitle = isCompactPhone ? 'Start' : 'Start';
 
   return (
     <Tabs
@@ -28,20 +62,31 @@ export default function TabLayout() {
         tabBarStyle: {
           display: inCall || isSessionRoute ? 'none' : 'flex',
           backgroundColor: '#A980FE',
-          minHeight: 64,
-          height: 64 + insets.bottom,
-          paddingTop: 10,
-          paddingBottom: insets.bottom + 8
+          borderTopWidth: 0,
+          elevation: 0,
+          height: tabBarHeight,
+          paddingTop: tabBarTopPadding,
+          paddingBottom: tabBarBottomPadding,
+          paddingHorizontal: isWeb ? 8 : isCompactPhone ? 4 : 8
         },
         tabBarLabelStyle: {
-          fontSize: 13,
-          fontFamily: 'Inter_600SemiBold'
+          fontSize: tabBarLabelFontSize,
+          fontFamily: 'Inter_600SemiBold',
+          textAlign: 'center'
         },
         tabBarItemStyle: {
-          paddingVertical: 2
+          flex: 1,
+          minWidth: 0,
+          paddingVertical: isWeb ? 0 : isCompactPhone ? 1 : 2
         },
-        tabBarActiveTintColor: '#6155F5',
-        tabBarInactiveTintColor: '#000'
+        tabBarIconStyle: {
+          marginBottom: isWeb ? 2 : isCompactPhone ? 1 : 3
+        },
+        tabBarLabelPosition: 'below-icon',
+        tabBarHideOnKeyboard: true,
+        tabBarAllowFontScaling: false,
+        tabBarActiveTintColor: '#FFFFFF',
+        tabBarInactiveTintColor: '#000000'
       }}>
       {/* Student tabs */}
       <Tabs.Screen
@@ -49,25 +94,16 @@ export default function TabLayout() {
         options={{
           title: 'Classes',
           tabBarIcon: ({ color, size }) => <AntDesign name="book" color={color} size={size} />,
-          href: role === 'student' || skipAuth ? '/(tabs)/(student)/classes' : null,
+          href: showStudentTabs ? '/(tabs)/(student)/classes' : null,
           headerShown: false
         }}
       />
       <Tabs.Screen
         name="(student)/recordings"
         options={{
-          title: 'Recordings',
+          title: recordingsTitle,
           tabBarIcon: ({ color, size }) => <Entypo name="folder-video" color={color} size={size} />,
-          href: role === 'student' || skipAuth ? '/(tabs)/(student)/recordings' : null,
-          headerShown: false
-        }}
-      />
-      <Tabs.Screen
-        name="(student)/stats"
-        options={{
-          title: 'Stats',
-          tabBarIcon: ({ color, size }) => <Octicons name="graph" size={size} color={color} />,
-          href: role === 'student' || skipAuth ? '/(tabs)/(student)/stats' : null,
+          href: showStudentTabs ? '/(tabs)/(student)/recordings' : null,
           headerShown: false
         }}
       />
@@ -78,13 +114,17 @@ export default function TabLayout() {
         options={{
           title: 'Classes',
           tabBarIcon: ({ color, size }) => <AntDesign name="book" color={color} size={size} />,
-          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/classes' : null,
+          href: showInstructorTabs ? '/(tabs)/(teacher)/classes' : null,
           headerShown: false
         }}
       />
       <Tabs.Screen
         name="(teacher)/recordings"
         options={{
+          title: recordingsTitle,
+          tabBarIcon: ({ color, size }) => <Entypo name="folder-video" color={color} size={size} />,
+          href: showInstructorTabs ? '/(tabs)/(teacher)/recordings' : null,
+          headerShown: false,
           title: 'Recordings',
           tabBarIcon: ({ color, size }) => <Entypo name="folder-video" color={color} size={size} />,
           href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/recordings' : null,
@@ -103,9 +143,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(teacher)/start-meeting"
         options={{
-          title: 'Start Meeting',
+          title: startMeetingTitle,
           tabBarIcon: ({ color, size }) => <MaterialIcons name="screenshot-monitor" color={color} size={size} />,
-          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/start-meeting' : null,
+          href: showInstructorTabs ? '/(tabs)/(teacher)/start-meeting' : null,
           headerShown: false
         }}
       />
@@ -114,7 +154,8 @@ export default function TabLayout() {
         options={{
           title: 'Schedule',
           tabBarIcon: ({ color, size }) => <AntDesign name="schedule" color={color} size={size} />,
-          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/schedule' : null,
+          // Keep schedule reachable from the Classes screen CTA instead of overcrowding bottom navigation.
+          href: null,
           headerShown: false
         }}
       />
@@ -123,7 +164,7 @@ export default function TabLayout() {
         options={{
           title: 'Students',
           tabBarIcon: ({ color, size }) => <Ionicons name="people" color={color} size={size} />,
-          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/students' : null,
+          href: showInstructorTabs ? '/(tabs)/(teacher)/students' : null,
           headerShown: false
         }}
       />

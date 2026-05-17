@@ -5,6 +5,7 @@ import {
   endOtherLiveSessions,
   getSessionByCode,
   getSessionById,
+  heartbeatSessionParticipant,
   listSessionParticipants,
   listSessions,
   markSessionParticipantLeft,
@@ -12,6 +13,7 @@ import {
   updateSessionStatus
 } from '@/services/Firebase/firebase-session.js';
 import type { SessionStatus } from '@/services/Firebase/firebase-session.js';
+import { sendNotificationToRole } from '@/services/notification-service.js';
 import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
 type CreateSessionRequest = {
@@ -29,6 +31,7 @@ type SessionCodeRequest = {
 
 type SessionIdRequest = {
   sessionId?: string;
+  requesterUid?: string;
 };
 
 type UpsertParticipantRequest = {
@@ -44,9 +47,36 @@ type LeaveParticipantRequest = {
   participantId?: string;
 };
 
+type ParticipantHeartbeatRequest = {
+  sessionId?: string;
+  participantId?: string;
+};
+
 const VALID_STATUSES: SessionStatus[] = ['scheduled', 'live', 'ended'];
 const DEFAULT_REGION = process.env.AWS_REGION || 'us-west-2';
 const START_WINDOW_MINUTES = 5;
+
+async function sendStudentSessionNotification(input: {
+  title: string;
+  body: string;
+  type: string;
+  sessionId: string;
+  sessionCode: string;
+}) {
+  try {
+    await sendNotificationToRole('student', {
+      title: input.title,
+      body: input.body,
+      data: {
+        type: input.type,
+        sessionId: input.sessionId,
+        sessionCode: input.sessionCode
+      }
+    });
+  } catch (err) {
+    console.error('[notifications] Failed to send session notification', err);
+  }
+}
 
 async function disconnectKnownParticipantsForSession(session: {
   sessionId: string;
@@ -113,6 +143,14 @@ export async function createSessionController(req: Request, res: Response) {
       stageArn: effectiveStageArn,
       ...(parsedScheduledStartAt ? { scheduledStartAt: parsedScheduledStartAt } : {}),
       ...(parsedScheduledEndAt ? { scheduledEndAt: parsedScheduledEndAt } : {})
+    });
+
+    void sendStudentSessionNotification({
+      title: 'New class scheduled',
+      body: `${session.sessionName} was added to the class schedule.`,
+      type: 'class_scheduled',
+      sessionId: session.sessionId,
+      sessionCode: session.sessionCode
     });
 
     return res.status(200).json(session);
@@ -193,7 +231,7 @@ export async function listSessionsController(req: Request, res: Response) {
 
 export async function startSessionController(req: Request, res: Response) {
   try {
-    const { sessionId } = req.body as SessionIdRequest;
+    const { sessionId, requesterUid } = req.body as SessionIdRequest;
     if (!sessionId?.trim()) {
       return sendErrorResponse(req, res, 400, 'sessionId is required.');
     }
@@ -201,6 +239,9 @@ export async function startSessionController(req: Request, res: Response) {
     const existing = await getSessionById(sessionId);
     if (!existing) {
       return sendErrorResponse(req, res, 404, 'Session not found.');
+    }
+    if (!requesterUid?.trim() || existing.instructorUid !== requesterUid.trim()) {
+      return sendErrorResponse(req, res, 403, 'Only the session creator can start this class.');
     }
     if (existing.status === 'ended') {
       return sendErrorResponse(req, res, 409, 'Cannot start an ended session.');
@@ -223,6 +264,15 @@ export async function startSessionController(req: Request, res: Response) {
     await endOtherLiveSessions(sessionId);
     await updateSessionStatus(sessionId, 'live');
     const updated = await getSessionById(sessionId);
+    if (updated) {
+      void sendStudentSessionNotification({
+        title: 'Class is live',
+        body: `${updated.sessionName} is ready to join.`,
+        type: 'class_live',
+        sessionId: updated.sessionId,
+        sessionCode: updated.sessionCode
+      });
+    }
     return res.status(200).json(updated);
   } catch (err: any) {
     logControllerError(req, err, 'startSessionController failed');
@@ -232,7 +282,7 @@ export async function startSessionController(req: Request, res: Response) {
 
 export async function endSessionController(req: Request, res: Response) {
   try {
-    const { sessionId } = req.body as SessionIdRequest;
+    const { sessionId, requesterUid } = req.body as SessionIdRequest;
     if (!sessionId?.trim()) {
       return sendErrorResponse(req, res, 400, 'sessionId is required.');
     }
@@ -241,11 +291,23 @@ export async function endSessionController(req: Request, res: Response) {
     if (!existing) {
       return sendErrorResponse(req, res, 404, 'Session not found.');
     }
+    if (!requesterUid?.trim() || existing.instructorUid !== requesterUid.trim()) {
+      return sendErrorResponse(req, res, 403, 'Only the session creator can end or cancel this class.');
+    }
     if (existing.status === 'live') {
       await disconnectKnownParticipantsForSession(existing);
     }
     await updateSessionStatus(sessionId, 'ended');
     const updated = await getSessionById(sessionId);
+    if (existing.status === 'scheduled') {
+      void sendStudentSessionNotification({
+        title: 'Class canceled',
+        body: `${existing.sessionName} was canceled.`,
+        type: 'class_canceled',
+        sessionId: existing.sessionId,
+        sessionCode: existing.sessionCode
+      });
+    }
     return res.status(200).json(updated ?? { ...existing, status: 'ended' });
   } catch (err: any) {
     logControllerError(req, err, 'endSessionController failed');
@@ -327,5 +389,38 @@ export async function leaveSessionParticipantController(req: Request, res: Respo
   } catch (err: any) {
     logControllerError(req, err, 'leaveSessionParticipantController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to mark participant as left.');
+  }
+}
+
+export async function heartbeatSessionParticipantController(req: Request, res: Response) {
+  try {
+    const { sessionId, participantId } = req.body as ParticipantHeartbeatRequest;
+    if (!sessionId?.trim()) {
+      return sendErrorResponse(req, res, 400, 'sessionId is required.');
+    }
+    if (!participantId?.trim()) {
+      return sendErrorResponse(req, res, 400, 'participantId is required.');
+    }
+
+    const existing = await getSessionById(sessionId);
+    if (!existing) {
+      return sendErrorResponse(req, res, 404, 'Session not found.');
+    }
+
+    const participant = await heartbeatSessionParticipant(sessionId, participantId);
+    if (!participant) {
+      return sendErrorResponse(req, res, 404, 'Participant not found.');
+    }
+
+    return res.status(200).json({
+      success: true,
+      sessionId,
+      participantId: participant.participantId,
+      active: participant.active,
+      lastSeenAt: participant.lastSeenAt.toISOString()
+    });
+  } catch (err: any) {
+    logControllerError(req, err, 'heartbeatSessionParticipantController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to heartbeat session participant.');
   }
 }

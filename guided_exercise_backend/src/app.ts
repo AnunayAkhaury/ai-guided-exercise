@@ -9,6 +9,7 @@ import { getRequestId, requestIdMiddleware } from '@/utils/request-logging.js';
 dotenv.config();
 
 const app = express();
+const port = Number(process.env.PORT) || 4000;
 
 // Middleware
 app.use(cors());
@@ -34,6 +35,6 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start server
-app.listen(4000, '0.0.0.0', () => {
-  console.log(`Server is running on port 4000.`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Server is running on port ${port}.`);
 });

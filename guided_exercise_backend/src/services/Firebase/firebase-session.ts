@@ -17,6 +17,7 @@ export type SessionDocument = {
   updatedAt: Date;
   startedAt: Date | null;
   endedAt: Date | null;
+  reminderSentAt: Date | null;
 };
 
 export type SessionParticipantDocument = {
@@ -45,6 +46,14 @@ const PARTICIPANTS_SUBCOLLECTION = 'participants';
 const SESSION_CODE_LENGTH = 6;
 const SESSION_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const SESSION_CODE_MAX_RETRIES = 20;
+const PARTICIPANT_STALE_MS = 90 * 1000;
+
+function isParticipantFresh(lastSeenAt: Date | null | undefined) {
+  if (!lastSeenAt) {
+    return false;
+  }
+  return Date.now() - lastSeenAt.getTime() <= PARTICIPANT_STALE_MS;
+}
 
 function randomSessionCode(length: number) {
   let code = '';
@@ -86,7 +95,8 @@ function mapSessionDoc(
     createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
     updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
     startedAt: data.startedAt?.toDate ? data.startedAt.toDate() : data.startedAt ?? null,
-    endedAt: data.endedAt?.toDate ? data.endedAt.toDate() : data.endedAt ?? null
+    endedAt: data.endedAt?.toDate ? data.endedAt.toDate() : data.endedAt ?? null,
+    reminderSentAt: data.reminderSentAt?.toDate ? data.reminderSentAt.toDate() : data.reminderSentAt ?? null
   } as SessionDocument;
 }
 
@@ -107,7 +117,8 @@ export async function createSession(input: CreateSessionInput): Promise<SessionD
     createdAt: now,
     updatedAt: now,
     startedAt: null,
-    endedAt: null
+    endedAt: null,
+    reminderSentAt: null
   };
 
   await ref.set(payload);
@@ -194,6 +205,17 @@ export async function updateSessionStatus(sessionId: string, status: SessionStat
   await db.collection(SESSIONS_COLLECTION).doc(sessionId).update(payload);
 }
 
+export async function markSessionReminderSent(sessionId: string): Promise<void> {
+  const now = new Date();
+  await db.collection(SESSIONS_COLLECTION).doc(sessionId).set(
+    {
+      reminderSentAt: now,
+      updatedAt: now
+    },
+    { merge: true }
+  );
+}
+
 export async function listSessions(statuses?: SessionStatus[]): Promise<SessionDocument[]> {
   let query: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> = db.collection(SESSIONS_COLLECTION);
 
@@ -261,19 +283,27 @@ export async function upsertSessionParticipant(
   sessionId: string,
   participantId: string,
   displayName: string,
-  role?: string,
+  _role?: string,
   userId?: string
 ): Promise<SessionParticipantDocument> {
   const now = new Date();
   const normalizedParticipantId = participantId.trim();
   const normalizedDisplayName = displayName.trim();
   const normalizedUserId = userId?.trim() || null;
+  const sessionRef = db.collection(SESSIONS_COLLECTION).doc(sessionId);
+  const sessionSnapshot = await sessionRef.get();
+  const sessionData = sessionSnapshot.data();
+  const sessionInstructorUid = typeof sessionData?.instructorUid === 'string' ? sessionData.instructorUid.trim() : null;
+  const effectiveRole =
+    normalizedUserId && sessionInstructorUid && normalizedUserId === sessionInstructorUid
+      ? 'instructor'
+      : 'student';
   const participantRef = db
     .collection(SESSIONS_COLLECTION)
     .doc(sessionId)
     .collection(PARTICIPANTS_SUBCOLLECTION)
     .doc(normalizedParticipantId);
-  const participantsCollectionRef = db.collection(SESSIONS_COLLECTION).doc(sessionId).collection(PARTICIPANTS_SUBCOLLECTION);
+  const participantsCollectionRef = sessionRef.collection(PARTICIPANTS_SUBCOLLECTION);
 
   const existing = await participantRef.get();
   const existingData = existing.data();
@@ -309,7 +339,7 @@ export async function upsertSessionParticipant(
       participantId: normalizedParticipantId,
       userId: normalizedUserId,
       displayName: normalizedDisplayName,
-      role: role?.trim() || null,
+      role: effectiveRole,
       active: true,
       joinedAt: existingJoinedAt,
       leftAt: null,
@@ -324,7 +354,7 @@ export async function upsertSessionParticipant(
     participantId: normalizedParticipantId,
     userId: normalizedUserId,
     displayName: normalizedDisplayName,
-    role: role?.trim() || null,
+    role: effectiveRole,
     active: true,
     joinedAt: existingJoinedAt,
     leftAt: null,
@@ -363,7 +393,7 @@ export async function listSessionParticipants(sessionId: string): Promise<Sessio
   };
 
   return participants
-    .filter((participant) => participant.active)
+    .filter((participant) => participant.active && isParticipantFresh(participant.lastSeenAt))
     .sort((a, b) => {
       const roleDelta = rolePriority(a.role) - rolePriority(b.role);
       if (roleDelta !== 0) return roleDelta;
@@ -371,6 +401,49 @@ export async function listSessionParticipants(sessionId: string): Promise<Sessio
       if (nameDelta !== 0) return nameDelta;
       return a.participantId.localeCompare(b.participantId);
     });
+}
+
+export async function heartbeatSessionParticipant(
+  sessionId: string,
+  participantId: string
+): Promise<SessionParticipantDocument | null> {
+  const normalizedParticipantId = participantId.trim();
+  const participantRef = db
+    .collection(SESSIONS_COLLECTION)
+    .doc(sessionId)
+    .collection(PARTICIPANTS_SUBCOLLECTION)
+    .doc(normalizedParticipantId);
+
+  const snapshot = await participantRef.get();
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  const now = new Date();
+  const data = snapshot.data();
+  if (!data) {
+    return null;
+  }
+
+  await participantRef.set(
+    {
+      lastSeenAt: now,
+      updatedAt: now
+    },
+    { merge: true }
+  );
+
+  return {
+    participantId: data.participantId ?? normalizedParticipantId,
+    userId: data.userId ?? null,
+    displayName: data.displayName ?? '',
+    role: data.role ?? null,
+    active: data.active === true,
+    joinedAt: data.joinedAt?.toDate ? data.joinedAt.toDate() : data.joinedAt,
+    leftAt: data.leftAt?.toDate ? data.leftAt.toDate() : data.leftAt ?? null,
+    lastSeenAt: now,
+    updatedAt: now
+  } as SessionParticipantDocument;
 }
 
 export async function getSessionParticipantById(

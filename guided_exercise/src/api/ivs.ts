@@ -50,6 +50,7 @@ export type IvsRecordingStatus = 'queued' | 'processing' | 'completed' | 'failed
 export type IvsRecording = {
   recordingId: string;
   sessionId: string;
+  sessionName?: string | null;
   participantId: string;
   userId: string | null;
   rawS3Prefix: string;
@@ -86,6 +87,12 @@ export type IvsRecordingPlayback = {
   objectKey?: string;
 };
 
+export type IvsRecordingProcessResponse = {
+  message: string;
+  recording: IvsRecording;
+  taskArn?: string;
+};
+
 type CreateSessionRequest = {
   sessionName: string;
   instructorUid: string;
@@ -104,6 +111,11 @@ type SessionParticipantUpsertRequest = {
 };
 
 type SessionParticipantLeaveRequest = {
+  sessionId: string;
+  participantId: string;
+};
+
+type SessionParticipantHeartbeatRequest = {
   sessionId: string;
   participantId: string;
 };
@@ -267,12 +279,12 @@ export function createIvsSession(request: CreateSessionRequest): Promise<IvsSess
   return postJson<IvsSession>('/api/ivs/sessions/create', request);
 }
 
-export function startIvsSession(sessionId: string): Promise<IvsSession> {
-  return postJson<IvsSession>('/api/ivs/sessions/start', { sessionId });
+export function startIvsSession(sessionId: string, requesterUid?: string): Promise<IvsSession> {
+  return postJson<IvsSession>('/api/ivs/sessions/start', { sessionId, requesterUid });
 }
 
-export function endIvsSession(sessionId: string): Promise<IvsSession> {
-  return postJson<IvsSession>('/api/ivs/sessions/end', { sessionId });
+export function endIvsSession(sessionId: string, requesterUid?: string): Promise<IvsSession> {
+  return postJson<IvsSession>('/api/ivs/sessions/end', { sessionId, requesterUid });
 }
 
 export function joinIvsSessionByCode(sessionCode: string): Promise<IvsSession> {
@@ -298,6 +310,12 @@ export function markIvsSessionParticipantLeft(
   return postJson('/api/ivs/sessions/participants/leave', request as Record<string, unknown>);
 }
 
+export function heartbeatIvsSessionParticipant(
+  request: SessionParticipantHeartbeatRequest
+): Promise<{ success: boolean; sessionId: string; participantId: string; active: boolean; lastSeenAt: string }> {
+  return postJson('/api/ivs/sessions/participants/heartbeat', request as Record<string, unknown>);
+}
+
 export function listIvsSessionParticipants(sessionId: string): Promise<IvsSessionParticipant[]> {
   return getJson<IvsSessionParticipant[]>(`/api/ivs/sessions/${encodeURIComponent(sessionId)}/participants`);
 }
@@ -320,4 +338,8 @@ export function getIvsRecordingPlayback(recordingId: string): Promise<IvsRecordi
 
 export function getIvsClipPlayback(clipId: string): Promise<IvsRecordingPlayback> {
   return getJson<IvsRecordingPlayback>(`/api/clip/${encodeURIComponent(clipId)}/playback`);
+}
+
+export function startIvsRecordingProcessing(recordingId: string): Promise<IvsRecordingProcessResponse> {
+  return postJson<IvsRecordingProcessResponse>(`/api/recordings/${encodeURIComponent(recordingId)}/process`, {});
 }

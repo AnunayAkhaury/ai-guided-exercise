@@ -21,6 +21,7 @@ import {
 } from '@/services/Firebase/firebase-recordings-v2.js';
 import type { RecordingDocument } from '@/services/Firebase/firebase-recordings-v2.js';
 import { startRecordingWorkerTask } from '@/services/AWS/ecs.js';
+import { sendNotificationToUsers } from '@/services/notification-service.js';
 import { getRequestId, logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 import { getTimestamps } from '@/services/Firebase/firebase-feedback.js';
 
@@ -51,6 +52,46 @@ type WorkerCompleteRequest = {
 
 const DEFAULT_REGION = process.env.AWS_REGION || 'us-west-2';
 const PLAYBACK_URL_TTL_SECONDS = 10 * 60;
+
+type RecordingResponse = RecordingDocument & {
+  sessionName: string | null;
+};
+
+async function withSessionNames(recordings: RecordingDocument[]): Promise<RecordingResponse[]> {
+  const uniqueSessionIds = Array.from(new Set(recordings.map((recording) => recording.sessionId).filter(Boolean)));
+  const entries = await Promise.all(
+    uniqueSessionIds.map(async (sessionId) => {
+      const session = await getSessionById(sessionId);
+      return [sessionId, session?.sessionName ?? null] as const;
+    })
+  );
+  const sessionNameById = Object.fromEntries(entries);
+
+  return recordings.map((recording) => ({
+    ...recording,
+    sessionName: sessionNameById[recording.sessionId] ?? null
+  }));
+}
+
+async function notifyRecordingOwner(recording: RecordingDocument, input: { title: string; body: string; type: string }) {
+  if (!recording.userId?.trim()) {
+    return;
+  }
+
+  try {
+    await sendNotificationToUsers([recording.userId], {
+      title: input.title,
+      body: input.body,
+      data: {
+        type: input.type,
+        recordingId: recording.recordingId,
+        sessionId: recording.sessionId
+      }
+    });
+  } catch (err) {
+    console.error('[notifications] Failed to send recording notification', err);
+  }
+}
 
 function isLikelyIvsSessionId(value: string): boolean {
   return value.startsWith('st-');
@@ -275,7 +316,7 @@ export async function listRecordingsBySessionController(req: Request, res: Respo
     }
 
     const recordings = await listRecordingsBySessionId(sessionId);
-    return res.status(200).json(recordings);
+    return res.status(200).json(await withSessionNames(recordings));
   } catch (err: any) {
     logControllerError(req, err, 'listRecordingsBySessionController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to list recordings by session.');
@@ -290,7 +331,7 @@ export async function listRecordingsByUserController(req: Request, res: Response
     }
 
     const recordings = await listRecordingsByUserId(userId);
-    return res.status(200).json(recordings);
+    return res.status(200).json(await withSessionNames(recordings));
   } catch (err: any) {
     logControllerError(req, err, 'listRecordingsByUserController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to list recordings by user.');
@@ -504,6 +545,12 @@ export async function completeRecordingProcessingController(req: Request, res: R
         error: body.error?.trim() || 'Worker reported processing failure.'
       });
 
+      void notifyRecordingOwner(failedRecording, {
+        title: 'Recording processing failed',
+        body: 'We could not process one of your class recordings.',
+        type: 'recording_failed'
+      });
+
       return res.status(200).json({
         message: 'Recording marked as failed.',
         recording: failedRecording
@@ -520,6 +567,12 @@ export async function completeRecordingProcessingController(req: Request, res: R
       processedVideoUrl,
       ...(body.feedbackJsonUrl?.trim() ? { feedbackJsonUrl: body.feedbackJsonUrl.trim() } : {}),
       error: null
+    });
+
+    void notifyRecordingOwner(completedRecording, {
+      title: 'Recording ready',
+      body: 'Your class recording is ready to watch.',
+      type: 'recording_ready'
     });
 
     return res.status(200).json({

@@ -1,17 +1,17 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import IvsCall from '@/src/components/IvsCall';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   cacheIvsToken,
   endIvsSession,
-  getIvsSessionById,
   getIvsToken,
-  listIvsSessionParticipants,
   markIvsSessionParticipantLeft,
   sendIvsTelemetry,
   upsertIvsSessionParticipant
 } from '@/src/api/ivs';
+import { useFirestoreSession, useFirestoreSessionParticipants } from '@/src/hooks/use-ivs-firestore';
+import { useSessionParticipantHeartbeat } from '@/src/hooks/use-session-participant-heartbeat';
 import { useCallStore } from '@/src/store/callStore';
 import { useUserStore } from '@/src/store/userStore';
 
@@ -53,8 +53,6 @@ export default function SharedSessionScreen() {
 
   const hasHandledEndedSession = useRef(false);
   const [ending, setEnding] = useState(false);
-  const [participantNameById, setParticipantNameById] = useState<Record<string, string>>({});
-  const [participantRoleById, setParticipantRoleById] = useState<Record<string, string>>({});
   const normalizedSessionId = Array.isArray(sessionId) ? sessionId[0] : sessionId;
   const normalizedSessionName = Array.isArray(sessionName) ? sessionName[0] : sessionName;
   const normalizedUserName = Array.isArray(userName) ? userName[0] : userName;
@@ -63,11 +61,41 @@ export default function SharedSessionScreen() {
   const normalizedStageArn = Array.isArray(stageArn) ? stageArn[0] : stageArn;
   const normalizedParticipantId = Array.isArray(participantId) ? participantId[0] : participantId;
   const [currentParticipantId, setCurrentParticipantId] = useState<string | undefined>(normalizedParticipantId);
+  const [isInStage, setIsInStage] = useState(false);
+  const { data: session, loading: sessionLoading, error: sessionError } = useFirestoreSession(normalizedSessionId, Boolean(normalizedSessionId));
+  const sessionRole = useMemo<'student' | 'instructor'>(() => {
+    const effectiveUid = uid?.trim();
+    if (effectiveUid && session?.instructorUid) {
+      return session.instructorUid === effectiveUid ? 'instructor' : 'student';
+    }
+    return normalizedRole;
+  }, [normalizedRole, session?.instructorUid, uid]);
   const normalizedLocalLabel = useMemo(
-    () => normalizedUserName || (normalizedRole === 'instructor' ? 'Instructor' : 'Student'),
-    [normalizedRole, normalizedUserName]
+    () => normalizedUserName || (sessionRole === 'instructor' ? 'Instructor' : 'Student'),
+    [sessionRole, normalizedUserName]
   );
-  const classesRoute = normalizedRole === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/(student)/classes';
+  const classesRoute = storeRole === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/(student)/classes';
+  const { data: participants, error: participantsError } = useFirestoreSessionParticipants(normalizedSessionId, Boolean(normalizedSessionId));
+  const participantNameById = useMemo(
+    () =>
+      participants.reduce<Record<string, string>>((acc, participant) => {
+        if (participant.displayName && participant.participantId) {
+          acc[participant.participantId] = participant.displayName;
+        }
+        return acc;
+      }, {}),
+    [participants]
+  );
+  const participantRoleById = useMemo(
+    () =>
+      participants.reduce<Record<string, string>>((acc, participant) => {
+        if (participant.role && participant.participantId) {
+          acc[participant.participantId] = participant.role;
+        }
+        return acc;
+      }, {}),
+    [participants]
+  );
 
   useEffect(() => {
     setCurrentParticipantId(normalizedParticipantId);
@@ -79,79 +107,33 @@ export default function SharedSessionScreen() {
   }, [setInCall]);
 
   useEffect(() => {
-    if (!normalizedSessionId) return;
-    let active = true;
-
-    const checkSessionStatus = async () => {
-      try {
-        const session = await getIvsSessionById(normalizedSessionId);
-        if (active && session.status === 'ended' && !hasHandledEndedSession.current) {
-          hasHandledEndedSession.current = true;
-          Alert.alert('Session ended', 'This session has ended.');
-          setInCall(false);
-          router.replace(classesRoute as any);
-        }
-      } catch (error) {
-        const message = String((error as any)?.message || '');
-        if (active && !hasHandledEndedSession.current && (message.includes('Session not found') || message.includes('404'))) {
-          hasHandledEndedSession.current = true;
-          Alert.alert('Session ended', 'This session has ended.');
-          setInCall(false);
-          router.replace(classesRoute as any);
-          return;
-        }
-        console.log('[SharedSession] polling error', error);
-      }
-    };
-
-    void checkSessionStatus();
-    const interval = setInterval(() => {
-      void checkSessionStatus();
-    }, 3000);
-
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [classesRoute, normalizedSessionId, router, setInCall]);
+    if (!normalizedSessionId || sessionLoading || sessionError || hasHandledEndedSession.current) return;
+    if (!session || session.status === 'ended') {
+      hasHandledEndedSession.current = true;
+      Alert.alert('Session ended', 'This session has ended.');
+      setInCall(false);
+      router.replace(classesRoute as any);
+    }
+  }, [classesRoute, normalizedSessionId, router, session, sessionError, sessionLoading, setInCall]);
 
   useEffect(() => {
-    if (!normalizedSessionId) return;
-    let active = true;
+    if (sessionError) {
+      console.log('[SharedSession] Firestore session listener error', sessionError);
+    }
+  }, [sessionError]);
 
-    const loadParticipants = async () => {
-      try {
-        const participants = await listIvsSessionParticipants(normalizedSessionId);
-        if (!active) return;
-        const nextMap = participants.reduce<Record<string, string>>((acc, participant) => {
-          if (participant.displayName && participant.participantId) {
-            acc[participant.participantId] = participant.displayName;
-          }
-          return acc;
-        }, {});
-        const nextRoleMap = participants.reduce<Record<string, string>>((acc, participant) => {
-          if (participant.role && participant.participantId) {
-            acc[participant.participantId] = participant.role;
-          }
-          return acc;
-        }, {});
-        setParticipantNameById(nextMap);
-        setParticipantRoleById(nextRoleMap);
-      } catch (error) {
-        console.log('[SharedSession] participant list error', error);
-      }
-    };
+  useEffect(() => {
+    if (participantsError) {
+      console.log('[SharedSession] Firestore participants listener error', participantsError);
+    }
+  }, [participantsError]);
 
-    void loadParticipants();
-    const interval = setInterval(() => {
-      void loadParticipants();
-    }, 3000);
-
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [normalizedSessionId]);
+  useSessionParticipantHeartbeat({
+    enabled: isInStage && Boolean(normalizedSessionId) && Boolean(currentParticipantId) && session?.status === 'live',
+    sessionId: normalizedSessionId,
+    participantId: currentParticipantId,
+    logPrefix: '[SharedSession]'
+  });
 
   const handleEndSession = async () => {
     if (!normalizedSessionId) {
@@ -160,7 +142,7 @@ export default function SharedSessionScreen() {
     }
     try {
       setEnding(true);
-      await endIvsSession(normalizedSessionId);
+      await endIvsSession(normalizedSessionId, uid?.trim());
       setInCall(false);
       router.replace(classesRoute as any);
     } catch (err: any) {
@@ -173,8 +155,8 @@ export default function SharedSessionScreen() {
   const handleInfoPress = () => {
     Alert.alert(
       'Session Info',
-      `Session: ${normalizedSessionName || 'Live Session'}\n${normalizedRole === 'instructor' ? 'Coach' : 'You'}: ${
-        normalizedUserName || (normalizedRole === 'instructor' ? 'Instructor' : 'Student')
+      `Session: ${normalizedSessionName || 'Live Session'}\n${sessionRole === 'instructor' ? 'Coach' : 'You'}: ${
+        normalizedUserName || (sessionRole === 'instructor' ? 'Instructor' : 'Student')
       }\nCode: ${normalizedSessionCode || 'N/A'}`
     );
   };
@@ -197,8 +179,7 @@ export default function SharedSessionScreen() {
     );
   }
 
-  return (
-    <View style={styles.container}>
+  const callView = (
       <IvsCall
         token={normalizedToken}
         publishOnJoin
@@ -214,7 +195,7 @@ export default function SharedSessionScreen() {
                 sessionId: normalizedSessionId,
                 stageArn: normalizedStageArn,
                 userId: uid?.trim() || undefined,
-                role: normalizedRole,
+                role: sessionRole,
                 participantId: currentParticipantId
               });
             } catch (error) {
@@ -224,7 +205,7 @@ export default function SharedSessionScreen() {
                 sessionId: normalizedSessionId,
                 stageArn: normalizedStageArn,
                 userId: uid?.trim() || undefined,
-                role: normalizedRole,
+                role: sessionRole,
                 participantId: currentParticipantId,
                 details: {
                   message: String((error as any)?.message || 'unknown')
@@ -241,7 +222,7 @@ export default function SharedSessionScreen() {
             sessionId: normalizedSessionId,
             stageArn: normalizedStageArn,
             userId: uid?.trim() || undefined,
-            role: normalizedRole,
+            role: sessionRole,
             participantId: currentParticipantId
           });
         }}
@@ -251,7 +232,7 @@ export default function SharedSessionScreen() {
             sessionId: normalizedSessionId,
             stageArn: normalizedStageArn,
             userId: uid?.trim() || undefined,
-            role: normalizedRole,
+            role: sessionRole,
             participantId: currentParticipantId,
             details: { message }
           });
@@ -272,7 +253,7 @@ export default function SharedSessionScreen() {
               attributes: {
                 displayName: normalizedLocalLabel,
                 userId: effectiveUid,
-                role: normalizedRole,
+                role: sessionRole,
                 sessionId: normalizedSessionId,
                 sessionCode: normalizedSessionCode || ''
               }
@@ -282,7 +263,7 @@ export default function SharedSessionScreen() {
                 stageArn: normalizedStageArn,
                 sessionId: normalizedSessionId,
                 userId: effectiveUid,
-                role: normalizedRole
+                role: sessionRole
               },
               refreshed
             );
@@ -291,7 +272,7 @@ export default function SharedSessionScreen() {
               participantId: refreshed.participantId,
               userId: effectiveUid,
               displayName: normalizedLocalLabel,
-              role: normalizedRole
+              role: sessionRole
             });
             setCurrentParticipantId(refreshed.participantId);
             await sendIvsTelemetry({
@@ -299,7 +280,7 @@ export default function SharedSessionScreen() {
               sessionId: normalizedSessionId,
               stageArn: normalizedStageArn,
               userId: effectiveUid,
-              role: normalizedRole,
+              role: sessionRole,
               participantId: refreshed.participantId
             });
             return refreshed;
@@ -309,7 +290,7 @@ export default function SharedSessionScreen() {
               sessionId: normalizedSessionId,
               stageArn: normalizedStageArn,
               userId: effectiveUid,
-              role: normalizedRole,
+              role: sessionRole,
               participantId: currentParticipantId,
               details: {
                 message: String((error as any)?.message || 'unknown')
@@ -319,14 +300,30 @@ export default function SharedSessionScreen() {
           }
         }}
         onInfoPress={handleInfoPress}
-        onEndSession={normalizedRole === 'instructor' ? handleEndSession : undefined}
+        onInStageChange={setIsInStage}
+        onEndSession={sessionRole === 'instructor' ? handleEndSession : undefined}
         endSessionLabel={ending ? 'Ending...' : 'End Session'}
         endSessionDisabled={ending}
         localParticipantLabel={normalizedLocalLabel}
         participantNamesById={participantNameById}
         participantRolesById={participantRoleById}
-        localParticipantRole={normalizedRole}
+        localParticipantRole={sessionRole}
       />
+  );
+
+  return (
+    <View style={styles.container}>
+      {Platform.OS === 'web' ? (
+        <ScrollView
+          contentContainerStyle={styles.webScrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {callView}
+        </ScrollView>
+      ) : (
+        callView
+      )}
     </View>
   );
 }
@@ -335,6 +332,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F2FF'
+  },
+  webScrollContent: {
+    flexGrow: 1
   },
   title: {
     fontSize: 20,

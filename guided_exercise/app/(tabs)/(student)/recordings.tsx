@@ -1,19 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  View,
-  useWindowDimensions
-} from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import Typography from '@/src/components/ui/Typography';
 import { getIvsClipPlayback, IvsClip, getIvsClipsByUserId } from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
+import { useToast } from '@/src/components/ui/ToastProvider';
 
 function formatDate(value: string) {
   const timestamp = Number(value);
@@ -46,7 +39,31 @@ function formatDuration(value: string | null) {
   return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
 }
 
-export default function StudentRecordingSession() {
+function getStatusCopy(status: IvsRecording['status']) {
+  switch (status) {
+    case 'queued':
+      return 'Queued for processing';
+    case 'processing':
+      return 'Processing video';
+    case 'completed':
+      return 'Ready to watch';
+    case 'failed':
+      return 'Processing failed';
+    default:
+      return status;
+  }
+}
+
+function canPlayRecording(recording: IvsRecording) {
+  return recording.status === 'completed' && Boolean(recording.processedVideoUrl);
+}
+
+function getRecordingSessionLabel(recording: IvsRecording) {
+  return recording.sessionName?.trim() || 'Untitled session';
+}
+
+export default function StudentRecordingsScreen() {
+  const { showToast } = useToast();
   const { width, height } = useWindowDimensions();
   const isSmallPhone = width < 380 || height < 760;
   const horizontalPadding = isSmallPhone ? 14 : 18;
@@ -71,24 +88,41 @@ export default function StudentRecordingSession() {
       try {
         await loadClips();
       } catch (error: any) {
-        Alert.alert('Unable to load clips', error?.message || 'Please try again.');
+        showToast({
+          title: 'Unable to load recordings',
+          message: error?.message || 'Please try again.',
+          variant: 'error'
+        });
       } finally {
         setLoading(false);
       }
     };
     void run();
-  }, [loadClips]);
+  }, [loadRecordings, showToast]);
+
+  const hasPendingRecordings = useMemo(
+    () => recordings.some((recording) => recording.status === 'queued' || recording.status === 'processing'),
+    [recordings]
+  );
+
+  useEffect(() => {
+    if (!hasPendingRecordings) return;
+    const interval = setInterval(() => {
+      void loadRecordings({ silent: true }).catch(() => undefined);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [hasPendingRecordings, loadRecordings]);
 
   const onRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
       await loadClips();
     } catch (error: any) {
-      Alert.alert('Refresh failed', error?.message || 'Please try again.');
+      showToast({ title: 'Refresh failed', message: error?.message || 'Please try again.', variant: 'error' });
     } finally {
       setRefreshing(false);
     }
-  }, [loadClips]);
+  }, [loadRecordings, showToast]);
 
   const groupedClips = useMemo(() => {
     // 1. Sort the raw clips array first (Newest to Oldest)
@@ -113,26 +147,58 @@ export default function StudentRecordingSession() {
     }, {});
   }, [clips]);
 
-  const handlePlay = useCallback(async (clip: IvsClip) => {
-    try {
-      setPlayingClipId(clip.id);
+  const handlePlay = useCallback(
+    async (clip: IvsClip) => {
+      try {
+        setPlayingClipId(clip.id);
 
-      const playback = await getIvsClipPlayback(clip.id);
+        const playback = await getIvsClipPlayback(clip.id);
 
-      router.push({
-        pathname: '/(extra)/recording-display',
-        params: {
-          link: playback.playbackUrl,
-          title: clip.exercise,
-          feedbackRef: clip.feedbackRef
-        }
-      });
-    } catch (error: any) {
-      Alert.alert('Playback failed', error?.message || 'Unable to load this clip.');
-    } finally {
-      setPlayingClipId(null);
-    }
-  }, []);
+        router.push({
+          pathname: '/(extra)/recording-display',
+          params: {
+            link: playback.playbackUrl,
+            title: clip.exercise,
+            feedbackRef: clip.feedbackRef
+          }
+        });
+      } catch (error: any) {
+        showToast({
+          title: 'Playback failed',
+          message: error?.message || 'Unable to load this recording.',
+          variant: 'error'
+        });
+        Alert.alert('Playback failed', error?.message || 'Unable to load this clip.');
+      } finally {
+        setPlayingClipId(null);
+      }
+    },
+    [showToast]
+  );
+
+  const handleProcess = useCallback(
+    async (recordingId: string) => {
+      try {
+        setProcessingRecordingId(recordingId);
+        await startIvsRecordingProcessing(recordingId);
+        await loadRecordings({ silent: true });
+        showToast({
+          title: 'Processing started',
+          message: 'Recording processing has been queued.',
+          variant: 'success'
+        });
+      } catch (error: any) {
+        showToast({
+          title: 'Processing failed',
+          message: error?.message || 'Unable to start recording processing.',
+          variant: 'error'
+        });
+      } finally {
+        setProcessingRecordingId(null);
+      }
+    },
+    [loadRecordings, showToast]
+  );
 
   return (
     <View className="flex-1 bg-white">
@@ -173,10 +239,10 @@ export default function StudentRecordingSession() {
                     <Typography font="inter-semibold" className="text-[#2F2A5A]">
                       {formatDate(clip.starttime)}
                     </Typography>
-
-                    <View className="px-2 py-1 rounded-full bg-[#E5DCFF]">
+                    <View
+                      className={`px-2 py-1 rounded-full ${recording.status === 'failed' ? 'bg-[#FFE3E8]' : recording.status === 'completed' ? 'bg-[#DDF8E8]' : 'bg-[#E5DCFF]'}`}>
                       <Typography font="inter-medium" className="text-[#6155F5] text-xs">
-                        Processed
+                        {getStatusCopy(recording.status)}
                       </Typography>
                     </View>
                   </View>
@@ -191,6 +257,19 @@ export default function StudentRecordingSession() {
                     </Typography>
                   </View>
 
+                  <Typography className="text-[#5B5685] mt-2">
+                    Duration: {formatDuration(recording.durationMs)}
+                  </Typography>
+                  <Typography className="text-[#5B5685] mt-1" numberOfLines={1}>
+                    Session: {getRecordingSessionLabel(recording)}
+                  </Typography>
+                  {recording.error ? (
+                    <Typography className="text-[#B32646] mt-2">{recording.error}</Typography>
+                  ) : recording.status !== 'completed' ? (
+                    <Typography className="text-[#5B5685] mt-2">
+                      Playback will be available after processing completes.
+                    </Typography>
+                  ) : null}
                   <Pressable
                     onPress={() => void handlePlay(clip)}
                     disabled={playingClipId === clip.id}
@@ -206,6 +285,23 @@ export default function StudentRecordingSession() {
                       </>
                     )}
                   </Pressable>
+                  {recording.status === 'queued' || recording.status === 'failed' ? (
+                    <Pressable
+                      onPress={() => void handleProcess(recording.recordingId)}
+                      disabled={processingRecordingId === recording.recordingId}
+                      className="mt-3 rounded-xl border border-[#6155F5] px-4 py-3 flex-row items-center justify-center">
+                      {processingRecordingId === recording.recordingId ? (
+                        <ActivityIndicator color="#6155F5" />
+                      ) : (
+                        <>
+                          <Ionicons name="refresh" size={18} color="#6155F5" />
+                          <Typography font="inter-semibold" className="text-[#6155F5] ml-2">
+                            {recording.status === 'failed' ? 'Retry Processing' : 'Process Recording'}
+                          </Typography>
+                        </>
+                      )}
+                    </Pressable>
+                  ) : null}
                 </View>
               ))}
             </View>
