@@ -62,6 +62,15 @@ export default function TabLayout() {
           headerShown: false
         }}
       />
+      <Tabs.Screen
+        name="(student)/stats"
+        options={{
+          title: 'Stats',
+          tabBarIcon: ({ color, size }) => <Octicons name="graph" size={size} color={color} />,
+          href: role === 'student' || skipAuth ? '/(tabs)/(student)/stats' : null,
+          headerShown: false
+        }}
+      />
 
       {/* Instructor tabs */}
       <Tabs.Screen
@@ -79,6 +88,15 @@ export default function TabLayout() {
           title: 'Recordings',
           tabBarIcon: ({ color, size }) => <Entypo name="folder-video" color={color} size={size} />,
           href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/recordings' : null,
+          headerShown: false
+        }}
+      />
+      <Tabs.Screen
+        name="(teacher)/stats"
+        options={{
+          title: 'Stats',
+          tabBarIcon: ({ color, size }) => <Octicons name="graph" size={size} color={color} />,
+          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/stats' : null,
           headerShown: false
         }}
       />
@@ -127,16 +145,6 @@ export default function TabLayout() {
         name="(teacher)/session"
         options={{
           href: null,
-          headerShown: false
-        }}
-      />
-      {/* Note: Will be moved to student tabs in the future. */}
-      <Tabs.Screen
-        name="(teacher)/stats"
-        options={{
-          title: 'Stats',
-          tabBarIcon: ({ color, size }) => <AntDesign name="book" color={color} size={size} />,
-          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/stats' : null,
           headerShown: false
         }}
       />
