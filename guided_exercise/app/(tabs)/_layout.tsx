@@ -107,6 +107,15 @@ export default function TabLayout() {
           headerShown: false
         }}
       />
+      <Tabs.Screen
+        name="(student)/stats"
+        options={{
+          title: recordingsTitle,
+          tabBarIcon: ({ color, size }) => <Octicons name="graph" color={color} size={size} />,
+          href: showStudentTabs ? '/(tabs)/(student)/stats' : null,
+          headerShown: false
+        }}
+      />
 
       {/* Instructor tabs */}
       <Tabs.Screen
@@ -124,19 +133,6 @@ export default function TabLayout() {
           title: recordingsTitle,
           tabBarIcon: ({ color, size }) => <Entypo name="folder-video" color={color} size={size} />,
           href: showInstructorTabs ? '/(tabs)/(teacher)/recordings' : null,
-          headerShown: false,
-          title: 'Recordings',
-          tabBarIcon: ({ color, size }) => <Entypo name="folder-video" color={color} size={size} />,
-          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/recordings' : null,
-          headerShown: false
-        }}
-      />
-      <Tabs.Screen
-        name="(teacher)/stats"
-        options={{
-          title: 'Stats',
-          tabBarIcon: ({ color, size }) => <Octicons name="graph" size={size} color={color} />,
-          href: role === 'instructor' || skipAuth ? '/(tabs)/(teacher)/stats' : null,
           headerShown: false
         }}
       />
@@ -168,22 +164,18 @@ export default function TabLayout() {
           headerShown: false
         }}
       />
+      {/* TODO: testing only */}
+      <Tabs.Screen
+        name="(teacher)/stats"
+        options={{
+          title: recordingsTitle,
+          tabBarIcon: ({ color, size }) => <Octicons name="graph" color={color} size={size} />,
+          href: showStudentTabs ? '/(tabs)/(teacher)/stats' : null,
+          headerShown: false
+        }}
+      />
       <Tabs.Screen
         name="session"
-        options={{
-          href: null,
-          headerShown: false
-        }}
-      />
-      <Tabs.Screen
-        name="(student)/session"
-        options={{
-          href: null,
-          headerShown: false
-        }}
-      />
-      <Tabs.Screen
-        name="(teacher)/session"
         options={{
           href: null,
           headerShown: false

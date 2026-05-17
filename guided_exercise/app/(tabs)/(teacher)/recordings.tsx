@@ -46,7 +46,7 @@ function formatDuration(value: string | null) {
   return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
 }
 
-export default function TeacherRecordingSession() {
+export default function StudentRecordingSession() {
   const { width, height } = useWindowDimensions();
   const isSmallPhone = width < 380 || height < 760;
   const horizontalPadding = isSmallPhone ? 14 : 18;

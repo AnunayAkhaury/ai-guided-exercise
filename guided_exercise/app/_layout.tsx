@@ -34,14 +34,12 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
-        (
-    <ToastProvider>
-      <PushNotificationProvider>
-        <Stack screenOptions={{ headerShown: false }} />
+        <ToastProvider>
+          <PushNotificationProvider>
+            <Stack screenOptions={{ headerShown: false }} />
+          </PushNotificationProvider>
+        </ToastProvider>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
-  )
-      </PushNotificationProvider>
-    </ToastProvider>
   );
 }

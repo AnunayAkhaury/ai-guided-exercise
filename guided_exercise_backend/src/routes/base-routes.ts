@@ -35,19 +35,17 @@ import {
   upsertSessionParticipantController
 } from '@/controllers/session-controller.js';
 import {
-<<<<<<< HEAD
   addExerciseTimestampController,
   addClipController,
   addFeedbackController,
   getFeedbackFromIdController,
   getFeedbackFromUserIdController
 } from '@/controllers/feedback-controller.js';
-=======
+import {
   registerPushTokenController,
   sendDueClassRemindersController,
   unregisterPushTokenController
 } from '@/controllers/notification-controller.js';
->>>>>>> main
 
 const router = Router();
 router.get('/', helloWorldController);

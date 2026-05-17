@@ -14,4 +14,5 @@ export type IvsCallProps = {
   participantNamesById?: Record<string, string>;
   participantRolesById?: Record<string, string>;
   localParticipantRole?: 'student' | 'instructor';
+  sessionId: string;
 };
