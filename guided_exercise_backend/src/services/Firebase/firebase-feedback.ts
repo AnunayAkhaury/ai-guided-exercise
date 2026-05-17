@@ -25,17 +25,9 @@ export interface ExerciseFeedback {
   data: RepFeedback[];
 }
 
-export async function addClip(
-  clipId: string,
-  clipUrl: string,
-  exercise: string,
-  userId: string,
-  duration: string,
-  starttime: string
-) {
+export async function addClip(clipUrl: string, exercise: string, userId: string, duration: string, starttime: string) {
   try {
     const clip = await db.collection('clips').add({
-      clipId,
       clipUrl,
       exercise,
       userId,
