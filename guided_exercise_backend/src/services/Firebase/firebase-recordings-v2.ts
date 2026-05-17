@@ -266,7 +266,7 @@ export type Clips = {
   userId: string;
 };
 
-export async function listClipsByUserId(userId: string): Promise<Clips[]> {
+export async function getClipsByUserId(userId: string): Promise<Clips[]> {
   const normalizedUserId = userId.trim();
   const snapshot = await db.collection(CLIPS_COLLECTION).where('userId', '==', normalizedUserId).limit(500).get();
   return snapshot.docs.map((doc) => doc.data() as Clips);

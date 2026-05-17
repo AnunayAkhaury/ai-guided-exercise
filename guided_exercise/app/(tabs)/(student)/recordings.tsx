@@ -12,12 +12,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import Typography from '@/src/components/ui/Typography';
-import { getIvsClipsPlayback, IvsClipWithDate, listIvsClipsByUser } from '@/src/api/ivs';
+import { getIvsClipsPlayback, IvsClips, getIvsClipsByUserId } from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
 
-function formatDate(value: string | number | null) {
-  if (!value) return 'Unknown date';
-  const timestamp = typeof value === 'string' && !isNaN(Number(value)) ? Number(value) : value;
+function formatDate(value: string) {
+  const convertedValue = Number(value);
+  if (!convertedValue) return 'Unknown date';
+  const timestamp = typeof convertedValue === 'string' && !isNaN(Number(value)) ? Number(value) : value;
   const date = new Date(timestamp);
 
   if (isNaN(date.getTime())) return 'Unknown date';
