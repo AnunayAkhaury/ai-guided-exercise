@@ -17,7 +17,7 @@ import {
   listRecordingsByUserController,
   startRecordingProcessingController,
   upsertRecordingController,
-  listClipsByUserController,
+  getClipsByUserController,
   getClipPlaybackController
 } from '@/controllers/recording-controller.js';
 import {
@@ -55,7 +55,7 @@ router.post('/api/recordings/worker-complete', completeRecordingProcessingContro
 router.get('/api/recordings/session/:sessionId', listRecordingsBySessionController);
 router.get('/api/recordings/user/:userId', listRecordingsByUserController);
 router.get('/api/recordings/:recordingId/playback', getRecordingPlaybackController);
-router.get('/api/clips/user/:userId', listClipsByUserController);
+router.get('/api/clips/user/:userId', getClipsByUserController);
 router.get('/api/clip/:clipId/playback', getClipPlaybackController);
 router.get('/api/feedback/:feedbackRef', getFeedbackFromIdController);
 router.get('/api/feedback/user/:userId', getFeedbackFromUserIdController);

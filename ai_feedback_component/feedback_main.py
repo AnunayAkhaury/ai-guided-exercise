@@ -56,11 +56,13 @@ def generate_comparison(exercise_name, video_file, json_dir):
 
 def print_usage():
     print("Usage:")
-    print("  To create ideal: python main.py ideal [ExerciseName] [IdealVideoPath]")
-    print("  To compare: python main.py compare [ExerciseName] [TestVideoPath]")
+    print("  To create ideal: python -m ai_feedback_component.feedback_main ideal [ExerciseName] [IdealVideoAbsolutePath]")
+    print("  To compare: python -m ai_feedback_component.feedback_main ideal compare [ExerciseName] [TestVideoAbsolutePath]")
     print("  ***Note: Make sure the exercise name used in both ideal and compare pipeline matches")
+    print("  ***Note: Make sure to run the pipeline in the directory that contains ai_feedback_component")
 
 def main():
+    CURRENT_DIR = Path(__file__).resolve().parent
     if len(sys.argv) < 3:
         print_usage()
         return
@@ -68,13 +70,14 @@ def main():
     mode = sys.argv[1].lower()
     
     if mode == "ideal":
+
         if len(sys.argv) < 4:
             print("Missing one of the following: [ExerciseName] [IdealVideoPath]")
             print_usage()
             return
         exercise_name = sys.argv[2]
         video_file = sys.argv[3]
-        json_dir = Path('./ideals')
+        json_dir = CURRENT_DIR / "ideals"
         json_dir = json_dir / exercise_name
         json_dir.mkdir(parents=True, exist_ok=True)
         generate_ideal(video_file, json_dir)
@@ -87,7 +90,7 @@ def main():
             return
         exercise_name = sys.argv[2]
         test_name = sys.argv[3]
-        json_dir = Path('./tests')
+        json_dir = CURRENT_DIR / "tests"
         json_dir.mkdir(parents=True, exist_ok=True)
         generate_comparison(exercise_name, test_name, json_dir)
         

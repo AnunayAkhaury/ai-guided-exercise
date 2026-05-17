@@ -3,6 +3,7 @@ import numpy as np
 from scipy.signal import savgol_filter, find_peaks
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
+from pathlib import Path
 
 # --- CONFIGURATION ---
 ANGLE_DEVIATION_THRESHOLD = 20.0
@@ -125,16 +126,18 @@ def get_consensus_apexes(all_joint_series, min_phase_length=12):
     return sorted(list(set(consensus)))
 
 def run_form_analysis(json_dir, exercise_name):
+    CURRENT_DIR = Path(__file__).resolve().parent
+
     # 1. LOAD ALL JSON FILES
     with open(json_dir /"angles.json", "r") as f: 
         s_angle_data = json.load(f)["frames"]
     with open(json_dir / "rep-boundaries.json", "r") as f: 
         rep_data = json.load(f)
-    with open(f"ideals/{exercise_name}/angles.json", "r") as f: 
+    with open(CURRENT_DIR / "ideals" / exercise_name / "angles.json", "r") as f:
         i_angle_data = json.load(f)["frames"]
-    with open(f"ideals/{exercise_name}/pose.json", "r") as f: 
+    with open(CURRENT_DIR / "ideals" / exercise_name / "pose.json", "r") as f:
         i_pose_data = json.load(f)["frames"]
-    with open(f"ideals/{exercise_name}/imp-joints.json", "r") as f: 
+    with open(CURRENT_DIR / "ideals" / exercise_name / "imp-joints.json", "r") as f:
         primary_joints = json.load(f)["primary_joints"]
 
     # Points Calculation Setup

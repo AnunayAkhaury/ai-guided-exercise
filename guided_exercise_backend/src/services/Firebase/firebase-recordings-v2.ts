@@ -1,17 +1,6 @@
 import { db } from './firebase-service.js';
 
 export type RecordingStatus = 'queued' | 'processing' | 'completed' | 'failed';
-export type ExerciseType = 'pushup' | 'lunge';
-
-export type ClipsDocument = {
-  duration: string;
-  exercise: ExerciseType;
-  feedback: string;
-  feedbackRef: string | null;
-  processedVideoUrl: string;
-  recordingId: string;
-  userId: string;
-};
 
 export type RecordingDocument = {
   recordingId: string;
@@ -267,37 +256,20 @@ export async function listRecordingsByUserId(userId: string): Promise<RecordingD
   return recordings;
 }
 
-export async function listClipsByUserId(
-  userId: string
-): Promise<(ClipsDocument & { recordingStart: number | null; clipId: string })[]> {
+export type Clips = {
+  clipUrl: string;
+  duration: string;
+  exercise: string;
+  feedbackRef: string | null;
+  starttime: string;
+  recordingId: string;
+  userId: string;
+};
+
+export async function listClipsByUserId(userId: string): Promise<Clips[]> {
   const normalizedUserId = userId.trim();
-
   const snapshot = await db.collection(CLIPS_COLLECTION).where('userId', '==', normalizedUserId).limit(500).get();
-
-  const clipsWithDates = await Promise.all(
-    snapshot.docs.map(async (doc) => {
-      const clipData = doc.data() as ClipsDocument;
-
-      let recordingStart: number | null = null;
-
-      if (clipData.recordingId) {
-        const recordingDoc = await db.collection(RECORDINGS_COLLECTION).doc(clipData.recordingId).get();
-
-        if (recordingDoc.exists) {
-          const data = recordingDoc.data();
-          recordingStart = data?.recordingStart?.toMillis?.() ?? null;
-        }
-      }
-
-      return {
-        clipId: doc.id,
-        ...clipData,
-        recordingStart
-      };
-    })
-  );
-
-  return clipsWithDates;
+  return snapshot.docs.map((doc) => doc.data() as Clips);
 }
 
 export async function getClipById(clipId: string) {

@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import find_peaks, butter, filtfilt
 import os
 import json
+from pathlib import Path
 
 class DeepCycleCounter:
     def __init__(self, joints, fps=30):
@@ -158,7 +159,7 @@ class DeepCycleCounter:
 
         if not joint_candidates:
             print("No matching rhythmic joints found between student and instructor.")
-            return []
+            return
 
         # 2. Sort by joints based on which one aludes to the dominant rhythm period
         # We use the largest instructor period as the anchor
@@ -285,8 +286,10 @@ def find_start_frame(ideal_angles_path, comparison_angles_path, joints, max_avg_
 
 
 def align_reps(json_dir, exercise_name):
-    imp_joints_path = f"ideals/{exercise_name}/imp-joints.json"
-    baseline_path = f"ideals/{exercise_name}/angles.json"
+    CURRENT_DIR = Path(__file__).resolve().parent
+
+    imp_joints_path = CURRENT_DIR / "ideals" / exercise_name / "imp-joints.json"
+    baseline_path = CURRENT_DIR / "ideals" / exercise_name / "angles.json"
     input_path = f"{json_dir}/angles.json"
     output_path = f"{json_dir}/rep-boundaries.json"
     
