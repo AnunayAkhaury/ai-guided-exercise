@@ -47,7 +47,7 @@ export default function StudentRecordingSession() {
   const horizontalPadding = isSmallPhone ? 14 : 18;
   const uid = useUserStore((state) => state.uid);
 
-  const [clips, setClips] = useState<IvsClipWithDate[]>([]);
+  const [clips, setClips] = useState<IvsClips[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [playingClipId, setPlayingClipId] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export default function StudentRecordingSession() {
       setClips([]);
       return;
     }
-    const data = await listIvsClipsByUser(uid);
+    const data = await getIvsClipsByUserId(uid);
     setClips(data);
   }, [uid]);
 
@@ -88,15 +88,15 @@ export default function StudentRecordingSession() {
   const groupedClips = useMemo(() => {
     // 1. Sort the raw clips array first (Newest to Oldest)
     const sortedClips = [...clips].sort((a, b) => {
-      const timeA = a.recordingStart ? Number(a.recordingStart) : 0;
-      const timeB = b.recordingStart ? Number(b.recordingStart) : 0;
+      const timeA = a.starttime ? Number(a.starttime) : 0;
+      const timeB = b.starttime ? Number(b.starttime) : 0;
       return timeB - timeA;
     });
 
-    return sortedClips.reduce<Record<string, IvsClipWithDate[]>>((acc, clip) => {
+    return sortedClips.reduce<Record<string, IvsClips[]>>((acc, clip) => {
       let key = 'Other';
-      if (clip.recordingStart) {
-        const date = new Date(Number(clip.recordingStart));
+      if (clip.starttime) {
+        const date = new Date(Number(clip.starttime));
         if (!isNaN(date.getTime())) {
           key = date.toLocaleString(undefined, { month: 'long', year: 'numeric' });
         }
@@ -107,26 +107,30 @@ export default function StudentRecordingSession() {
       return acc;
     }, {});
   }, [clips]);
-  const handlePlay = useCallback(async (clip: IvsClipWithDate) => {
-    try {
-      setPlayingClipId(clip.clipId);
 
-      const playback = await getIvsClipsPlayback(clip.clipId);
+  //   const handlePlay = useCallback(async (clip: IvsClipWithDate) => {
+  //     try {
+  //       setPlayingClipId(clip.clipId);
 
-      router.push({
-        pathname: '/(extra)/recording-display',
-        params: {
-          link: playback.playbackUrl,
-          title: clip.exercise,
-          feedback: clip.feedback,
-          feedbackRef: clip.feedbackRef
-        }
-      });
-    } catch (error: any) {
-      Alert.alert('Playback failed', error?.message || 'Unable to load this clip.');
-    } finally {
-      setPlayingClipId(null);
-    }
+  //       const playback = await getIvsClipsPlayback(clip.clipId);
+
+  //       router.push({
+  //         pathname: '/(extra)/recording-display',
+  //         params: {
+  //           link: playback.playbackUrl,
+  //           title: clip.exercise,
+  //           feedback: clip.feedback,
+  //           feedbackRef: clip.feedbackRef
+  //         }
+  //       });
+  //     } catch (error: any) {
+  //       Alert.alert('Playback failed', error?.message || 'Unable to load this clip.');
+  //     } finally {
+  //       setPlayingClipId(null);
+  //     }
+  //   }, []);
+
+  const handlePlay = useCallback((clip: IvsClips) => {
   }, []);
 
   return (
@@ -163,10 +167,10 @@ export default function StudentRecordingSession() {
               </Typography>
 
               {items.map((clip) => (
-                <View key={clip.clipId} className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-4 mb-3">
+                <View key={clip.} className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-4 mb-3">
                   <View className="flex-row items-center justify-between">
                     <Typography font="inter-semibold" className="text-[#2F2A5A]">
-                      {formatDate(clip.recordingStart)}
+                      {formatDate(clip.starttime)}
                     </Typography>
 
                     <View className="px-2 py-1 rounded-full bg-[#E5DCFF]">
