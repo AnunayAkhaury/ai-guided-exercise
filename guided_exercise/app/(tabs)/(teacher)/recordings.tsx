@@ -64,7 +64,6 @@ export default function TeacherRecordingSession() {
     }
     const data = await getIvsClipsByUserId(uid);
     setClips(data);
-    console.log(data);
   }, [uid]);
 
   useEffect(() => {

@@ -5,11 +5,7 @@ import { useEvent } from 'expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ExerciseType } from '@/src/components/session/exercise-sheet';
 import { getFeedbackFromRef, Feedback } from '@/src/api/Firebase/firebase-feedback';
-
-export const EXERCISE_TITLE_MAP: Record<string, string> = {
-  lunge: 'Lunges',
-  pushup: 'Pushups'
-};
+import { EXERCISE_TITLE_MAP } from '@/src/constants/exerciseMap';
 
 export default function RecordingDisplay() {
   const { link, title, feedbackRef } = useLocalSearchParams();

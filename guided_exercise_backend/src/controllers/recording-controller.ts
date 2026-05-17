@@ -367,9 +367,7 @@ export async function getClipPlaybackController(req: Request, res: Response) {
       return sendErrorResponse(req, res, 400, 'clipId is required.');
     }
 
-    console.log(clipId);
     const clip = await getClipById(clipId);
-    console.log(clip);
     if (!clip || !clip.clipUrl) {
       return sendErrorResponse(req, res, 404, 'Clip or video path not found.');
     }
