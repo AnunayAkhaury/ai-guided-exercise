@@ -4,9 +4,9 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import { useEvent } from 'expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ExerciseType } from '@/src/components/session/exercise-sheet';
-import { getFeedbackFromRef, ExerciseFeedback } from '@/src/api/Firebase/firebase-feedback';
+import { getFeedbackFromRef, Feedback } from '@/src/api/Firebase/firebase-feedback';
 
-export const EXERCISE_TITLE_MAP: Record<ExerciseType, string> = {
+export const EXERCISE_TITLE_MAP: Record<string, string> = {
   lunge: 'Lunges',
   pushup: 'Pushups'
 };
@@ -15,7 +15,8 @@ export default function RecordingDisplay() {
   const { link, title, feedbackRef } = useLocalSearchParams();
   const refId = Array.isArray(feedbackRef) ? feedbackRef[0] : feedbackRef;
   const videoLink = Array.isArray(link) ? link[0] : link;
-  const [feedbackDocument, setFeedbackDocument] = useState<ExerciseFeedback | null>(null);
+  const titleStr = Array.isArray(title) ? title[0] : title;
+  const [feedbackDocument, setFeedbackDocument] = useState<Feedback | null>(null);
 
   const player = useVideoPlayer(videoLink || '', (p) => {
     p.loop = true;
@@ -76,7 +77,7 @@ export default function RecordingDisplay() {
         <Text style={{ color: '#FFF', fontWeight: 'bold' }}>← Back</Text>
       </TouchableOpacity>
 
-      <Text className="text-2xl font-bold mb-2">{EXERCISE_TITLE_MAP[title as ExerciseType]}</Text>
+      <Text className="text-2xl font-bold mb-2">{EXERCISE_TITLE_MAP[titleStr]}</Text>
 
       <VideoView player={player} allowsFullscreen style={{ width: '100%', height: 250, backgroundColor: 'black' }} />
 

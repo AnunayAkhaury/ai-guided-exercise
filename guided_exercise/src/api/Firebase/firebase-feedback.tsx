@@ -29,20 +29,23 @@ export async function addExerciseTimestamp(timestamp: ExerciseTimestamp) {
   }
 }
 
-export interface RepFeedback {
+export interface Feedback {
+  userId: string;
+  summary: string;
+  starttime: number;
+  score: number;
+  feedbackJson: string;
+  exercise: string;
+  data: FeedbackData[];
+}
+
+export interface FeedbackData {
+  feedback: string;
   timestampStart: number;
   timestampEnd: number;
-  feedback: string;
 }
 
-export interface ExerciseFeedback {
-  summary: string;
-  score: number;
-  data: RepFeedback[];
-  exercise: string;
-}
-
-export async function getFeedbackFromRef(feedbackRef: string): Promise<ExerciseFeedback | null> {
+export async function getFeedbackFromRef(feedbackRef: string): Promise<Feedback | null> {
   const url = `${process.env.EXPO_PUBLIC_API_URL}/api/feedback/${feedbackRef}`;
 
   try {
@@ -66,7 +69,7 @@ export async function getFeedbackFromRef(feedbackRef: string): Promise<ExerciseF
   }
 }
 
-export async function getFeedbackFromUserId(userId: string): Promise<ExerciseFeedback[] | null> {
+export async function getFeedbackFromUserId(userId: string): Promise<Feedback[] | null> {
   const url = `${process.env.EXPO_PUBLIC_API_URL}/api/feedback/user/${userId}`;
 
   try {

@@ -13,16 +13,32 @@ export async function addExerciseTimestamp(sessionId: string, exercise: string, 
   }
 }
 
-export interface RepFeedback {
+export interface LLMFeedbackData {
   timestampStart: number;
   timestampEnd: number;
   feedback: string;
 }
 
-export interface ExerciseFeedback {
+export interface LLMFeedback {
   summary: string;
   score: number;
-  data: RepFeedback[];
+  data: LLMFeedbackData[];
+}
+
+export interface Feedback {
+  userId: string;
+  summary: string;
+  starttime: number;
+  score: number;
+  feedbackJson: string;
+  exercise: string;
+  data: FeedbackData[];
+}
+
+export interface FeedbackData {
+  feedback: string;
+  timestampStart: number;
+  timestampEnd: number;
 }
 
 export async function addClip(clipUrl: string, exercise: string, userId: string, duration: string, starttime: string) {
@@ -71,13 +87,14 @@ export async function addFeedback(
     throw error;
   }
 }
-async function parseFeedbackString(jsonString: string): Promise<ExerciseFeedback | null> {
+
+async function parseFeedbackString(jsonString: string): Promise<LLMFeedback | null> {
   if (!jsonString) return null;
 
   try {
     const raw = JSON.parse(jsonString);
 
-    const formattedData: RepFeedback[] = (raw.repetition_feedbacks || []).map((item: any) => ({
+    const formattedData: LLMFeedbackData[] = (raw.repetition_feedbacks || []).map((item: any) => ({
       timestampStart: item.timestamp_start,
       timestampEnd: item.timestamp_end <= item.timestamp_start ? item.timestamp_start + 1000 : item.timestamp_end,
       feedback: item.feedback
@@ -129,7 +146,7 @@ export async function getTimestamps(recordingId: string) {
   }
 }
 
-export async function getFeedbackFromRef(feedbackRef: string): Promise<ExerciseFeedback | null> {
+export async function getFeedbackFromRef(feedbackRef: string): Promise<Feedback | null> {
   const normalizedFeedbackRef = feedbackRef.trim();
 
   if (!normalizedFeedbackRef) return null;
@@ -144,7 +161,7 @@ export async function getFeedbackFromRef(feedbackRef: string): Promise<ExerciseF
     const snapshotData = snapshot.data();
     if (!snapshotData) return null;
 
-    return snapshotData as ExerciseFeedback;
+    return snapshotData as Feedback;
   } catch (error) {
     console.error('Error fetching feedback ref:', error);
     return null;
@@ -154,7 +171,7 @@ export async function getFeedbackFromRef(feedbackRef: string): Promise<ExerciseF
 export async function getFeedbackFromUserId(userId: string) {
   try {
     const snapshot = await db.collection('feedbacks').where('userId', '==', userId).get();
-    const feedbacks = snapshot.docs.map((doc) => doc.data() as ExerciseFeedback);
+    const feedbacks = snapshot.docs.map((doc) => doc.data() as Feedback);
     return feedbacks;
   } catch (error) {
     console.error('Error fetching feedbacks:', error);

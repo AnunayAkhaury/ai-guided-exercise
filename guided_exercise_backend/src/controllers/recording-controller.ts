@@ -368,11 +368,11 @@ export async function getClipPlaybackController(req: Request, res: Response) {
     }
 
     const clip = await getClipById(clipId);
-    if (!clip || !clip.processedVideoUrl) {
+    if (!clip || !clip.clipUrl) {
       return sendErrorResponse(req, res, 404, 'Clip or video path not found.');
     }
 
-    const { Bucket, Key } = parseS3Uri(clip.processedVideoUrl);
+    const { Bucket, Key } = parseS3Uri(clip.clipUrl);
 
     const s3Client = new S3Client({ region: DEFAULT_REGION });
     const command = new GetObjectCommand({ Bucket, Key });

@@ -12,16 +12,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Header from '@/src/components/ui/Header';
 import Typography from '@/src/components/ui/Typography';
-import { getIvsClipsPlayback, IvsClips, getIvsClipsByUserId } from '@/src/api/ivs';
+import { getIvsClipsPlayback, IvsClip, getIvsClipsByUserId } from '@/src/api/ivs';
 import { useUserStore } from '@/src/store/userStore';
 
 function formatDate(value: string) {
-  const convertedValue = Number(value);
-  if (!convertedValue) return 'Unknown date';
-  const timestamp = typeof convertedValue === 'string' && !isNaN(Number(value)) ? Number(value) : value;
+  const timestamp = Number(value);
+
+  if (isNaN(timestamp)) {
+    return 'Unknown date';
+  }
+
   const date = new Date(timestamp);
 
-  if (isNaN(date.getTime())) return 'Unknown date';
+  if (isNaN(date.getTime())) {
+    return 'Unknown date';
+  }
 
   return date.toLocaleString(undefined, {
     month: 'short',
@@ -47,7 +52,7 @@ export default function StudentRecordingSession() {
   const horizontalPadding = isSmallPhone ? 14 : 18;
   const uid = useUserStore((state) => state.uid);
 
-  const [clips, setClips] = useState<IvsClips[]>([]);
+  const [clips, setClips] = useState<IvsClip[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [playingClipId, setPlayingClipId] = useState<string | null>(null);
@@ -93,7 +98,7 @@ export default function StudentRecordingSession() {
       return timeB - timeA;
     });
 
-    return sortedClips.reduce<Record<string, IvsClips[]>>((acc, clip) => {
+    return sortedClips.reduce<Record<string, IvsClip[]>>((acc, clip) => {
       let key = 'Other';
       if (clip.starttime) {
         const date = new Date(Number(clip.starttime));
@@ -108,29 +113,25 @@ export default function StudentRecordingSession() {
     }, {});
   }, [clips]);
 
-  //   const handlePlay = useCallback(async (clip: IvsClipWithDate) => {
-  //     try {
-  //       setPlayingClipId(clip.clipId);
+  const handlePlay = useCallback(async (clip: IvsClip) => {
+    try {
+      setPlayingClipId(clip.id);
 
-  //       const playback = await getIvsClipsPlayback(clip.clipId);
+      const playback = await getIvsClipsPlayback(clip.id);
 
-  //       router.push({
-  //         pathname: '/(extra)/recording-display',
-  //         params: {
-  //           link: playback.playbackUrl,
-  //           title: clip.exercise,
-  //           feedback: clip.feedback,
-  //           feedbackRef: clip.feedbackRef
-  //         }
-  //       });
-  //     } catch (error: any) {
-  //       Alert.alert('Playback failed', error?.message || 'Unable to load this clip.');
-  //     } finally {
-  //       setPlayingClipId(null);
-  //     }
-  //   }, []);
-
-  const handlePlay = useCallback((clip: IvsClips) => {
+      router.push({
+        pathname: '/(extra)/recording-display',
+        params: {
+          link: playback.playbackUrl,
+          title: clip.exercise,
+          feedbackRef: clip.feedbackRef
+        }
+      });
+    } catch (error: any) {
+      Alert.alert('Playback failed', error?.message || 'Unable to load this clip.');
+    } finally {
+      setPlayingClipId(null);
+    }
   }, []);
 
   return (
@@ -167,7 +168,7 @@ export default function StudentRecordingSession() {
               </Typography>
 
               {items.map((clip) => (
-                <View key={clip.} className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-4 mb-3">
+                <View key={clip.id} className="rounded-2xl border border-[#D9CCFF] bg-[#F8F5FF] p-4 mb-3">
                   <View className="flex-row items-center justify-between">
                     <Typography font="inter-semibold" className="text-[#2F2A5A]">
                       {formatDate(clip.starttime)}
@@ -188,17 +189,13 @@ export default function StudentRecordingSession() {
                     <Typography className="text-[#5B5685]">
                       <Typography font="inter-semibold">Exercise:</Typography> {clip.exercise}
                     </Typography>
-
-                    <Typography className="text-[#5B5685]" numberOfLines={1}>
-                      <Typography font="inter-semibold">Ref:</Typography> {clip.clipId}
-                    </Typography>
                   </View>
 
                   <Pressable
                     onPress={() => void handlePlay(clip)}
-                    disabled={playingClipId === clip.clipId}
+                    disabled={playingClipId === clip.id}
                     className="mt-4 rounded-xl bg-[#6155F5] px-4 py-3 flex-row items-center justify-center active:opacity-70">
-                    {playingClipId === clip.clipId ? (
+                    {playingClipId === clip.id ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
                       <>
