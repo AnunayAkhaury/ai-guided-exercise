@@ -47,20 +47,23 @@ export async function addFeedback(clipId: string, exercise: string, feedbackJson
 
   try {
     const feedback = await db.collection('feedbacks').add({
-      exercise: exercise,
-      parsedFeedback: processedFeedback,
-      feedbackJson: feedbackJson,
-      starttime: starttime
+      exercise,
+      feedbackJson,
+      starttime,
+
+      summary: processedFeedback?.summary ?? null,
+      score: processedFeedback?.score ?? 0,
+      data: processedFeedback?.data ?? []
     });
 
-    await db.collection('clips').doc(clipId).update({ feedbackRef: feedback.id });
+    await db.collection('clips').doc(String(clipId)).update({ feedbackRef: feedback.id });
+
     return feedback.id;
   } catch (error) {
     console.error('Failed to save to database:', error);
     throw error;
   }
 }
-
 async function parseFeedbackString(jsonString: string): Promise<ExerciseFeedback | null> {
   if (!jsonString) return null;
 
