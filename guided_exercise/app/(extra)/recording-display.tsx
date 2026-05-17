@@ -79,7 +79,7 @@ export default function RecordingDisplay() {
 
       <Text className="text-2xl font-bold mb-2">{EXERCISE_TITLE_MAP[titleStr]}</Text>
 
-      <VideoView player={player} allowsFullscreen style={{ width: '100%', height: 250, backgroundColor: 'black' }} />
+      <VideoView player={player} style={{ width: '100%', height: 250, backgroundColor: 'black' }} />
 
       {activeFeedback ? (
         <Text className="text-lg m-2" numberOfLines={2} ellipsizeMode="tail">
@@ -92,7 +92,7 @@ export default function RecordingDisplay() {
       )}
 
       <View className="mt-2 px-4">
-        {feedbackDocument && (
+        {feedbackDocument ? (
           <View className="rounded-3xl border border-[#D9CCFF] bg-[#F8F5FF] p-6 shadow-sm">
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center">
@@ -101,7 +101,7 @@ export default function RecordingDisplay() {
               </View>
 
               <View className="flex-row items-center bg-white px-3 py-1 rounded-full border border-[#E5DCFF]">
-                <Text className="text-[#6155F5] text-xs font-bold">Score: {feedbackDocument.score}/10</Text>
+                <Text className="text-[#6155F5] text-xs font-bold">Score: {feedbackDocument.score}</Text>
               </View>
             </View>
 
@@ -110,6 +110,10 @@ export default function RecordingDisplay() {
             <View className="mt-4 pt-4 border-t border-[#E5DCFF] flex-row items-center justify-between">
               <Text className="text-[#6155F5] text-xs font-semibold">{feedbackDocument.data.length} Reps Detected</Text>
             </View>
+          </View>
+        ) : (
+          <View className="rounded-3xl border border-[#D9CCFF] bg-[#F8F5FF] p-6 shadow-sm">
+            <Text className="text-[#8A86A3] text-base font-medium">No feedback available</Text>
           </View>
         )}
       </View>

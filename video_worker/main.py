@@ -48,7 +48,8 @@ def build_output_key(recording_id: str) -> str:
 def build_output_key_clip(recording_id: str, index: str) -> str:
     explicit_output_key = os.getenv("OUTPUT_KEY")
     if explicit_output_key:
-        return explicit_output_key.lstrip("/")
+        path_obj = Path(explicit_output_key.lstrip("/"))
+        return str(path_obj.with_name(f"{path_obj.stem}_{index}{path_obj.suffix}"))
 
     user_id = os.getenv("USER_ID")
     if user_id:
@@ -127,7 +128,7 @@ def maybe_callback(
 
     payload = {
         "recordingId": recording_id,
-        "processedVideoUrl": '',
+        "processedVideoUrl": processed_video_url,
         "outputBucket": output_bucket,
         "outputKey": output_key,
         "status": "processed",
@@ -213,15 +214,11 @@ def feedback_pipeline(s3_client, output_bucket):
     timestamps_raw = os.getenv("TIMESTAMPS_JSON")
     timestamps = json.loads(timestamps_raw) if timestamps_raw else []
 
-    # convert recording start to ms
     recording_start_ms = int(recording_start)
 
     workdir = Path("/tmp/video-worker")
     clips_dir = workdir / "clips"
     clips_dir.mkdir(parents=True, exist_ok=True)
-
-    clip_paths = []
-    clip_ids = []
 
     for i, t in enumerate(timestamps):
         try:
@@ -229,50 +226,49 @@ def feedback_pipeline(s3_client, output_bucket):
             end_ms = int(t["endtime"])
             exercise = t.get("exercise")
 
-            # convert to offsets relative to recording start
             start_offset = max(0, (start_ms - recording_start_ms) / 1000)
             duration = max(0.1, (end_ms - start_ms) / 1000)
 
             clip_path = clips_dir / f"{exercise}_{i}.mp4"
 
             cmd = [
-                "ffmpeg",
-                "-y",
-                "-i", str(workdir / "final_fixed.mp4"),
-                "-ss", str(start_offset),
-                "-t", str(duration),
-                "-c:v", "libx264",
-                "-c:a", "aac",
-                str(clip_path),
+                "ffmpeg", "-y", "-i", str(workdir / "final_fixed.mp4"),
+                "-ss", str(start_offset), "-t", str(duration),
+                "-c:v", "libx264", "-c:a", "aac", str(clip_path),
             ]
-
             subprocess.run(cmd, check=True)
-            clip_paths.append((clip_path, exercise, t, i))
 
-        except Exception as e:
-            print(f"Skipping timestamp {i} due to error: {e}")
-            continue
-
-    for clip_path, exercise, t, i in clip_paths:
-        try:
-            # save clip
             clip_output_key = build_output_key_clip(recording_id=recording_id, index=i)
             processed_video_url = upload_file(s3_client, clip_path, output_bucket, clip_output_key)
-            duration = t["endtime"] - t["starttime"]
+            duration_ms = end_ms - start_ms
 
-            clip_id = save_clip_callback(processed_clip_url=processed_video_url, exercise=exercise, user_id=user_id, duration=duration, start_time=t["starttime"])
-            clip_ids.append(clip_id)
-            print("Clip saved:", clip_path, processed_video_url)
+            clip_id = save_clip_callback(
+                processed_clip_url=processed_video_url, 
+                exercise=exercise, 
+                user_id=user_id, 
+                duration=duration_ms, 
+                start_time=t["starttime"]
+            )
+            print(f"Clip {i} saved successfully with ID: {clip_id}")
 
-            # generate and save feedback
-            json_dir = workdir / "json"
-            json_dir.mkdir(parents=True, exist_ok=True)
-            feedback = generate_comparison(exercise, clip_path, json_dir)
+            try:
+                json_dir = workdir / "json"
+                json_dir.mkdir(parents=True, exist_ok=True)
+                feedback = generate_comparison(exercise, clip_path, json_dir)
 
-            save_feedback_callback(clip_id=clip_id, exercise=exercise, feedback=feedback, user_id=user_id, start_time=t["starttime"])
+                save_feedback_callback(
+                    clip_id=clip_id, 
+                    exercise=exercise, 
+                    feedback=feedback, 
+                    user_id=user_id, 
+                    start_time=t["starttime"]
+                )
+            except Exception as e:
+                print(f"generate_comparison failed for {clip_path}: {e}")
 
         except Exception as e:
-            print(f"generate_comparison failed for {clip_path}: {e}")
+            print(f"Skipping timestamp index {i} due to error: {e}")
+            continue
 
 def main() -> int:
     recording_id = require_env("RECORDING_ID")
@@ -315,7 +311,7 @@ def main() -> int:
     if not output_file.exists():
         raise RuntimeError("ffmpeg did not produce an output file")
 
-    maybe_callback(recording_id, '', output_bucket, output_key)
+    maybe_callback(recording_id, 'clips_saved_individually', output_bucket, output_key)
     print("Video worker completed successfully.")
 
     try:

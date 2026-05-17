@@ -2,10 +2,11 @@ import { LineGraph } from 'react-native-graph';
 import { View, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
 import Typography from '@/src/components/ui/Typography';
 import Header from '@/src/components/ui/Header';
-import { ExerciseFeedback } from '@/src/api/Firebase/firebase-feedback';
+import { Feedback } from '@/src/api/Firebase/firebase-feedback';
 import { useEffect, useState, useMemo } from 'react';
 import { getFeedbackFromUserId } from '@/src/api/Firebase/firebase-feedback';
 import { useUserStore } from '@/src/store/userStore';
+import { EXERCISE_TITLE_MAP } from '@/app/(extra)/recording-display';
 
 type GraphPoint = {
   value: number;
@@ -13,7 +14,7 @@ type GraphPoint = {
 };
 
 export default function Stats() {
-  const [scores, setScores] = useState<ExerciseFeedback[]>([]);
+  const [scores, setScores] = useState<Feedback[]>([]);
   const [points, setPoints] = useState<GraphPoint[]>([]);
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,7 +22,6 @@ export default function Stats() {
 
   const uid = useUserStore((state) => state.uid);
 
-  // 1. Fetch data
   useEffect(() => {
     if (!uid) return;
     async function fetchData() {
@@ -42,12 +42,10 @@ export default function Stats() {
     fetchData();
   }, [uid]);
 
-  // 2. Derive unique exercise names for tabs
   const exerciseTypes = useMemo(() => {
     return Array.from(new Set(scores.map((s) => s.exercise))).sort();
   }, [scores]);
 
-  // 3. Format and Filter points based on selected tab
   useEffect(() => {
     if (!scores.length || !selectedExercise) return;
 
@@ -83,7 +81,7 @@ export default function Stats() {
                 <Typography
                   className={selectedExercise === type ? 'text-white' : 'text-[#6B6490]'}
                   font={selectedExercise === type ? 'inter-semibold' : 'inter-medium'}>
-                  {type}
+                  {EXERCISE_TITLE_MAP[type]}
                 </Typography>
               </TouchableOpacity>
             ))}
@@ -91,7 +89,7 @@ export default function Stats() {
         )}
 
         <Typography font="inter-semibold" className="text-[#4B3F7A] text-base mb-3">
-          {selectedExercise ? `${selectedExercise} Score Trend` : 'Score Trend'}
+          {selectedExercise ? `${EXERCISE_TITLE_MAP[selectedExercise]} Score Trend` : 'Unknown Score Trend'}
         </Typography>
 
         {/* Graph Card */}

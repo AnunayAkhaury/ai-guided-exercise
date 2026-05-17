@@ -13,11 +13,7 @@ class RepetitionFeedback(BaseModel):
 class OutputFeedback(BaseModel):
     repetition_feedbacks: List[RepetitionFeedback]
     summary: str = Field(description="Summary less than 2 sentences")
-    score: int = Field(
-        description="A score out of 10 for overall form",
-        ge=1,
-        le=10
-    )
+    score: int = Field(description="Extract the points field from file exactly")
 
 def llm_generate_feedback(exercise_name, json_dir):
 
