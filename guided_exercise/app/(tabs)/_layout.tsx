@@ -110,7 +110,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(student)/stats"
         options={{
-          title: recordingsTitle,
+          title: 'Stats',
           tabBarIcon: ({ color, size }) => <Octicons name="graph" color={color} size={size} />,
           href: showStudentTabs ? '/(tabs)/(student)/stats' : null,
           headerShown: false
@@ -164,13 +164,13 @@ export default function TabLayout() {
           headerShown: false
         }}
       />
-      {/* TODO: testing only */}
+      {/* TODO: Keep for testing only */}
       <Tabs.Screen
         name="(teacher)/stats"
         options={{
-          title: recordingsTitle,
+          title: 'Stats',
           tabBarIcon: ({ color, size }) => <Octicons name="graph" color={color} size={size} />,
-          href: showStudentTabs ? '/(tabs)/(teacher)/stats' : null,
+          href: showInstructorTabs ? '/(tabs)/(teacher)/stats' : null,
           headerShown: false
         }}
       />

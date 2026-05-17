@@ -113,7 +113,7 @@ export default function IvsCall({
   const gridVideoWidth = (width - 38) / 2;
   const gridVideoHeight = Math.max(130, Math.min(210, Math.round(gridVideoWidth * 0.5625)));
   const controlBarPaddingBottom = isSmallPhone ? 6 : 10;
-  const contentBottomPadding = isSmallPhone ? 6 : 14;
+  const contentBottomPadding = (isSmallPhone ? 6 : 14) + insets.bottom;
 
   const [isInStage, setIsInStage] = useState(false);
   const [isJoining, setIsJoining] = useState(false);

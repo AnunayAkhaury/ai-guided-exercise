@@ -35,16 +35,8 @@ export default function SharedSessionScreen() {
   const setInCall = useCallStore((state) => state.setInCall);
   const storeRole = useUserStore((state) => state.role);
   const uid = useUserStore((state) => state.uid);
-  const {
-    token,
-    sessionName,
-    userName,
-    sessionCode,
-    sessionId,
-    stageArn,
-    participantId,
-    role
-  } = useLocalSearchParams<SessionParams>();
+  const { token, sessionName, userName, sessionCode, sessionId, stageArn, participantId, role } =
+    useLocalSearchParams<SessionParams>();
 
   const normalizedRole = useMemo(
     () => normalizeRole((Array.isArray(role) ? role[0] : role) ?? storeRole),
@@ -62,7 +54,11 @@ export default function SharedSessionScreen() {
   const normalizedParticipantId = Array.isArray(participantId) ? participantId[0] : participantId;
   const [currentParticipantId, setCurrentParticipantId] = useState<string | undefined>(normalizedParticipantId);
   const [isInStage, setIsInStage] = useState(false);
-  const { data: session, loading: sessionLoading, error: sessionError } = useFirestoreSession(normalizedSessionId, Boolean(normalizedSessionId));
+  const {
+    data: session,
+    loading: sessionLoading,
+    error: sessionError
+  } = useFirestoreSession(normalizedSessionId, Boolean(normalizedSessionId));
   const sessionRole = useMemo<'student' | 'instructor'>(() => {
     const effectiveUid = uid?.trim();
     if (effectiveUid && session?.instructorUid) {
@@ -75,7 +71,10 @@ export default function SharedSessionScreen() {
     [sessionRole, normalizedUserName]
   );
   const classesRoute = storeRole === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/(student)/classes';
-  const { data: participants, error: participantsError } = useFirestoreSessionParticipants(normalizedSessionId, Boolean(normalizedSessionId));
+  const { data: participants, error: participantsError } = useFirestoreSessionParticipants(
+    normalizedSessionId,
+    Boolean(normalizedSessionId)
+  );
   const participantNameById = useMemo(
     () =>
       participants.reduce<Record<string, string>>((acc, participant) => {
@@ -171,8 +170,7 @@ export default function SharedSessionScreen() {
             setInCall(false);
             router.replace(classesRoute as any);
           }}
-          style={styles.backButton}
-        >
+          style={styles.backButton}>
           <Text style={styles.backButtonText}>Go back</Text>
         </Pressable>
       </View>
@@ -180,135 +178,136 @@ export default function SharedSessionScreen() {
   }
 
   const callView = (
-      <IvsCall
-        token={normalizedToken}
-        publishOnJoin
-        onLeave={async () => {
-          if (normalizedSessionId && currentParticipantId) {
-            try {
-              await markIvsSessionParticipantLeft({
-                sessionId: normalizedSessionId,
-                participantId: currentParticipantId
-              });
-              await sendIvsTelemetry({
-                eventName: 'participant_left_marked',
-                sessionId: normalizedSessionId,
-                stageArn: normalizedStageArn,
-                userId: uid?.trim() || undefined,
-                role: sessionRole,
-                participantId: currentParticipantId
-              });
-            } catch (error) {
-              console.log('[SharedSession] participant leave error', error);
-              await sendIvsTelemetry({
-                eventName: 'participant_left_mark_failed',
-                sessionId: normalizedSessionId,
-                stageArn: normalizedStageArn,
-                userId: uid?.trim() || undefined,
-                role: sessionRole,
-                participantId: currentParticipantId,
-                details: {
-                  message: String((error as any)?.message || 'unknown')
-                }
-              });
-            }
-          }
-          setInCall(false);
-          router.replace(classesRoute as any);
-        }}
-        onJoinAttempt={async () => {
-          await sendIvsTelemetry({
-            eventName: 'join_attempt',
-            sessionId: normalizedSessionId,
-            stageArn: normalizedStageArn,
-            userId: uid?.trim() || undefined,
-            role: sessionRole,
-            participantId: currentParticipantId
-          });
-        }}
-        onJoinFailed={async (message) => {
-          await sendIvsTelemetry({
-            eventName: 'join_failed',
-            sessionId: normalizedSessionId,
-            stageArn: normalizedStageArn,
-            userId: uid?.trim() || undefined,
-            role: sessionRole,
-            participantId: currentParticipantId,
-            details: { message }
-          });
-        }}
-        onRequestFreshToken={async () => {
-          const effectiveUid = uid?.trim();
-          if (!normalizedStageArn || !normalizedSessionId || !effectiveUid) {
-            return null;
-          }
+    <IvsCall
+      sessionId={sessionId!}
+      token={normalizedToken}
+      publishOnJoin
+      onLeave={async () => {
+        if (normalizedSessionId && currentParticipantId) {
           try {
-            const refreshed = await getIvsToken({
-              stageArn: normalizedStageArn,
-              userId: effectiveUid,
-              userName: normalizedLocalLabel,
-              publish: true,
-              subscribe: true,
-              durationMinutes: 60,
-              attributes: {
-                displayName: normalizedLocalLabel,
-                userId: effectiveUid,
-                role: sessionRole,
-                sessionId: normalizedSessionId,
-                sessionCode: normalizedSessionCode || ''
-              }
-            });
-            cacheIvsToken(
-              {
-                stageArn: normalizedStageArn,
-                sessionId: normalizedSessionId,
-                userId: effectiveUid,
-                role: sessionRole
-              },
-              refreshed
-            );
-            await upsertIvsSessionParticipant({
+            await markIvsSessionParticipantLeft({
               sessionId: normalizedSessionId,
-              participantId: refreshed.participantId,
-              userId: effectiveUid,
-              displayName: normalizedLocalLabel,
-              role: sessionRole
+              participantId: currentParticipantId
             });
-            setCurrentParticipantId(refreshed.participantId);
             await sendIvsTelemetry({
-              eventName: 'token_refreshed',
+              eventName: 'participant_left_marked',
               sessionId: normalizedSessionId,
               stageArn: normalizedStageArn,
-              userId: effectiveUid,
+              userId: uid?.trim() || undefined,
               role: sessionRole,
-              participantId: refreshed.participantId
+              participantId: currentParticipantId
             });
-            return refreshed;
           } catch (error) {
+            console.log('[SharedSession] participant leave error', error);
             await sendIvsTelemetry({
-              eventName: 'token_refresh_failed',
+              eventName: 'participant_left_mark_failed',
               sessionId: normalizedSessionId,
               stageArn: normalizedStageArn,
-              userId: effectiveUid,
+              userId: uid?.trim() || undefined,
               role: sessionRole,
               participantId: currentParticipantId,
               details: {
                 message: String((error as any)?.message || 'unknown')
               }
             });
-            throw error;
           }
-        }}
-        onInfoPress={handleInfoPress}
-        onInStageChange={setIsInStage}
-        onEndSession={sessionRole === 'instructor' ? handleEndSession : undefined}
-        endSessionLabel={ending ? 'Ending...' : 'End Session'}
-        endSessionDisabled={ending}
-        localParticipantLabel={normalizedLocalLabel}
-        participantNamesById={participantNameById}
-        participantRolesById={participantRoleById}
-        localParticipantRole={sessionRole}
-      />
+        }
+        setInCall(false);
+        router.replace(classesRoute as any);
+      }}
+      onJoinAttempt={async () => {
+        await sendIvsTelemetry({
+          eventName: 'join_attempt',
+          sessionId: normalizedSessionId,
+          stageArn: normalizedStageArn,
+          userId: uid?.trim() || undefined,
+          role: sessionRole,
+          participantId: currentParticipantId
+        });
+      }}
+      onJoinFailed={async (message) => {
+        await sendIvsTelemetry({
+          eventName: 'join_failed',
+          sessionId: normalizedSessionId,
+          stageArn: normalizedStageArn,
+          userId: uid?.trim() || undefined,
+          role: sessionRole,
+          participantId: currentParticipantId,
+          details: { message }
+        });
+      }}
+      onRequestFreshToken={async () => {
+        const effectiveUid = uid?.trim();
+        if (!normalizedStageArn || !normalizedSessionId || !effectiveUid) {
+          return null;
+        }
+        try {
+          const refreshed = await getIvsToken({
+            stageArn: normalizedStageArn,
+            userId: effectiveUid,
+            userName: normalizedLocalLabel,
+            publish: true,
+            subscribe: true,
+            durationMinutes: 60,
+            attributes: {
+              displayName: normalizedLocalLabel,
+              userId: effectiveUid,
+              role: sessionRole,
+              sessionId: normalizedSessionId,
+              sessionCode: normalizedSessionCode || ''
+            }
+          });
+          cacheIvsToken(
+            {
+              stageArn: normalizedStageArn,
+              sessionId: normalizedSessionId,
+              userId: effectiveUid,
+              role: sessionRole
+            },
+            refreshed
+          );
+          await upsertIvsSessionParticipant({
+            sessionId: normalizedSessionId,
+            participantId: refreshed.participantId,
+            userId: effectiveUid,
+            displayName: normalizedLocalLabel,
+            role: sessionRole
+          });
+          setCurrentParticipantId(refreshed.participantId);
+          await sendIvsTelemetry({
+            eventName: 'token_refreshed',
+            sessionId: normalizedSessionId,
+            stageArn: normalizedStageArn,
+            userId: effectiveUid,
+            role: sessionRole,
+            participantId: refreshed.participantId
+          });
+          return refreshed;
+        } catch (error) {
+          await sendIvsTelemetry({
+            eventName: 'token_refresh_failed',
+            sessionId: normalizedSessionId,
+            stageArn: normalizedStageArn,
+            userId: effectiveUid,
+            role: sessionRole,
+            participantId: currentParticipantId,
+            details: {
+              message: String((error as any)?.message || 'unknown')
+            }
+          });
+          throw error;
+        }
+      }}
+      onInfoPress={handleInfoPress}
+      onInStageChange={setIsInStage}
+      onEndSession={sessionRole === 'instructor' ? handleEndSession : undefined}
+      endSessionLabel={ending ? 'Ending...' : 'End Session'}
+      endSessionDisabled={ending}
+      localParticipantLabel={normalizedLocalLabel}
+      participantNamesById={participantNameById}
+      participantRolesById={participantRoleById}
+      localParticipantRole={sessionRole}
+    />
   );
 
   return (
@@ -317,8 +316,7 @@ export default function SharedSessionScreen() {
         <ScrollView
           contentContainerStyle={styles.webScrollContent}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
+          keyboardShouldPersistTaps="handled">
           {callView}
         </ScrollView>
       ) : (

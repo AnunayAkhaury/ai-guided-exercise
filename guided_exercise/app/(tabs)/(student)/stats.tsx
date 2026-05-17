@@ -230,7 +230,7 @@ export default function Stats() {
   return (
     <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}>
       <View className="flex-1 bg-[#FAF8FF]">
-        <Header title="Your Progress" />
+        <Header title="Stats" />
 
         <View className="px-5 pt-5">
           {!loading && exerciseTypes.length > 0 && (
