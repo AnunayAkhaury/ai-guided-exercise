@@ -281,7 +281,7 @@ export async function getClipsByUserId(userId: string): Promise<ClipWithDocId[]>
   }));
 }
 
-export async function getClipByClipId(clipId: string): Promise<Clip | null> {
+export async function getClipById(clipId: string): Promise<Clip | null> {
   const normalizedClipId = clipId.trim();
 
   const snapshot = await db.collection(CLIPS_COLLECTION).where('clipId', '==', normalizedClipId).limit(1).get();
