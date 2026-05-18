@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import type { IvsCallProps } from './IvsCall.types';
+import { type ExerciseType } from '@/src/components/session/exercise-sheet';
+import { addExerciseTimestamp, ExerciseTimestamp } from '../api/Firebase/firebase-feedback';
 
 type IvsBroadcastSdk = {
   Stage: new (token: string, strategy: IvsStageStrategy) => IvsStage;
@@ -246,10 +248,14 @@ function loadIvsBroadcastSdk(): Promise<IvsBroadcastSdk> {
     script.src = IVS_WEB_BROADCAST_SDK_URL;
     script.async = true;
     script.dataset.ivsWebBroadcastSdk = 'true';
-    script.addEventListener('load', () => {
-      script.dataset.loaded = 'true';
-      handleReady();
-    }, { once: true });
+    script.addEventListener(
+      'load',
+      () => {
+        script.dataset.loaded = 'true';
+        handleReady();
+      },
+      { once: true }
+    );
     script.addEventListener('error', handleError, { once: true });
     document.head.appendChild(script);
   });
@@ -348,15 +354,16 @@ function ParticipantTile({
     }
   }, [mediaStream, streamVersion]);
 
-  const accentStyles = accent === 'primary'
-    ? {
-        border: '1px solid rgba(97, 85, 245, 0.24)',
-        boxShadow: '0 18px 44px rgba(97, 85, 245, 0.14)'
-      }
-    : {
-        border: '1px solid rgba(47, 40, 86, 0.08)',
-        boxShadow: '0 16px 36px rgba(28, 22, 74, 0.08)'
-      };
+  const accentStyles =
+    accent === 'primary'
+      ? {
+          border: '1px solid rgba(97, 85, 245, 0.24)',
+          boxShadow: '0 18px 44px rgba(97, 85, 245, 0.14)'
+        }
+      : {
+          border: '1px solid rgba(47, 40, 86, 0.08)',
+          boxShadow: '0 16px 36px rgba(28, 22, 74, 0.08)'
+        };
 
   return (
     <div
@@ -365,8 +372,7 @@ function ParticipantTile({
         borderRadius: 28,
         padding: 18,
         ...accentStyles
-      }}
-    >
+      }}>
       <div
         style={{
           display: 'flex',
@@ -374,8 +380,7 @@ function ParticipantTile({
           justifyContent: 'space-between',
           gap: 12,
           marginBottom: 12
-        }}
-      >
+        }}>
         <div
           style={{
             padding: '8px 12px',
@@ -387,8 +392,7 @@ function ParticipantTile({
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis'
-          }}
-        >
+          }}>
           {label}
         </div>
         {roleLabel ? (
@@ -399,8 +403,7 @@ function ParticipantTile({
               letterSpacing: 0.5,
               textTransform: 'uppercase',
               color: '#756AB7'
-            }}
-          >
+            }}>
             {roleLabel}
           </div>
         ) : null}
@@ -414,8 +417,7 @@ function ParticipantTile({
           borderRadius: 22,
           overflow: 'hidden',
           background: '#171428'
-        }}
-      >
+        }}>
         <video
           ref={videoRef}
           autoPlay
@@ -443,8 +445,7 @@ function ParticipantTile({
               gap: 12,
               background: 'linear-gradient(180deg, rgba(23, 20, 40, 0.32) 0%, rgba(23, 20, 40, 0.72) 100%)',
               color: '#FFFFFF'
-            }}
-          >
+            }}>
             <Ionicons name="videocam-off" size={32} color="#FFFFFF" />
             <div style={{ fontSize: 15, fontWeight: 700 }}>Camera Off</div>
           </div>
@@ -469,7 +470,8 @@ export default function IvsCallWeb({
   localParticipantLabel,
   participantNamesById,
   participantRolesById,
-  localParticipantRole
+  localParticipantRole,
+  sessionId
 }: IvsCallProps) {
   const [sdkReady, setSdkReady] = useState(false);
   const [isInStage, setIsInStage] = useState(false);
@@ -482,6 +484,9 @@ export default function IvsCallWeb({
   const [activeToken, setActiveToken] = useState(token);
   const [localPreviewStream, setLocalPreviewStream] = useState<MediaStream | null>(null);
   const [remoteParticipantsById, setRemoteParticipantsById] = useState<Record<string, RemoteParticipantState>>({});
+  const [exercise, setExercise] = useState<ExerciseType | null>(null);
+  const [exerciseTimestamp, setExerciseTimestamp] = useState<ExerciseTimestamp | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const stageRef = useRef<IvsStage | null>(null);
   const registeredStageListenersRef = useRef<RegisteredStageListener[]>([]);
@@ -494,6 +499,18 @@ export default function IvsCallWeb({
   const isCompactDesktop = viewportWidth < 1180;
   const heroHeight = isCompactDesktop ? 360 : 560;
   const gridTileHeight = isCompactDesktop ? 180 : 220;
+
+  useEffect(() => {
+    if (exerciseTimestamp?.starttime && exerciseTimestamp?.endtime) {
+      if (exerciseTimestamp.endtime - exerciseTimestamp.starttime > 3000) {
+        // 3 seconds
+        addExerciseTimestamp(exerciseTimestamp);
+      } else {
+        // Exercise too short
+        setExerciseTimestamp(null);
+      }
+    }
+  }, [exerciseTimestamp]);
 
   useEffect(() => {
     setActiveToken(token);
@@ -589,9 +606,8 @@ export default function IvsCallWeb({
 
   const includeLocalInGrid = publishOnJoin && !localIsInstructor;
   const totalStudentTiles = remainingRemoteParticipants.length + (includeLocalInGrid ? 1 : 0);
-  const studentGridTemplate = totalStudentTiles > 1
-    ? `repeat(auto-fit, minmax(${REMOTE_TILE_MIN_WIDTH}px, 1fr))`
-    : 'minmax(0, 720px)';
+  const studentGridTemplate =
+    totalStudentTiles > 1 ? `repeat(auto-fit, minmax(${REMOTE_TILE_MIN_WIDTH}px, 1fr))` : 'minmax(0, 720px)';
 
   const handleJoin = async () => {
     if (!activeToken) {
@@ -680,9 +696,7 @@ export default function IvsCallWeb({
             : undefined;
         },
         preferredLayerForStream(_participant, stream) {
-          return typeof stream.getHighestQualityLayer === 'function'
-            ? stream.getHighestQualityLayer()
-            : undefined;
+          return typeof stream.getHighestQualityLayer === 'function' ? stream.getHighestQualityLayer() : undefined;
         }
       };
 
@@ -1000,8 +1014,7 @@ export default function IvsCallWeb({
               style={{
                 ...primaryButtonStyle,
                 ...(isJoining ? disabledButtonStyle : null)
-              }}
-            >
+              }}>
               {isJoining ? 'Joining...' : sdkReady ? 'Join Session' : 'Load IVS and Join'}
             </button>
           </div>
@@ -1063,8 +1076,7 @@ export default function IvsCallWeb({
               gridTemplateColumns: studentGridTemplate,
               gap: 18,
               alignItems: 'start'
-            }}
-          >
+            }}>
             {includeLocalInGrid ? (
               <ParticipantTile
                 label={localParticipantLabel?.trim() || 'You'}
@@ -1107,8 +1119,7 @@ export default function IvsCallWeb({
               ...controlButtonStyle,
               ...(isAudioMuted ? controlButtonMutedStyle : null),
               ...(!publishOnJoin ? disabledButtonStyle : null)
-            }}
-          >
+            }}>
             <Ionicons name={isAudioMuted ? 'mic-off' : 'mic'} size={18} color="#FFFFFF" />
             <span>{isAudioMuted ? 'Unmute' : 'Mute'}</span>
           </button>
@@ -1121,8 +1132,7 @@ export default function IvsCallWeb({
               ...controlButtonStyle,
               ...(isVideoMuted ? controlButtonMutedStyle : null),
               ...(!publishOnJoin ? disabledButtonStyle : null)
-            }}
-          >
+            }}>
             <Ionicons name={isVideoMuted ? 'videocam-off' : 'videocam'} size={18} color="#FFFFFF" />
             <span>{isVideoMuted ? 'Start Camera' : 'Stop Camera'}</span>
           </button>
@@ -1147,14 +1157,113 @@ export default function IvsCallWeb({
               style={{
                 ...endSessionButtonStyle,
                 ...(endSessionDisabled ? disabledButtonStyle : null)
-              }}
-            >
+              }}>
               <Ionicons name="stop-circle-outline" size={18} color="#FFFFFF" />
               <span>{endSessionLabel}</span>
             </button>
           ) : null}
         </div>
       </div>
+      {localIsInstructor && (
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          {exercise ? (
+            // Cancel / stop current tracking sequence
+            <button
+              type="button"
+              style={{
+                padding: '16px 24px',
+                borderRadius: 16,
+                backgroundColor: '#D64562',
+                color: '#FFFFFF',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: 16,
+                cursor: 'pointer'
+              }}
+              onClick={() => {
+                setExercise(null);
+                setExerciseTimestamp((prev: any) => (prev ? { ...prev, endtime: Date.now() } : null));
+              }}>
+              Cancel: {exercise}
+            </button>
+          ) : (
+            <>
+              {/* Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen(!isMenuOpen)} // Manage via a quick local useState(false)
+                style={{
+                  padding: '16px 24px',
+                  borderRadius: 16,
+                  backgroundColor: '#6155F5',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  fontWeight: 700,
+                  fontSize: 16,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8
+                }}>
+                <span>Pick Exercise</span>
+                <Ionicons name={isMenuOpen ? 'chevron-up' : 'chevron-down'} size={16} color="#FFFFFF" />
+              </button>
+
+              {/* Dropdown Menu Overlay */}
+              {isMenuOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    left: 0,
+                    background: '#FFFFFF',
+                    borderRadius: 16,
+                    boxShadow: '0 12px 32px rgba(23, 20, 40, 0.12)',
+                    border: '1px solid rgba(47, 40, 86, 0.08)',
+                    minWidth: 200,
+                    zIndex: 100,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    padding: '6px 0'
+                  }}>
+                  {(['pushup', 'lunge'] as ExerciseType[]).map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => {
+                        setExercise(item);
+                        setExerciseTimestamp({
+                          sessionId,
+                          exercise: item,
+                          starttime: Date.now(),
+                          endtime: null
+                        });
+                        setIsMenuOpen(false);
+                      }}
+                      style={{
+                        padding: '12px 20px',
+                        background: 'transparent',
+                        border: 'none',
+                        textAlign: 'left',
+                        fontSize: 15,
+                        fontWeight: 600,
+                        color: '#2F2856',
+                        cursor: 'pointer',
+                        textTransform: 'capitalize',
+                        transition: 'background 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = '#F0ECFF')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                      {item}s
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1249,13 +1358,13 @@ function syncParticipantStreams({
         hasVideo: videoTracks.length > 0,
         audioMuted: Boolean(
           participant.audioMuted ??
-            latestAudioStream?.isMuted ??
-            (audioTracks.length === 0 ? true : existing?.audioMuted ?? false)
+          latestAudioStream?.isMuted ??
+          (audioTracks.length === 0 ? true : (existing?.audioMuted ?? false))
         ),
         videoMuted: Boolean(
           participant.videoStopped ??
-            latestVideoStream?.isMuted ??
-            (videoTracks.length === 0 ? true : existing?.videoMuted ?? false)
+          latestVideoStream?.isMuted ??
+          (videoTracks.length === 0 ? true : (existing?.videoMuted ?? false))
         ),
         streamVersion: (existing?.streamVersion ?? 0) + 1
       }
