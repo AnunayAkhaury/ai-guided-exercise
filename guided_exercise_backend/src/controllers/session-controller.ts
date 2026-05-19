@@ -160,6 +160,80 @@ export async function createSessionController(req: Request, res: Response) {
   }
 }
 
+async function startOwnedSession(sessionId: string, requesterUid: string) {
+  const existing = await getSessionById(sessionId);
+  if (!existing) {
+    return { status: 404 as const, message: 'Session not found.' };
+  }
+  if (existing.instructorUid !== requesterUid.trim()) {
+    return { status: 403 as const, message: 'Only the session creator can start this class.' };
+  }
+  if (existing.status === 'ended') {
+    return { status: 409 as const, message: 'Cannot start an ended session.' };
+  }
+  if (existing.scheduledStartAt) {
+    const earliestStart = existing.scheduledStartAt.getTime() - START_WINDOW_MINUTES * 60 * 1000;
+    if (Date.now() < earliestStart) {
+      return {
+        status: 409 as const,
+        message: `This class can only be started ${START_WINDOW_MINUTES} minutes before the scheduled time.`
+      };
+    }
+  }
+
+  const currentlyLiveSessions = await listSessions(['live']);
+  const otherLiveSessions = currentlyLiveSessions.filter((session) => session.sessionId !== sessionId);
+  await Promise.allSettled(otherLiveSessions.map((session) => disconnectKnownParticipantsForSession(session)));
+  await endOtherLiveSessions(sessionId);
+  await updateSessionStatus(sessionId, 'live');
+  const updated = await getSessionById(sessionId);
+  if (updated) {
+    void sendStudentSessionNotification({
+      title: 'Class is live',
+      body: `${updated.sessionName} is ready to join.`,
+      type: 'class_live',
+      sessionId: updated.sessionId,
+      sessionCode: updated.sessionCode
+    });
+  }
+
+  return { status: 200 as const, session: updated };
+}
+
+export async function createAndStartSessionController(req: Request, res: Response) {
+  try {
+    const { sessionName, instructorUid, coachName, stageArn } = req.body as CreateSessionRequest;
+    const effectiveStageArn = stageArn ?? process.env.IVS_STAGE_ARN;
+
+    if (!sessionName?.trim()) {
+      return sendErrorResponse(req, res, 400, 'sessionName is required.');
+    }
+    if (!instructorUid?.trim()) {
+      return sendErrorResponse(req, res, 400, 'instructorUid is required.');
+    }
+    if (!effectiveStageArn?.trim()) {
+      return sendErrorResponse(req, res, 400, 'stageArn is required (or set IVS_STAGE_ARN).');
+    }
+
+    const session = await createSession({
+      sessionName,
+      instructorUid,
+      ...(coachName?.trim() ? { coachName } : {}),
+      stageArn: effectiveStageArn
+    });
+    const started = await startOwnedSession(session.sessionId, instructorUid);
+
+    if ('message' in started) {
+      return sendErrorResponse(req, res, started.status, started.message);
+    }
+
+    return res.status(200).json(started.session);
+  } catch (err: any) {
+    logControllerError(req, err, 'createAndStartSessionController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Failed to create and start session.');
+  }
+}
+
 export async function joinSessionByCodeController(req: Request, res: Response) {
   try {
     const { sessionCode } = req.body as SessionCodeRequest;
@@ -235,45 +309,16 @@ export async function startSessionController(req: Request, res: Response) {
     if (!sessionId?.trim()) {
       return sendErrorResponse(req, res, 400, 'sessionId is required.');
     }
-
-    const existing = await getSessionById(sessionId);
-    if (!existing) {
-      return sendErrorResponse(req, res, 404, 'Session not found.');
-    }
-    if (!requesterUid?.trim() || existing.instructorUid !== requesterUid.trim()) {
+    if (!requesterUid?.trim()) {
       return sendErrorResponse(req, res, 403, 'Only the session creator can start this class.');
     }
-    if (existing.status === 'ended') {
-      return sendErrorResponse(req, res, 409, 'Cannot start an ended session.');
-    }
-    if (existing.scheduledStartAt) {
-      const earliestStart = existing.scheduledStartAt.getTime() - START_WINDOW_MINUTES * 60 * 1000;
-      if (Date.now() < earliestStart) {
-        return sendErrorResponse(
-          req,
-          res,
-          409,
-          `This class can only be started ${START_WINDOW_MINUTES} minutes before the scheduled time.`
-        );
-      }
+
+    const started = await startOwnedSession(sessionId, requesterUid);
+    if ('message' in started) {
+      return sendErrorResponse(req, res, started.status, started.message);
     }
 
-    const currentlyLiveSessions = await listSessions(['live']);
-    const otherLiveSessions = currentlyLiveSessions.filter((session) => session.sessionId !== sessionId);
-    await Promise.allSettled(otherLiveSessions.map((session) => disconnectKnownParticipantsForSession(session)));
-    await endOtherLiveSessions(sessionId);
-    await updateSessionStatus(sessionId, 'live');
-    const updated = await getSessionById(sessionId);
-    if (updated) {
-      void sendStudentSessionNotification({
-        title: 'Class is live',
-        body: `${updated.sessionName} is ready to join.`,
-        type: 'class_live',
-        sessionId: updated.sessionId,
-        sessionCode: updated.sessionCode
-      });
-    }
-    return res.status(200).json(updated);
+    return res.status(200).json(started.session);
   } catch (err: any) {
     logControllerError(req, err, 'startSessionController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to start session.');

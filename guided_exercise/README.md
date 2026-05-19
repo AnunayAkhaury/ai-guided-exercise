@@ -64,7 +64,7 @@ EXPO_PUBLIC_API_URL=http://YOUR_LAN_IP:4000
 For production:
 
 ```env
-EXPO_PUBLIC_API_URL=https://ai-guided-exercise-1.onrender.com
+EXPO_PUBLIC_API_URL=https://ai-guided-exercise-031f.onrender.com
 ```
 
 Important:
