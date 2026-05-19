@@ -73,7 +73,9 @@ export type IvsClip = {
   exercise: string;
   feedbackRef: string | null;
   starttime: string;
-  recordingId: string;
+  recordingId?: string | null;
+  sessionId?: string | null;
+  sessionName?: string | null;
   userId: string;
 };
 

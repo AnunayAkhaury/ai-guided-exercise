@@ -148,7 +148,9 @@ def save_clip_callback(
     exercise: str,
     user_id:str,
     duration:int,
-    start_time:int
+    start_time:int,
+    recording_id: str,
+    session_id: str | None = None,
 ) -> None:
     
     backend_add_clip_url = os.getenv("BACKEND_ADD_CLIP_URL")
@@ -161,7 +163,9 @@ def save_clip_callback(
         "exercise": exercise,
         "userId": user_id,
         "duration": str(duration),
-        "starttime":str(start_time) 
+        "starttime":str(start_time),
+        "recordingId": recording_id,
+        "sessionId": session_id,
     }
 
     headers = {"Content-Type": "application/json"}
@@ -247,7 +251,9 @@ def feedback_pipeline(s3_client, output_bucket):
                 exercise=exercise, 
                 user_id=user_id, 
                 duration=duration_ms, 
-                start_time=t["starttime"]
+                start_time=t["starttime"],
+                recording_id=recording_id,
+                session_id=t.get("sessionId"),
             )
             print(f"Clip {i} saved successfully with ID: {clip_id}")
 

@@ -41,15 +41,33 @@ export interface FeedbackData {
   timestampEnd: number;
 }
 
-export async function addClip(clipUrl: string, exercise: string, userId: string, duration: string, starttime: string) {
+export type AddClipInput = {
+  clipUrl: string;
+  exercise: string;
+  userId: string;
+  duration: string;
+  starttime: string;
+  recordingId?: string | null;
+  sessionId?: string | null;
+  sessionName?: string | null;
+};
+
+export async function addClip(input: AddClipInput) {
   try {
+    const optionalMetadata: Record<string, string> = {};
+
+    if (input.recordingId?.trim()) optionalMetadata.recordingId = input.recordingId.trim();
+    if (input.sessionId?.trim()) optionalMetadata.sessionId = input.sessionId.trim();
+    if (input.sessionName?.trim()) optionalMetadata.sessionName = input.sessionName.trim();
+
     const clip = await db.collection('clips').add({
-      clipUrl,
-      exercise,
-      userId,
-      duration,
-      starttime: starttime,
-      feedbackRef: null
+      clipUrl: input.clipUrl,
+      exercise: input.exercise,
+      userId: input.userId,
+      duration: input.duration,
+      starttime: input.starttime,
+      feedbackRef: null,
+      ...optionalMetadata
     });
     return clip.id;
   } catch (error) {

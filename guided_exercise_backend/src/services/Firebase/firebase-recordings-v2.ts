@@ -1,4 +1,5 @@
 import { db } from './firebase-service.js';
+import { getSessionById } from './firebase-session.js';
 
 export type RecordingStatus = 'queued' | 'processing' | 'completed' | 'failed';
 
@@ -262,23 +263,50 @@ export type Clip = {
   exercise: string;
   feedbackRef: string | null;
   starttime: string;
-  recordingId: string;
+  recordingId?: string | null;
+  sessionId?: string | null;
+  sessionName?: string | null;
   userId: string;
 };
 
-export type ClipWithDocId = {
+export type ClipWithDocId = Clip & {
   id: string;
 };
+
+async function enrichClipsWithSessionNames(clips: ClipWithDocId[]): Promise<ClipWithDocId[]> {
+  const sessionIds = Array.from(
+    new Set(clips.map((clip) => clip.sessionId?.trim()).filter((sessionId): sessionId is string => Boolean(sessionId)))
+  );
+
+  if (sessionIds.length === 0) {
+    return clips;
+  }
+
+  const sessionEntries = await Promise.all(
+    sessionIds.map(async (sessionId) => {
+      const session = await getSessionById(sessionId);
+      return [sessionId, session?.sessionName ?? null] as const;
+    })
+  );
+  const sessionNamesById = new Map(sessionEntries);
+
+  return clips.map((clip) => ({
+    ...clip,
+    sessionName: clip.sessionName ?? (clip.sessionId ? sessionNamesById.get(clip.sessionId) ?? null : null)
+  }));
+}
 
 export async function getClipsByUserId(userId: string): Promise<ClipWithDocId[]> {
   const normalizedUserId = userId.trim();
 
   const snapshot = await db.collection(CLIPS_COLLECTION).where('userId', '==', normalizedUserId).limit(500).get();
 
-  return snapshot.docs.map((doc) => ({
+  const clips = snapshot.docs.map((doc) => ({
     id: doc.id,
     ...(doc.data() as Clip)
   }));
+
+  return enrichClipsWithSessionNames(clips);
 }
 
 export async function getClipById(clipId: string): Promise<Clip | null> {
