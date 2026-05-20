@@ -9,7 +9,9 @@ import { sendNotificationToRole } from '@/services/notification-service.js';
 import {
   getCronSecretStatus,
   getDueReminderSessions,
-  summarizeSettledResults
+  summarizeSettledResults,
+  validatePushTokenRegistration,
+  validatePushTokenUnregistration
 } from '@/utils/notification-utils.js';
 import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
@@ -26,37 +28,23 @@ type UnregisterPushTokenRequest = {
   token?: string;
 };
 
-const VALID_TOKEN_TYPES: PushTokenType[] = ['expo', 'fcm_web'];
-const VALID_PLATFORMS: PushPlatform[] = ['ios', 'android', 'web'];
 const CLASS_REMINDER_LEAD_MS = 5 * 60 * 1000;
 
 export async function registerPushTokenController(req: Request, res: Response) {
   try {
     const body = req.body as RegisterPushTokenRequest;
-    const uid = body.uid?.trim();
-    const token = body.token?.trim();
-    const type = body.type;
-    const platform = body.platform;
+    const validation = validatePushTokenRegistration(body);
 
-    if (!uid) {
-      return sendErrorResponse(req, res, 400, 'uid is required.');
-    }
-    if (!token) {
-      return sendErrorResponse(req, res, 400, 'token is required.');
-    }
-    if (!type || !VALID_TOKEN_TYPES.includes(type)) {
-      return sendErrorResponse(req, res, 400, 'type must be expo or fcm_web.');
-    }
-    if (!platform || !VALID_PLATFORMS.includes(platform)) {
-      return sendErrorResponse(req, res, 400, 'platform must be ios, android, or web.');
+    if (!validation.valid) {
+      return sendErrorResponse(req, res, 400, validation.message);
     }
 
     const pushToken = await registerPushToken({
-      uid,
-      token,
-      type,
-      platform,
-      ...(body.deviceName?.trim() ? { deviceName: body.deviceName } : {})
+      uid: validation.uid,
+      token: validation.token,
+      type: validation.type,
+      platform: validation.platform,
+      ...(validation.deviceName ? { deviceName: validation.deviceName } : {})
     });
 
     return res.status(200).json({
@@ -74,14 +62,13 @@ export async function registerPushTokenController(req: Request, res: Response) {
 export async function unregisterPushTokenController(req: Request, res: Response) {
   try {
     const body = req.body as UnregisterPushTokenRequest;
-    if (!body.uid?.trim()) {
-      return sendErrorResponse(req, res, 400, 'uid is required.');
-    }
-    if (!body.token?.trim()) {
-      return sendErrorResponse(req, res, 400, 'token is required.');
+    const validation = validatePushTokenUnregistration(body);
+
+    if (!validation.valid) {
+      return sendErrorResponse(req, res, 400, validation.message);
     }
 
-    await disablePushToken(body.uid, body.token);
+    await disablePushToken(validation.uid, validation.token);
     return res.status(200).json({ success: true });
   } catch (err: any) {
     logControllerError(req, err, 'unregisterPushTokenController failed');

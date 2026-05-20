@@ -3,10 +3,110 @@ import {
   getCronSecretStatus,
   getDueReminderSessions,
   isSessionDueForReminder,
-  summarizeSettledResults
+  summarizeSettledResults,
+  validatePushTokenRegistration,
+  validatePushTokenUnregistration
 } from './notification-utils.js';
 
 describe('notification utils', () => {
+  describe('validatePushTokenRegistration', () => {
+    it('requires uid and token', () => {
+      expect(
+        validatePushTokenRegistration({
+          token: 'ExpoPushToken[test]',
+          type: 'expo',
+          platform: 'ios'
+        })
+      ).toEqual({ valid: false, message: 'uid is required.' });
+
+      expect(
+        validatePushTokenRegistration({
+          uid: 'user-1',
+          type: 'expo',
+          platform: 'ios'
+        })
+      ).toEqual({ valid: false, message: 'token is required.' });
+    });
+
+    it('requires a supported token type and platform', () => {
+      expect(
+        validatePushTokenRegistration({
+          uid: 'user-1',
+          token: 'token-1',
+          type: 'apns',
+          platform: 'ios'
+        })
+      ).toEqual({ valid: false, message: 'type must be expo or fcm_web.' });
+
+      expect(
+        validatePushTokenRegistration({
+          uid: 'user-1',
+          token: 'token-1',
+          type: 'expo',
+          platform: 'desktop'
+        })
+      ).toEqual({ valid: false, message: 'platform must be ios, android, or web.' });
+    });
+
+    it('normalizes valid native Expo push token registrations', () => {
+      expect(
+        validatePushTokenRegistration({
+          uid: ' user-1 ',
+          token: ' ExpoPushToken[test] ',
+          type: 'expo',
+          platform: 'ios',
+          deviceName: ' Anunay iPhone '
+        })
+      ).toEqual({
+        valid: true,
+        uid: 'user-1',
+        token: 'ExpoPushToken[test]',
+        type: 'expo',
+        platform: 'ios',
+        deviceName: 'Anunay iPhone'
+      });
+    });
+
+    it('normalizes valid web FCM token registrations and omits blank device names', () => {
+      expect(
+        validatePushTokenRegistration({
+          uid: 'user-1',
+          token: 'web-token-1',
+          type: 'fcm_web',
+          platform: 'web',
+          deviceName: '   '
+        })
+      ).toEqual({
+        valid: true,
+        uid: 'user-1',
+        token: 'web-token-1',
+        type: 'fcm_web',
+        platform: 'web'
+      });
+    });
+  });
+
+  describe('validatePushTokenUnregistration', () => {
+    it('requires uid and token', () => {
+      expect(validatePushTokenUnregistration({ token: 'token-1' })).toEqual({
+        valid: false,
+        message: 'uid is required.'
+      });
+      expect(validatePushTokenUnregistration({ uid: 'user-1' })).toEqual({
+        valid: false,
+        message: 'token is required.'
+      });
+    });
+
+    it('normalizes valid unregister requests', () => {
+      expect(validatePushTokenUnregistration({ uid: ' user-1 ', token: ' token-1 ' })).toEqual({
+        valid: true,
+        uid: 'user-1',
+        token: 'token-1'
+      });
+    });
+  });
+
   describe('getCronSecretStatus', () => {
     it('requires a configured server secret', () => {
       expect(getCronSecretStatus(undefined, 'provided')).toBe('missing');
