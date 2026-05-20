@@ -2,13 +2,26 @@ import { db } from './firebase-service.js';
 
 export async function getAchievements(uid: string) {
   try {
-    // Retrieve from user collection
-    const snapshot = await db.collection('achievements').get();
-    if (snapshot.empty) {
+    const userToAchievementsSnapshot = await db
+      .collection('users_to_achievements')
+      .where('user_id', '==', uid)
+      .get();
+
+    if (userToAchievementsSnapshot.empty) {
       return null;
     }
 
-    const achievements = snapshot.docs.map(doc => {
+    const achievementIds = userToAchievementsSnapshot.docs.map(doc =>
+      doc.data().achievement_id
+    );
+
+    const achievementPromises = achievementIds.map((achievementId: string) =>
+      db.collection('achievements').doc(achievementId).get()
+    );
+
+    const achievementDocs = await Promise.all(achievementPromises);
+
+    const achievements = achievementDocs.map(doc => {
         return ({
             id: doc.id,
             ...doc.data()
