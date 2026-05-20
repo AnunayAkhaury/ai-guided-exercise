@@ -1,3 +1,9 @@
+import {
+  cacheToken,
+  getReusableToken,
+  type IvsTokenCacheKey
+} from '@/src/utils/ivs-token-cache';
+
 export type IvsTokenRequest = {
   stageArn?: string;
   userId: string;
@@ -122,12 +128,7 @@ type SessionParticipantHeartbeatRequest = {
   participantId: string;
 };
 
-type SessionTokenCacheKey = {
-  sessionId: string;
-  stageArn: string;
-  userId: string;
-  role: 'student' | 'instructor';
-};
+type SessionTokenCacheKey = IvsTokenCacheKey;
 
 type TelemetryEventName =
   | 'join_attempt'
@@ -150,8 +151,6 @@ type TelemetryRequest = {
 };
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
-const DEFAULT_TOKEN_CACHE_TTL_MS = 55 * 60 * 1000;
-const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
 const tokenCache = new Map<string, IvsTokenResponse>();
 
 function getApiBaseUrl(): string {
@@ -163,23 +162,6 @@ function getApiBaseUrl(): string {
 
 function buildUrl(path: string): string {
   return `${getApiBaseUrl()}${path}`;
-}
-
-function buildTokenCacheKey(input: SessionTokenCacheKey): string {
-  return [input.sessionId, input.stageArn, input.userId, input.role].join(':');
-}
-
-function isReusableToken(token: IvsTokenResponse): boolean {
-  if (!token.token) return false;
-
-  if (token.expirationTime) {
-    const expiry = new Date(token.expirationTime).getTime();
-    if (Number.isFinite(expiry)) {
-      return expiry - TOKEN_REFRESH_BUFFER_MS > Date.now();
-    }
-  }
-
-  return true;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -235,35 +217,15 @@ export async function getIvsToken(request: IvsTokenRequest): Promise<IvsTokenRes
 }
 
 export function cacheIvsToken(key: SessionTokenCacheKey, value: IvsTokenResponse) {
-  if (!value.token) {
-    return;
-  }
-
-  tokenCache.set(buildTokenCacheKey(key), value);
+  cacheToken(tokenCache, key, value);
 }
 
 export function getReusableIvsToken(key: SessionTokenCacheKey): IvsTokenResponse | null {
-  const cacheKey = buildTokenCacheKey(key);
-  const cached = tokenCache.get(cacheKey);
-  if (!cached) {
-    return null;
-  }
-
-  if (!isReusableToken(cached)) {
-    tokenCache.delete(cacheKey);
-    return null;
-  }
-
-  if (!cached.expirationTime) {
-    // Keep local reuse bounded even if server does not return an expiration.
-    setTimeout(() => {
-      if (tokenCache.get(cacheKey)?.token === cached.token) {
-        tokenCache.delete(cacheKey);
-      }
-    }, DEFAULT_TOKEN_CACHE_TTL_MS);
-  }
-
-  return cached;
+  return getReusableToken(tokenCache, key, {
+    scheduleExpiry: (callback, delayMs) => {
+      setTimeout(callback, delayMs);
+    }
+  });
 }
 
 export async function sendIvsTelemetry(payload: TelemetryRequest): Promise<void> {
