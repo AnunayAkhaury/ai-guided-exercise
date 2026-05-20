@@ -6,6 +6,11 @@ import {
   markSessionReminderSent
 } from '@/services/Firebase/firebase-session.js';
 import { sendNotificationToRole } from '@/services/notification-service.js';
+import {
+  getCronSecretStatus,
+  getDueReminderSessions,
+  summarizeSettledResults
+} from '@/utils/notification-utils.js';
 import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 
 type RegisterPushTokenRequest = {
@@ -24,14 +29,6 @@ type UnregisterPushTokenRequest = {
 const VALID_TOKEN_TYPES: PushTokenType[] = ['expo', 'fcm_web'];
 const VALID_PLATFORMS: PushPlatform[] = ['ios', 'android', 'web'];
 const CLASS_REMINDER_LEAD_MS = 5 * 60 * 1000;
-
-function validateCronSecret(req: Request): 'missing' | 'valid' | 'invalid' {
-  const expectedSecret = process.env.NOTIFICATION_CRON_SECRET?.trim();
-  if (!expectedSecret) {
-    return 'missing';
-  }
-  return req.header('x-cron-secret') === expectedSecret ? 'valid' : 'invalid';
-}
 
 export async function registerPushTokenController(req: Request, res: Response) {
   try {
@@ -94,7 +91,7 @@ export async function unregisterPushTokenController(req: Request, res: Response)
 
 export async function sendDueClassRemindersController(req: Request, res: Response) {
   try {
-    const secretStatus = validateCronSecret(req);
+    const secretStatus = getCronSecretStatus(process.env.NOTIFICATION_CRON_SECRET, req.header('x-cron-secret'));
     if (secretStatus === 'missing') {
       return sendErrorResponse(req, res, 500, 'Notification cron secret is not configured on server.');
     }
@@ -104,13 +101,7 @@ export async function sendDueClassRemindersController(req: Request, res: Respons
 
     const now = Date.now();
     const sessions = await listSessions(['scheduled']);
-    const dueSessions = sessions.filter((session) => {
-      if (!session.scheduledStartAt || session.reminderSentAt) {
-        return false;
-      }
-      const start = session.scheduledStartAt.getTime();
-      return start > now && start <= now + CLASS_REMINDER_LEAD_MS;
-    });
+    const dueSessions = getDueReminderSessions(sessions, now, CLASS_REMINDER_LEAD_MS);
 
     const results = await Promise.allSettled(
       dueSessions.map(async (session) => {
@@ -127,11 +118,13 @@ export async function sendDueClassRemindersController(req: Request, res: Respons
       })
     );
 
+    const summary = summarizeSettledResults(results);
+
     return res.status(200).json({
       checked: sessions.length,
       due: dueSessions.length,
-      sent: results.filter((result) => result.status === 'fulfilled').length,
-      failed: results.filter((result) => result.status === 'rejected').length
+      sent: summary.sent,
+      failed: summary.failed
     });
   } catch (err: any) {
     logControllerError(req, err, 'sendDueClassRemindersController failed');
