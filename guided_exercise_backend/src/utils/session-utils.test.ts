@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  IVS_MAX_DURATION_MINUTES,
   getSessionParticipantRole,
   getSessionStartEligibility,
+  mergeIvsTokenAttributes,
   parseOptionalDate,
+  resolveIvsCapabilities,
+  resolveIvsEffectiveUserId,
   resolveSessionScopedTokenAttributes,
+  validateIvsDurationMinutes,
+  validateIvsUserName,
   validateScheduleRange
 } from './session-utils.js';
 
@@ -219,6 +225,107 @@ describe('session utils', () => {
         sessionId: 'session-1',
         role: 'instructor'
       });
+    });
+  });
+
+  describe('validateIvsUserName', () => {
+    it('accepts missing and 128-character user names', () => {
+      expect(validateIvsUserName(undefined)).toBeNull();
+      expect(validateIvsUserName('a'.repeat(128))).toBeNull();
+    });
+
+    it('rejects user names over the IVS limit', () => {
+      expect(validateIvsUserName('a'.repeat(129))).toBe('userName must be 128 characters or fewer.');
+    });
+  });
+
+  describe('validateIvsDurationMinutes', () => {
+    it('accepts missing and valid integer duration values', () => {
+      expect(validateIvsDurationMinutes(undefined)).toEqual({ valid: true });
+      expect(validateIvsDurationMinutes(1)).toEqual({ valid: true });
+      expect(validateIvsDurationMinutes(IVS_MAX_DURATION_MINUTES)).toEqual({ valid: true });
+    });
+
+    it('rejects non-integer or out-of-range duration values', () => {
+      expect(validateIvsDurationMinutes(0)).toEqual({
+        valid: false,
+        message: 'durationMinutes must be an integer between 1 and 720.'
+      });
+      expect(validateIvsDurationMinutes(721)).toEqual({
+        valid: false,
+        message: 'durationMinutes must be an integer between 1 and 720.'
+      });
+      expect(validateIvsDurationMinutes(1.5)).toEqual({
+        valid: false,
+        message: 'durationMinutes must be an integer between 1 and 720.'
+      });
+    });
+  });
+
+  describe('resolveIvsCapabilities', () => {
+    it('uses explicitly requested capabilities when present', () => {
+      expect(
+        resolveIvsCapabilities({
+          requestedCapabilities: ['SUBSCRIBE'],
+          publish: true,
+          subscribe: true
+        })
+      ).toEqual(['SUBSCRIBE']);
+    });
+
+    it('defaults to publish and subscribe when no flags are disabled', () => {
+      expect(resolveIvsCapabilities({})).toEqual(['PUBLISH', 'SUBSCRIBE']);
+    });
+
+    it('respects publish and subscribe false flags', () => {
+      expect(resolveIvsCapabilities({ publish: false })).toEqual(['SUBSCRIBE']);
+      expect(resolveIvsCapabilities({ subscribe: false })).toEqual(['PUBLISH']);
+      expect(resolveIvsCapabilities({ publish: false, subscribe: false })).toEqual([]);
+    });
+  });
+
+  describe('resolveIvsEffectiveUserId', () => {
+    it('prefers userId, then userName, then fallback user id', () => {
+      expect(
+        resolveIvsEffectiveUserId({
+          userId: 'user-1',
+          userName: 'Name',
+          fallbackUserId: 'fallback-1'
+        })
+      ).toBe('user-1');
+      expect(
+        resolveIvsEffectiveUserId({
+          userName: 'Name',
+          fallbackUserId: 'fallback-1'
+        })
+      ).toBe('Name');
+      expect(
+        resolveIvsEffectiveUserId({
+          fallbackUserId: 'fallback-1'
+        })
+      ).toBe('fallback-1');
+    });
+  });
+
+  describe('mergeIvsTokenAttributes', () => {
+    it('adds username to existing token attributes', () => {
+      expect(
+        mergeIvsTokenAttributes({
+          attributes: {
+            sessionId: 'session-1',
+            role: 'student'
+          },
+          userName: 'Anunay'
+        })
+      ).toEqual({
+        sessionId: 'session-1',
+        role: 'student',
+        username: 'Anunay'
+      });
+    });
+
+    it('returns undefined when there are no attributes', () => {
+      expect(mergeIvsTokenAttributes({ attributes: {} })).toBeUndefined();
     });
   });
 });

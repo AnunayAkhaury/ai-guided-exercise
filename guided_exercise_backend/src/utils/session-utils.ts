@@ -5,6 +5,13 @@ export type SessionStartEligibility =
   | { allowed: false; status: 403 | 409; message: string };
 
 export type SessionParticipantRole = 'student' | 'instructor';
+export type IvsCapability = 'PUBLISH' | 'SUBSCRIBE';
+export type IvsDurationValidation =
+  | { valid: true }
+  | { valid: false; message: string };
+
+export const IVS_USER_NAME_MAX = 128;
+export const IVS_MAX_DURATION_MINUTES = 720;
 
 export function parseOptionalDate(value: string | undefined, fieldName: string): Date | { error: string } | undefined {
   if (!value) {
@@ -90,4 +97,65 @@ export function resolveSessionScopedTokenAttributes(input: {
   });
   attributes.userId = userId;
   return attributes;
+}
+
+export function validateIvsUserName(userName: string | undefined): string | null {
+  if (userName && userName.length > IVS_USER_NAME_MAX) {
+    return 'userName must be 128 characters or fewer.';
+  }
+
+  return null;
+}
+
+export function validateIvsDurationMinutes(durationMinutes: number | undefined): IvsDurationValidation {
+  if (
+    durationMinutes !== undefined &&
+    (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > IVS_MAX_DURATION_MINUTES)
+  ) {
+    return {
+      valid: false,
+      message: `durationMinutes must be an integer between 1 and ${IVS_MAX_DURATION_MINUTES}.`
+    };
+  }
+
+  return { valid: true };
+}
+
+export function resolveIvsCapabilities(input: {
+  requestedCapabilities?: IvsCapability[] | undefined;
+  publish?: boolean | undefined;
+  subscribe?: boolean | undefined;
+}): IvsCapability[] {
+  if (input.requestedCapabilities && input.requestedCapabilities.length > 0) {
+    return input.requestedCapabilities;
+  }
+
+  const capabilities: IvsCapability[] = [];
+  if (input.publish !== false) {
+    capabilities.push('PUBLISH');
+  }
+  if (input.subscribe !== false) {
+    capabilities.push('SUBSCRIBE');
+  }
+  return capabilities;
+}
+
+export function resolveIvsEffectiveUserId(input: {
+  userId?: string | undefined;
+  userName?: string | undefined;
+  fallbackUserId: string;
+}): string {
+  return input.userId ?? input.userName ?? input.fallbackUserId;
+}
+
+export function mergeIvsTokenAttributes(input: {
+  attributes: Record<string, string>;
+  userName?: string | undefined;
+}): Record<string, string> | undefined {
+  const mergedAttributes = {
+    ...input.attributes,
+    ...(input.userName ? { username: input.userName } : {})
+  };
+
+  return Object.keys(mergedAttributes).length > 0 ? mergedAttributes : undefined;
 }
