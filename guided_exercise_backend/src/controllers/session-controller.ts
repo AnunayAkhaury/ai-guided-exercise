@@ -15,6 +15,11 @@ import {
 import type { SessionStatus } from '@/services/Firebase/firebase-session.js';
 import { sendNotificationToRole } from '@/services/notification-service.js';
 import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
+import {
+  getSessionStartEligibility,
+  parseOptionalDate,
+  validateScheduleRange
+} from '@/utils/session-utils.js';
 
 type CreateSessionRequest = {
   sessionName?: string;
@@ -116,24 +121,19 @@ export async function createSessionController(req: Request, res: Response) {
       return sendErrorResponse(req, res, 400, 'stageArn is required (or set IVS_STAGE_ARN).');
     }
 
-    let parsedScheduledStartAt: Date | undefined;
-    let parsedScheduledEndAt: Date | undefined;
-    if (scheduledStartAt) {
-      const value = new Date(scheduledStartAt);
-      if (Number.isNaN(value.getTime())) {
-        return sendErrorResponse(req, res, 400, 'scheduledStartAt must be a valid ISO date string.');
-      }
-      parsedScheduledStartAt = value;
+    const parsedScheduledStartAt = parseOptionalDate(scheduledStartAt, 'scheduledStartAt');
+    if (parsedScheduledStartAt && 'error' in parsedScheduledStartAt) {
+      return sendErrorResponse(req, res, 400, parsedScheduledStartAt.error);
     }
-    if (scheduledEndAt) {
-      const value = new Date(scheduledEndAt);
-      if (Number.isNaN(value.getTime())) {
-        return sendErrorResponse(req, res, 400, 'scheduledEndAt must be a valid ISO date string.');
-      }
-      parsedScheduledEndAt = value;
+
+    const parsedScheduledEndAt = parseOptionalDate(scheduledEndAt, 'scheduledEndAt');
+    if (parsedScheduledEndAt && 'error' in parsedScheduledEndAt) {
+      return sendErrorResponse(req, res, 400, parsedScheduledEndAt.error);
     }
-    if (parsedScheduledStartAt && parsedScheduledEndAt && parsedScheduledEndAt <= parsedScheduledStartAt) {
-      return sendErrorResponse(req, res, 400, 'scheduledEndAt must be after scheduledStartAt.');
+
+    const scheduleRangeError = validateScheduleRange(parsedScheduledStartAt, parsedScheduledEndAt);
+    if (scheduleRangeError) {
+      return sendErrorResponse(req, res, 400, scheduleRangeError);
     }
 
     const session = await createSession({
@@ -165,20 +165,14 @@ async function startOwnedSession(sessionId: string, requesterUid: string) {
   if (!existing) {
     return { status: 404 as const, message: 'Session not found.' };
   }
-  if (existing.instructorUid !== requesterUid.trim()) {
-    return { status: 403 as const, message: 'Only the session creator can start this class.' };
-  }
-  if (existing.status === 'ended') {
-    return { status: 409 as const, message: 'Cannot start an ended session.' };
-  }
-  if (existing.scheduledStartAt) {
-    const earliestStart = existing.scheduledStartAt.getTime() - START_WINDOW_MINUTES * 60 * 1000;
-    if (Date.now() < earliestStart) {
-      return {
-        status: 409 as const,
-        message: `This class can only be started ${START_WINDOW_MINUTES} minutes before the scheduled time.`
-      };
-    }
+  const startEligibility = getSessionStartEligibility({
+    session: existing,
+    requesterUid,
+    nowMs: Date.now(),
+    startWindowMinutes: START_WINDOW_MINUTES
+  });
+  if (!startEligibility.allowed) {
+    return { status: startEligibility.status, message: startEligibility.message };
   }
 
   const currentlyLiveSessions = await listSessions(['live']);
