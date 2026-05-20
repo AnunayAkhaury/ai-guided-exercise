@@ -24,6 +24,14 @@ import { startRecordingWorkerTask } from '@/services/AWS/ecs.js';
 import { sendNotificationToUsers } from '@/services/notification-service.js';
 import { getRequestId, logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 import { getTimestamps } from '@/services/Firebase/firebase-feedback.js';
+import {
+  isAutoStartRecordingProcessingEnabled,
+  isLikelyIvsSessionId,
+  parseS3Uri,
+  resolvePlaybackTarget,
+  shouldAutoStartRecordingProcessing,
+  shouldPreserveExistingStatus
+} from '@/utils/recording-utils.js';
 
 type UpsertRecordingRequest = {
   recordingId?: string;
@@ -93,82 +101,21 @@ async function notifyRecordingOwner(recording: RecordingDocument, input: { title
   }
 }
 
-function isLikelyIvsSessionId(value: string): boolean {
-  return value.startsWith('st-');
-}
-
-function parseS3Prefix(rawS3Prefix: string): { bucket: string; keyPrefix: string } | null {
-  const normalized = rawS3Prefix.trim().replace(/^s3:\/\//, '');
-  const separatorIdx = normalized.indexOf('/');
-  if (separatorIdx <= 0 || separatorIdx === normalized.length - 1) {
-    return null;
-  }
-  return {
-    bucket: normalized.slice(0, separatorIdx),
-    keyPrefix: normalized.slice(separatorIdx + 1).replace(/\/+$/, '')
-  };
-}
-
-function resolvePlaybackTarget(
-  recording: RecordingDocument
-): { bucket: string; key: string; source: 'processed' | 'raw_hls' } | null {
-  const processed = recording.processedVideoUrl ? parseS3Prefix(recording.processedVideoUrl) : null;
-  if (processed) {
-    return {
-      bucket: processed.bucket,
-      key: processed.keyPrefix,
-      source: 'processed'
-    };
-  }
-
-  const raw = parseS3Prefix(recording.rawS3Prefix);
-  if (!raw) {
-    return null;
-  }
-
-  return {
-    bucket: raw.bucket,
-    key: `${raw.keyPrefix}/media/hls/high/playlist.m3u8`,
-    source: 'raw_hls'
-  };
-}
-
-function isAutoStartRecordingProcessingEnabled(): boolean {
-  return process.env.AUTO_START_RECORDING_PROCESSING?.trim().toLowerCase() === 'true';
-}
-
-function shouldPreserveExistingStatus(
-  existingRecording: RecordingDocument | null,
-  body: UpsertRecordingRequest
-): boolean {
-  if (body.source !== 'eventbridge' || body.status !== 'completed') {
-    return false;
-  }
-
-  return existingRecording?.status === 'processing' || Boolean(existingRecording?.processedVideoUrl);
-}
-
-function shouldAutoStartRecordingProcessing(recording: RecordingDocument): boolean {
-  console.log('enabled:', isAutoStartRecordingProcessingEnabled());
+function shouldAutoStartRecording(recording: RecordingDocument): boolean {
+  const autoStartEnabled = isAutoStartRecordingProcessingEnabled();
+  console.log('enabled:', autoStartEnabled);
   console.log('isEventBridge:', recording.source === 'eventbridge');
   console.log('isCompleted:', recording.status === 'completed');
   console.log('noProcessedVideo:', !recording.processedVideoUrl);
   console.log('hasUserId:', Boolean(recording.userId?.trim()));
   console.log('hasRawS3Prefix:', Boolean(recording.rawS3Prefix?.trim()));
 
-  return Boolean(
-    isAutoStartRecordingProcessingEnabled() &&
-    recording.source === 'eventbridge' &&
-    recording.status === 'completed' &&
-    !recording.processedVideoUrl &&
-    recording.userId?.trim() &&
-    recording.rawS3Prefix?.trim()
-  );
+  return shouldAutoStartRecordingProcessing(recording, autoStartEnabled);
 }
 
 async function autoStartRecordingProcessing(req: Request, recording: RecordingDocument): Promise<RecordingDocument> {
   console.log('Auto start');
-  if (!shouldAutoStartRecordingProcessing(recording)) {
+  if (!shouldAutoStartRecording(recording)) {
     return recording;
   }
 
@@ -390,14 +337,6 @@ export async function getRecordingPlaybackController(req: Request, res: Response
     logControllerError(req, err, 'getRecordingPlaybackController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Failed to get recording playback URL.');
   }
-}
-
-function parseS3Uri(uri: string) {
-  const url = new URL(uri.replace('s3://', 'https://'));
-  return {
-    Bucket: url.hostname,
-    Key: url.pathname.slice(1) // Removes the leading slash
-  };
 }
 
 export async function getClipPlaybackController(req: Request, res: Response) {
