@@ -28,6 +28,7 @@ import {
   isAutoStartRecordingProcessingEnabled,
   isLikelyIvsSessionId,
   parseS3Uri,
+  getRecordingProcessingEligibility,
   resolvePlaybackTarget,
   shouldAutoStartRecordingProcessing,
   shouldPreserveExistingStatus
@@ -385,20 +386,9 @@ export async function startRecordingProcessingController(req: Request, res: Resp
       return sendErrorResponse(req, res, 404, 'Recording not found.');
     }
 
-    if (!recording.userId?.trim()) {
-      return sendErrorResponse(req, res, 400, 'Recording is missing userId and cannot be processed.');
-    }
-
-    if (!recording.rawS3Prefix?.trim()) {
-      return sendErrorResponse(req, res, 400, 'Recording is missing rawS3Prefix and cannot be processed.');
-    }
-
-    if (recording.status === 'processing') {
-      return sendErrorResponse(req, res, 409, 'Recording is already processing.');
-    }
-
-    if (recording.processedVideoUrl) {
-      return sendErrorResponse(req, res, 409, 'Recording has already been processed.');
+    const processingEligibility = getRecordingProcessingEligibility(recording);
+    if (!processingEligibility.allowed) {
+      return sendErrorResponse(req, res, processingEligibility.status, processingEligibility.message);
     }
 
     const processingRecording = await updateRecordingById(recording.recordingId, {

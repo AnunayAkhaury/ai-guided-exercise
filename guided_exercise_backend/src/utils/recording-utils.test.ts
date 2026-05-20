@@ -4,6 +4,7 @@ import {
   isLikelyIvsSessionId,
   parseS3Prefix,
   parseS3Uri,
+  getRecordingProcessingEligibility,
   resolvePlaybackTarget,
   shouldAutoStartRecordingProcessing,
   shouldPreserveExistingStatus
@@ -153,6 +154,60 @@ describe('recording utils', () => {
       expect(shouldAutoStartRecordingProcessing(recording({ processedVideoUrl: 's3://bucket/key.mp4' }), true)).toBe(false);
       expect(shouldAutoStartRecordingProcessing(recording({ userId: null }), true)).toBe(false);
       expect(shouldAutoStartRecordingProcessing(recording({ rawS3Prefix: ' ' }), true)).toBe(false);
+    });
+  });
+
+  describe('getRecordingProcessingEligibility', () => {
+    it('allows recordings that have a user, raw prefix, and no processed output', () => {
+      expect(getRecordingProcessingEligibility(recording())).toEqual({ allowed: true });
+    });
+
+    it('rejects recordings without a user id', () => {
+      expect(getRecordingProcessingEligibility(recording({ userId: null }))).toEqual({
+        allowed: false,
+        status: 400,
+        message: 'Recording is missing userId and cannot be processed.'
+      });
+      expect(getRecordingProcessingEligibility(recording({ userId: '   ' }))).toEqual({
+        allowed: false,
+        status: 400,
+        message: 'Recording is missing userId and cannot be processed.'
+      });
+    });
+
+    it('rejects recordings without a raw S3 prefix', () => {
+      expect(getRecordingProcessingEligibility(recording({ rawS3Prefix: '' }))).toEqual({
+        allowed: false,
+        status: 400,
+        message: 'Recording is missing rawS3Prefix and cannot be processed.'
+      });
+      expect(getRecordingProcessingEligibility(recording({ rawS3Prefix: '   ' }))).toEqual({
+        allowed: false,
+        status: 400,
+        message: 'Recording is missing rawS3Prefix and cannot be processed.'
+      });
+    });
+
+    it('rejects recordings that are already processing', () => {
+      expect(getRecordingProcessingEligibility(recording({ status: 'processing' }))).toEqual({
+        allowed: false,
+        status: 409,
+        message: 'Recording is already processing.'
+      });
+    });
+
+    it('rejects recordings that already have processed video', () => {
+      expect(
+        getRecordingProcessingEligibility(
+          recording({
+            processedVideoUrl: 's3://processed-bucket/processed/users/user-1/final_fixed.mp4'
+          })
+        )
+      ).toEqual({
+        allowed: false,
+        status: 409,
+        message: 'Recording has already been processed.'
+      });
     });
   });
 });

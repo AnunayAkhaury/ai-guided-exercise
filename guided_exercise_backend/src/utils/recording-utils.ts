@@ -16,6 +16,15 @@ type AutoStartRecordingInput = Pick<
   'source' | 'status' | 'processedVideoUrl' | 'userId' | 'rawS3Prefix'
 >;
 
+type ProcessingEligibilityInput = Pick<
+  RecordingDocument,
+  'status' | 'processedVideoUrl' | 'userId' | 'rawS3Prefix'
+>;
+
+export type RecordingProcessingEligibility =
+  | { allowed: true }
+  | { allowed: false; status: 400 | 409; message: string };
+
 export function isLikelyIvsSessionId(value: string): boolean {
   return value.startsWith('st-');
 }
@@ -91,4 +100,26 @@ export function shouldAutoStartRecordingProcessing(
     recording.userId?.trim() &&
     recording.rawS3Prefix?.trim()
   );
+}
+
+export function getRecordingProcessingEligibility(
+  recording: ProcessingEligibilityInput
+): RecordingProcessingEligibility {
+  if (!recording.userId?.trim()) {
+    return { allowed: false, status: 400, message: 'Recording is missing userId and cannot be processed.' };
+  }
+
+  if (!recording.rawS3Prefix?.trim()) {
+    return { allowed: false, status: 400, message: 'Recording is missing rawS3Prefix and cannot be processed.' };
+  }
+
+  if (recording.status === 'processing') {
+    return { allowed: false, status: 409, message: 'Recording is already processing.' };
+  }
+
+  if (recording.processedVideoUrl) {
+    return { allowed: false, status: 409, message: 'Recording has already been processed.' };
+  }
+
+  return { allowed: true };
 }
