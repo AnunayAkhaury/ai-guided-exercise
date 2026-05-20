@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { CreateParticipantTokenCommand, IVSRealTimeClient } from '@aws-sdk/client-ivs-realtime';
 import { getSessionById } from '@/services/Firebase/firebase-session.js';
 import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
+import { resolveSessionScopedTokenAttributes } from '@/utils/session-utils.js';
 
 type IvsTokenRequest = {
   stageArn?: string;
@@ -35,9 +36,11 @@ async function resolveSessionScopedAttributes(input: {
     return attributes;
   }
 
-  attributes.role = session.instructorUid === userId ? 'instructor' : 'student';
-  attributes.userId = userId;
-  return attributes;
+  return resolveSessionScopedTokenAttributes({
+    attributes,
+    sessionInstructorUid: session.instructorUid,
+    userId
+  });
 }
 
 export async function createIvsTokenController(req: Request, res: Response) {

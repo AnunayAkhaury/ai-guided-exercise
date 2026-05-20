@@ -1,4 +1,5 @@
 import { db } from './firebase-service.js';
+import { getSessionParticipantRole } from '@/utils/session-utils.js';
 
 export type SessionStatus = 'scheduled' | 'live' | 'ended';
 
@@ -294,10 +295,10 @@ export async function upsertSessionParticipant(
   const sessionSnapshot = await sessionRef.get();
   const sessionData = sessionSnapshot.data();
   const sessionInstructorUid = typeof sessionData?.instructorUid === 'string' ? sessionData.instructorUid.trim() : null;
-  const effectiveRole =
-    normalizedUserId && sessionInstructorUid && normalizedUserId === sessionInstructorUid
-      ? 'instructor'
-      : 'student';
+  const effectiveRole = getSessionParticipantRole({
+    sessionInstructorUid,
+    userId: normalizedUserId
+  });
   const participantRef = db
     .collection(SESSIONS_COLLECTION)
     .doc(sessionId)

@@ -4,6 +4,8 @@ export type SessionStartEligibility =
   | { allowed: true }
   | { allowed: false; status: 403 | 409; message: string };
 
+export type SessionParticipantRole = 'student' | 'instructor';
+
 export function parseOptionalDate(value: string | undefined, fieldName: string): Date | { error: string } | undefined {
   if (!value) {
     return undefined;
@@ -54,4 +56,38 @@ export function getSessionStartEligibility(input: {
   }
 
   return { allowed: true };
+}
+
+export function getSessionParticipantRole(input: {
+  sessionInstructorUid?: string | null | undefined;
+  userId?: string | null | undefined;
+}): SessionParticipantRole {
+  const sessionInstructorUid = input.sessionInstructorUid?.trim();
+  const userId = input.userId?.trim();
+
+  if (sessionInstructorUid && userId && sessionInstructorUid === userId) {
+    return 'instructor';
+  }
+
+  return 'student';
+}
+
+export function resolveSessionScopedTokenAttributes(input: {
+  attributes?: Record<string, string>;
+  sessionInstructorUid?: string | null | undefined;
+  userId?: string | null | undefined;
+}): Record<string, string> {
+  const attributes = { ...(input.attributes ?? {}) };
+  const userId = input.userId?.trim() || attributes.userId?.trim();
+
+  if (!userId) {
+    return attributes;
+  }
+
+  attributes.role = getSessionParticipantRole({
+    sessionInstructorUid: input.sessionInstructorUid,
+    userId
+  });
+  attributes.userId = userId;
+  return attributes;
 }
