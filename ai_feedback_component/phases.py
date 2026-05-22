@@ -146,7 +146,7 @@ def extract_instructor_phases_with_pca(inst_pose_path, inst_angles_path, rep_bou
     print(f"PCA reduced integrated posture feature map down to {X_pca.shape[1]} components.")
     
     # 5. HDBSCAN Density Clustering
-    min_cluster_size = 15  
+    min_cluster_size = 6 
     min_samples = 3        
     clusterer = hdbscan.HDBSCAN(
         min_cluster_size=min_cluster_size, 
