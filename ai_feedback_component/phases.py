@@ -193,6 +193,17 @@ def extract_instructor_phases_with_pca(inst_pose_path, inst_angles_path, rep_bou
                 })
                 
     all_detected_chunks.sort(key=lambda x: x["start_frame"])
+    if len(all_detected_chunks) == 0:
+        print("No phases detected, returning entire rep as a phase")
+        chunk_len = end_frame - start_frame + 1
+        all_detected_chunks.append({
+            "cluster_id": 0,
+            "start_frame": start_frame,
+            "end_frame": end_frame,
+            "total_frames": chunk_len,
+            "duration_seconds": round(chunk_len / fps, 2)
+        })
+
     for idx, phase in enumerate(all_detected_chunks):
         phase["phase_index"] = idx + 1
         
@@ -213,10 +224,12 @@ if __name__ == "__main__":
     # student = "Lunge_3"
     # instructor = "GoodBurpee"
     # student = "Burpee_4"
-    instructor = "GoodPushup"
-    student = "pushup-student"
-    # instructor = "GoodMountainClimbers"
-    # student = "MountainClimbers_10"
+    # instructor = "GoodPushup"
+    # student = "pushup-student"
+    instructor = "GoodMountainClimbers"
+    student = "MountainClimbers_10"
+    # instructor = "GoodJumpingJacks"
+    # student = "JStudent"
     INSTRUCTOR_POSE = f"data/{instructor}-pose.json" 
     INSTRUCTOR_ANGLES = f"data/{instructor}-angles.json"  
     REP_BOUNDARIES = f"data/{student}-rep-boundaries.json"
