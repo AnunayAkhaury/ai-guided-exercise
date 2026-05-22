@@ -57,7 +57,7 @@ def generate_comparison(exercise_name, video_file, json_dir):
 def print_usage():
     print("Usage:")
     print("  To create ideal: python -m ai_feedback_component.feedback_main ideal [ExerciseName] [IdealVideoAbsolutePath]")
-    print("  To compare: python -m ai_feedback_component.feedback_main ideal compare [ExerciseName] [TestVideoAbsolutePath]")
+    print("  To compare: python -m ai_feedback_component.feedback_main compare [ExerciseName] [TestVideoAbsolutePath]")
     print("  ***Note: Make sure the exercise name used in both ideal and compare pipeline matches")
     print("  ***Note: Make sure to run the pipeline in the directory that contains ai_feedback_component")
 
