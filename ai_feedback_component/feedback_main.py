@@ -41,8 +41,12 @@ def generate_comparison(exercise_name, video_file, json_dir):
     # 2. Calculate Angles for the test video
     calculate_joint_angles(json_dir)
 
-    # 3. Detect reps in student and instructor
-    align_reps(json_dir, exercise_name)
+    try:
+        # 3. Detect reps in student and instructor
+        align_reps(json_dir, exercise_name)
+    except ValueError:
+        print("No reps detected")
+        return None
 
     # 4. Compare test angles against the specified ideal baseline
     run_form_analysis(json_dir, exercise_name)

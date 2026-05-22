@@ -317,7 +317,8 @@ def align_reps(json_dir, exercise_name):
 
     joint_results = counter.analyze(inst_df, stud_df)
 
-    if not joint_results: return
+    if not joint_results:
+        raise ValueError("No reps detected")
 
     # Timing Constants
     fps = counter.fps
