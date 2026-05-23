@@ -13,7 +13,6 @@ ANGLE_DEVIATION_THRESHOLD = 20.0
 SAVGOL_WINDOW = 21
 SAVGOL_POLY = 2
 DTW_RADIUS = 30
-NUM_JOINTS = 16
 
 # Mapping joints to their final operational extremity for spatial tracking
 JOINT_TO_EXTREMITY = {
@@ -194,23 +193,23 @@ def run_form_analysis(json_dir, exercise_name):
     # Generate the dynamic analysis configuration mapping out of the instructor records
     phase_mechanics = analyze_instructor_phase_mechanics(i_angle_data, i_pose_data, apex_i_indices)
 
-    total_errors_running = 0
+    rep_qualities = []
     rep_count = 0
 
     output_json = json_dir / "bad-reps.json"
     out_f = open(output_json, "w")
     out_f.write('{\n  "reps": [\n')
-    
+
     first_rep = True
 
     for s_rep in rep_data["student_reps"]:
         rep_idx = s_rep["rep_index"]
         s_bound = s_rep["student_boundary"]
         i_tmpl = s_rep["instructor_template"]
-        
+
         s_frames = [f for f in s_angle_data if s_bound["start_frame"] <= f["frameIndex"] <= s_bound["end_frame"]]
         i_a_frames = [f for f in i_angle_data if i_tmpl["start_frame"] <= f["frameIndex"] <= i_tmpl["end_frame"]]
-        
+
         if not s_frames or not i_a_frames: continue
 
         # Pull all structural joint tracks for DTW alignment mapping
@@ -220,39 +219,41 @@ def run_form_analysis(json_dir, exercise_name):
 
         _, raw_path = fastdtw(np.column_stack(s_feats), np.column_stack(i_feats), radius=DTW_RADIUS, dist=euclidean)
         rep_events = []
+        seen_this_rep = set()
 
         for s_idx, i_idx in raw_path:
             sf, ifr_a = s_frames[s_idx], i_a_frames[i_idx]
             global_student_frame = sf["frameIndex"]
             global_instructor_frame = ifr_a["frameIndex"]
-            
+
             # Map global instructor frames cleanly back to target phase blocks
             curr_phase = 1
             for p_idx in range(len(apex_i_indices) - 1):
                 if apex_i_indices[p_idx] <= global_instructor_frame <= apex_i_indices[p_idx+1]:
                     curr_phase = p_idx + 1
                     break
-            
+
             # Retrieve cached requirements calculated from the instructor
             current_rules = phase_mechanics.get(curr_phase, {"stability": [], "execution": [], "is_transition": False})
-            
+
             # Drop check if this window registers as a global posture transition zone
             if current_rules["is_transition"]:
                 continue
 
             for joint, s_val in sf["angles"].items():
                 if not sf["usableDict"].get(joint, False): continue
+                if (joint, curr_phase) in seen_this_rep: continue
                 i_val = ifr_a["angles"].get(joint, s_val)
                 diff = abs(s_val - i_val)
-                
+
                 if diff > ANGLE_DEVIATION_THRESHOLD:
                     is_stability_issue = joint in current_rules["stability"]
                     is_execution_issue = joint in current_rules["execution"]
-                    
+
                     if not (is_stability_issue or is_execution_issue):
-                        # Skip if joint variance drifts on an unimportant or unassigned joint for this phase
                         continue
-                        
+
+                    seen_this_rep.add((joint, curr_phase))
                     rep_events.append({
                         "timestampMs": sf["timestampMs"],
                         "frameIndex": global_student_frame,
@@ -261,14 +262,16 @@ def run_form_analysis(json_dir, exercise_name):
                         "issue": "stability" if is_stability_issue else "execution",
                         "actual": round(s_val, 2), "expected": round(i_val, 2)
                     })
-                    total_errors_running += 1 
+
+        unique_joints_flagged = len(set(e["joint"] for e in rep_events))
+        rep_qualities.append(1.0 - unique_joints_flagged / len(all_joint_keys))
 
         if not first_rep: out_f.write(',\n')
         out_f.write('\n' + json.dumps({"rep_index": rep_idx, "events": rep_events}))
         first_rep = False
         rep_count += 1
 
-    overall_quality = max(0.1, (NUM_JOINTS - total_errors_running) / NUM_JOINTS)
+    overall_quality = max(0.1, sum(rep_qualities) / len(rep_qualities)) if rep_qualities else 0.1
     points = round(rep_count * overall_quality * 1000 / 5) * 5
 
     out_f.write('\n  ],\n')
