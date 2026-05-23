@@ -3,6 +3,8 @@ import math
 import os
 from datetime import datetime, timezone
 
+EDGE_MARGIN = 0.02
+
 # Joint definitions remain at module level for easy configuration
 JOINTS = {
     "left_elbow":      ("left_shoulder",  "left_elbow",    "left_wrist"),
@@ -18,6 +20,23 @@ JOINTS = {
 }
 
 JOINT_NAMES = list(JOINTS.keys())
+
+# All landmark names referenced as vertices in JOINTS
+_JOINT_LANDMARK_NAMES = {name for triple in JOINTS.values() for name in triple}
+
+def is_out_of_frame(landmarks: list) -> bool:
+    for lm in landmarks:
+        if lm.get("name") not in _JOINT_LANDMARK_NAMES:
+            continue
+        x_img = lm.get("x_img")
+        y_img = lm.get("y_img")
+        if x_img is None or y_img is None:
+            return False  # old pose.json without image coords — skip filter
+        if x_img < EDGE_MARGIN or x_img > 1.0 - EDGE_MARGIN:
+            return True
+        if y_img < EDGE_MARGIN or y_img > 1.0 - EDGE_MARGIN:
+            return True
+    return False
 
 def angle_3pt(a: dict, b: dict, c: dict) -> float | None:
     ba = (a["x"] - b["x"], a["y"] - b["y"], a["z"] - b["z"])
@@ -61,7 +80,7 @@ def calculate_joint_angles(json_dir):
     # Pass 1: Calculate angles
     for frame in pose_data["frames"]:
         poses = frame.get("poses", [])
-        if poses:
+        if poses and not is_out_of_frame(poses[0]["worldLandmarks"]):
             lm_dict = landmarks_to_dict(poses[0]["worldLandmarks"])
             angles, usable_dict = compute_angles(lm_dict)
         else:
