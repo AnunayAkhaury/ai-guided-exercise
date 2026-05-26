@@ -32,6 +32,8 @@ def is_out_of_frame(landmarks: list) -> bool:
         y_img = lm.get("y_img")
         if x_img is None or y_img is None:
             return False  # old pose.json without image coords — skip filter
+        if lm.get("confident", True):
+            continue  # confidently detected at edge = just close framing, not cut off
         if x_img < EDGE_MARGIN or x_img > 1.0 - EDGE_MARGIN:
             return True
         if y_img < EDGE_MARGIN or y_img > 1.0 - EDGE_MARGIN:
