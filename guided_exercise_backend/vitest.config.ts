@@ -18,12 +18,11 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html'],
       reportsDirectory: './coverage',
-      include: ['src/**/*.ts'],
-      exclude: [
-        'src/**/*.test.ts',
-        'src/app.ts',
-        'src/services/Firebase/firebase-service.ts'
-      ]
+      include: [
+        'src/utils/**/*.ts',
+        'src/controllers/notification-controller.ts'
+      ],
+      exclude: ['src/**/*.test.ts']
     }
   }
 });

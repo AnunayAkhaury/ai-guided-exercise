@@ -8,33 +8,44 @@ import { getRequestId, requestIdMiddleware } from '@/utils/request-logging.js';
 
 dotenv.config();
 
-const app = express();
 const port = Number(process.env.PORT) || 4000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(morgan('dev')); //logger
-app.use(requestIdMiddleware);
+export function createApp() {
+  const app = express();
 
-// Import and use the router
-app.use(router);
+  // Middleware
+  app.use(cors());
+  app.use(express.json());
+  app.use(morgan('dev')); //logger
+  app.use(requestIdMiddleware);
 
-// Middleware to log errors
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  const requestId = getRequestId(req);
-  console.error(`[${requestId}] Unhandled error: ${req.method} ${req.originalUrl}`, {
-    body: req.body,
-    message: err.message,
-    stack: err.stack
+  // Import and use the router
+  app.use(router);
+
+  // Middleware to log errors
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    const requestId = getRequestId(req);
+    console.error(`[${requestId}] Unhandled error: ${req.method} ${req.originalUrl}`, {
+      body: req.body,
+      message: err.message,
+      stack: err.stack
+    });
+    res.status(err?.statusCode ?? 500).json({
+      message: err?.message || 'Internal Server Error',
+      requestId
+    });
   });
-  res.status(err?.statusCode ?? 500).json({
-    message: err?.message || 'Internal Server Error',
-    requestId
-  });
-});
+
+  return app;
+}
+
+const app = createApp();
 
 // Start server
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Server is running on port ${port}.`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`Server is running on port ${port}.`);
+  });
+}
+
+export default app;
