@@ -3,7 +3,7 @@ import { createProfile, getProfile, listProfilesByRole, updateProfile } from '@/
 import { addRecording, getUserRecordings } from '@/services/Firebase/firebase-recording.js';
 import { getAchievements } from '@/services/Firebase/firebase-user.js';
 import { getRequestId, logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
-import { sendApprovalEmail, setVerified } from '@/services/email-service.js';
+import { getUserVerificationStatus, sendApprovalEmail, setVerified } from '@/services/email-service.js';
 
 export function helloWorldController(req: Request, res: Response) {
   res.status(200).json({ message: 'OK', requestId: getRequestId(req), timestamp: new Date().toISOString() });
@@ -119,6 +119,22 @@ export async function verifyAccountController(req: Request, res: Response) {
     return res.status(200).json({ message: 'Account verified.' });
   } catch (err: any) {
     logControllerError(req, err, 'verifyAccountController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
+  }
+}
+
+export async function getUserVerificationStatusController(req: Request, res: Response) {
+  const uid = Array.isArray(req.params.uid) ? req.params.uid[0] : req.params.uid;
+
+  if (!uid?.trim()) {
+    return sendErrorResponse(req, res, 400, 'uid is required.');
+  }
+
+  try {
+    const status = await getUserVerificationStatus(uid);
+    return res.status(200).json(status);
+  } catch (err: any) {
+    logControllerError(req, err, 'getVerificationStatus failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
   }
 }

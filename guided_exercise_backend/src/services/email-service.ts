@@ -145,3 +145,24 @@ export async function setVerified(token: string) {
     throw error;
   }
 }
+
+export async function getUserVerificationStatus(uid: string): Promise<boolean> {
+  try {
+    const userRef = db.collection(USER_COLLECTION).doc(uid);
+    const snapshot = await userRef.get();
+
+    if (!snapshot.exists) {
+      throw new Error('User not found');
+    }
+
+    const data = snapshot.data();
+
+    if (!data) {
+      throw new Error('User data not found');
+    }
+
+    return data?.verified === true;
+  } catch (error) {
+    throw error;
+  }
+}

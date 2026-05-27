@@ -17,6 +17,7 @@ import { auth } from '@/src/api/Firebase/firebase-config';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '@/src/components/ui/ToastProvider';
+import { getVerificationStatus } from '@/src/api/Firebase/firebase-auth';
 
 const INSTRUCTOR_SIGNUP_CODE = 'UCDavis123';
 
@@ -48,7 +49,11 @@ export default function Signup() {
       return;
     }
     if (role === 'instructor' && trimmedInstructorCode !== INSTRUCTOR_SIGNUP_CODE) {
-      showToast({ title: 'Invalid instructor code', message: 'Please enter a valid instructor signup code.', variant: 'error' });
+      showToast({
+        title: 'Invalid instructor code',
+        message: 'Please enter a valid instructor signup code.',
+        variant: 'error'
+      });
       return;
     }
     if (trimmedUsername.length < 3) {
@@ -59,11 +64,22 @@ export default function Signup() {
 
     const normalizedName = trimmedUsername.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 30);
     if (!normalizedName) {
-      showToast({ title: 'Invalid username', message: 'Use letters, numbers, underscores, periods, or hyphens.', variant: 'error' });
+      showToast({
+        title: 'Invalid username',
+        message: 'Use letters, numbers, underscores, periods, or hyphens.',
+        variant: 'error'
+      });
       return;
     }
     const defaultFullName = normalizedName;
-    const routeByRole = () => {
+    const routeAfterAuth = async (uid: string) => {
+      const verificationStatus = await getVerificationStatus(uid);
+
+      if (verificationStatus === false) {
+        router.replace('/(onboarding)/pending-verification');
+        return;
+      }
+
       if (role === 'student') {
         router.replace('/(tabs)/(student)/classes');
       } else {
@@ -75,14 +91,14 @@ export default function Signup() {
       setIsSubmitting(true);
       const uid = await createAccount(trimmedEmail, password);
       await createProfile(uid, role, normalizedName, defaultFullName, trimmedEmail);
-      routeByRole();
+      await routeAfterAuth(uid);
     } catch (err: any) {
       const message = String(err?.message || '');
       if (message.includes('auth/email-already-in-use')) {
         try {
           const credential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
           await createProfile(credential.user.uid, role, normalizedName, defaultFullName, trimmedEmail);
-          routeByRole();
+          await routeAfterAuth(credential.user.uid);
           return;
         } catch {
           showToast({
@@ -104,29 +120,27 @@ export default function Signup() {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-    >
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}>
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
           { paddingTop: insets.top + (isSmallPhone ? 8 : 14), paddingBottom: Math.max(insets.bottom + 16, 24) }
         ]}
-        keyboardShouldPersistTaps="handled"
-      >
+        keyboardShouldPersistTaps="handled">
         <View style={[styles.formCard, { width: cardWidth }]}>
           <Text style={[styles.title, isSmallPhone && styles.titleCompact]}>Sign Up</Text>
           <View style={styles.roleRow}>
             <Pressable
               style={[styles.roleButton, role === 'student' && styles.roleButtonActive]}
-              onPress={() => setRole('student')}
-            >
+              onPress={() => setRole('student')}>
               <Text style={[styles.roleButtonText, role === 'student' && styles.roleButtonTextActive]}>Student</Text>
             </Pressable>
             <Pressable
               style={[styles.roleButton, role === 'instructor' && styles.roleButtonActive]}
-              onPress={() => setRole('instructor')}
-            >
-              <Text style={[styles.roleButtonText, role === 'instructor' && styles.roleButtonTextActive]}>Instructor</Text>
+              onPress={() => setRole('instructor')}>
+              <Text style={[styles.roleButtonText, role === 'instructor' && styles.roleButtonTextActive]}>
+                Instructor
+              </Text>
             </Pressable>
           </View>
           <View style={styles.inputContainer}>
@@ -170,8 +184,7 @@ export default function Signup() {
           <Pressable
             style={[styles.button, isSubmitting && styles.buttonDisabled]}
             onPress={handleSignUp}
-            disabled={isSubmitting}
-          >
+            disabled={isSubmitting}>
             {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Create Account</Text>}
           </Pressable>
           <Link href="/login" push>

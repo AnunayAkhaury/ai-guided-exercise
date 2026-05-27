@@ -1,7 +1,12 @@
 import { useUserStore } from '@/src/store/userStore';
 import { auth } from './firebase-config';
 
-import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signOut
+} from 'firebase/auth';
 import type { UserCredential } from 'firebase/auth';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -181,10 +186,7 @@ export async function logout() {
 
 export async function listProfiles(role?: string) {
   const query = role?.trim() ? `?role=${encodeURIComponent(role.trim())}` : '';
-  return getBackendJson<AppUserProfile[]>(
-    `/api/firebase/users${query}`,
-    'Failed to load user profiles.'
-  );
+  return getBackendJson<AppUserProfile[]>(`/api/firebase/users${query}`, 'Failed to load user profiles.');
 }
 
 export async function updateUserProfile(uid: string, username: string, fullname: string) {
@@ -195,11 +197,7 @@ export async function updateUserProfile(uid: string, username: string, fullname:
       username: string;
       fullname: string;
       email?: string | null;
-    }>(
-      '/api/firebase/updateProfile',
-      { uid, username, fullname },
-      'Failed to update profile.'
-    );
+    }>('/api/firebase/updateProfile', { uid, username, fullname }, 'Failed to update profile.');
 
     useUserStore.setState((state) => ({
       ...state,
@@ -215,4 +213,8 @@ export async function updateUserProfile(uid: string, username: string, fullname:
     console.log(err);
     throw new Error(getErrorMessage(err, 'Failed to update profile.'));
   }
+}
+
+export async function getVerificationStatus(uid: string) {
+  return getBackendJson<boolean>(`/api/verification/verificationStatus/${uid}`, 'Failed to get verification status.');
 }
