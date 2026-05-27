@@ -42,7 +42,7 @@ export async function createProfile(uid: string, role: string, username: string,
       { merge: true }
     );
 
-    await sendApprovalEmail(uid, effectiveEmail, effectiveUsername);
+    // await sendApprovalEmail(uid, effectiveEmail, effectiveUsername);
     return {
       role: effectiveRole,
       username: effectiveUsername,
