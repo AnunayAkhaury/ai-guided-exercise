@@ -213,5 +213,49 @@ describe('notification routes', () => {
       expect(sendNotificationToRole).not.toHaveBeenCalled();
       expect(markSessionReminderSent).not.toHaveBeenCalled();
     });
+
+    it('sends due class reminders and marks sessions sent', async () => {
+      vi.mocked(listSessions).mockResolvedValue([
+        {
+          sessionId: 'session-1',
+          ivsSessionId: null,
+          sessionCode: 'ABC123',
+          sessionName: 'Recovery Strength',
+          stageArn: 'stage-arn',
+          instructorUid: 'instructor-1',
+          coachName: 'Coach',
+          status: 'scheduled',
+          scheduledStartAt: new Date(Date.now() + 2 * 60 * 1000),
+          scheduledEndAt: null,
+          createdAt: new Date('2026-05-27T10:00:00.000Z'),
+          updatedAt: new Date('2026-05-27T10:00:00.000Z'),
+          startedAt: null,
+          endedAt: null,
+          reminderSentAt: null
+        }
+      ]);
+      vi.mocked(sendNotificationToRole).mockResolvedValue({ attempted: 2, sent: 2, failed: 0 });
+      vi.mocked(markSessionReminderSent).mockResolvedValue(undefined);
+
+      const response = await request(app)
+        .post('/api/notifications/class-reminders/send-due')
+        .set('x-cron-secret', 'test-cron-secret')
+        .send();
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        checked: 1,
+        due: 1,
+        sent: 1,
+        failed: 0
+      });
+      expect(sendNotificationToRole).toHaveBeenCalledWith(
+        'student',
+        expect.objectContaining({
+          title: 'Class starting soon'
+        })
+      );
+      expect(markSessionReminderSent).toHaveBeenCalledWith('session-1');
+    });
   });
 });

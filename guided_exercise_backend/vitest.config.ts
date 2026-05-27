@@ -20,7 +20,7 @@ export default defineConfig({
       reportsDirectory: './coverage',
       include: [
         'src/utils/**/*.ts',
-        'src/controllers/notification-controller.ts'
+        'src/controllers/**/*.ts'
       ],
       exclude: ['src/**/*.test.ts']
     }
