@@ -1,3 +1,4 @@
+import { sendApprovalEmail } from '../email-service.js';
 import { auth, db } from './firebase-service.js';
 
 type UserProfile = {
@@ -41,6 +42,7 @@ export async function createProfile(uid: string, role: string, username: string,
       { merge: true }
     );
 
+    await sendApprovalEmail(uid, effectiveEmail, effectiveUsername);
     return {
       role: effectiveRole,
       username: effectiveUsername,

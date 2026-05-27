@@ -218,3 +218,16 @@ export async function updateUserProfile(uid: string, username: string, fullname:
 export async function getVerificationStatus(uid: string) {
   return getBackendJson<boolean>(`/api/verification/verificationStatus/${uid}`, 'Failed to get verification status.');
 }
+
+export async function sendVerificationEmail(uid: string, userEmail: string, userName: string) {
+  try {
+    await postBackendJson<{
+      uid: string;
+      userEmail: string;
+      userName: string;
+    }>('/api/verification/sendEmail', { uid, userEmail, userName }, 'Failed to send verification email.');
+  } catch (err) {
+    console.log(err);
+    throw new Error(getErrorMessage(err, 'Failed to send verification email.'));
+  }
+}

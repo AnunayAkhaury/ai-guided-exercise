@@ -40,17 +40,19 @@ export default function Login() {
     try {
       setIsSubmitting(true);
       await login(trimmedEmail, password);
+
       const uid = useUserStore.getState().uid;
       const verificationStatus = await getVerificationStatus(uid!);
       console.log('verificationStatus', verificationStatus);
       if (verificationStatus === false) {
         router.replace('/(onboarding)/pending-verification');
-      }
-      const latestRole = useUserStore.getState().role;
-      if (latestRole === 'student') {
-        router.replace('/(tabs)/(student)/classes');
       } else {
-        router.replace('/(tabs)/(teacher)/classes');
+        const latestRole = useUserStore.getState().role;
+        if (latestRole === 'student') {
+          router.replace('/(tabs)/(student)/classes');
+        } else {
+          router.replace('/(tabs)/(teacher)/classes');
+        }
       }
     } catch (error: any) {
       console.error('Login failed:', error);

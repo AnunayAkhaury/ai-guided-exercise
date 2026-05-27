@@ -69,7 +69,9 @@ export async function sendApprovalEmail(userId: string, userEmail: string, userN
 export async function sendEmail(to: string, content: string) {
   try {
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
       auth: {
         user: process.env.ADMIN_EMAIL,
         pass: process.env.GOOGLE_APP_PASSWORD
