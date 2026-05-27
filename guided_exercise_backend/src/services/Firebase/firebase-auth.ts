@@ -8,7 +8,6 @@ type UserProfile = {
   email: string | null;
   createdAt: Date;
   updatedAt: Date;
-  verified: boolean;
 };
 
 export async function createProfile(uid: string, role: string, username: string, fullname: string, email?: string) {
@@ -25,7 +24,7 @@ export async function createProfile(uid: string, role: string, username: string,
     const effectiveEmail = existingData?.email ?? email ?? null;
     const effectiveCreatedAt = existingData?.createdAt?.toDate
       ? existingData.createdAt.toDate()
-      : (existingData?.createdAt ?? now);
+      : existingData?.createdAt ?? now;
 
     await auth.setCustomUserClaims(uid, { role: effectiveRole });
 
@@ -36,8 +35,7 @@ export async function createProfile(uid: string, role: string, username: string,
         fullname: effectiveFullname,
         email: effectiveEmail,
         createdAt: effectiveCreatedAt,
-        updatedAt: now,
-        verified: false
+        updatedAt: now
       },
       { merge: true }
     );
@@ -68,9 +66,8 @@ export async function getProfile(uid: string) {
       username: user?.username,
       fullname: user?.fullname,
       email: user?.email ?? null,
-      createdAt: user?.createdAt?.toDate ? user.createdAt.toDate() : (user?.createdAt ?? null),
-      updatedAt: user?.updatedAt?.toDate ? user.updatedAt.toDate() : (user?.updatedAt ?? null),
-      verified: user?.verified
+      createdAt: user?.createdAt?.toDate ? user.createdAt.toDate() : user?.createdAt ?? null,
+      updatedAt: user?.updatedAt?.toDate ? user.updatedAt.toDate() : user?.updatedAt ?? null
     };
   } catch (error) {
     throw error;
@@ -93,9 +90,8 @@ export async function listProfilesByRole(role?: string) {
         username: user?.username ?? '',
         fullname: user?.fullname ?? '',
         email: user?.email ?? null,
-        createdAt: user?.createdAt?.toDate ? user.createdAt.toDate() : (user?.createdAt ?? null),
-        updatedAt: user?.updatedAt?.toDate ? user.updatedAt.toDate() : (user?.updatedAt ?? null),
-        verified: user?.verified
+        createdAt: user?.createdAt?.toDate ? user.createdAt.toDate() : user?.createdAt ?? null,
+        updatedAt: user?.updatedAt?.toDate ? user.updatedAt.toDate() : user?.updatedAt ?? null
       };
     });
 
@@ -111,13 +107,10 @@ export async function listProfilesByRole(role?: string) {
   }
 }
 
-export async function updateProfile(
-  uid: string,
-  input: {
-    username?: string;
-    fullname?: string;
-  }
-) {
+export async function updateProfile(uid: string, input: {
+  username?: string;
+  fullname?: string;
+}) {
   try {
     const userRef = db.collection('users').doc(uid);
     const snapshot = await userRef.get();
@@ -152,9 +145,8 @@ export async function updateProfile(
       username: nextUsername,
       fullname: nextFullname,
       email: existingData.email ?? null,
-      createdAt: existingData.createdAt?.toDate ? existingData.createdAt.toDate() : (existingData.createdAt ?? null),
-      updatedAt: now,
-      verified: existingData.verified
+      createdAt: existingData.createdAt?.toDate ? existingData.createdAt.toDate() : existingData.createdAt ?? null,
+      updatedAt: now
     };
   } catch (error) {
     throw error;
