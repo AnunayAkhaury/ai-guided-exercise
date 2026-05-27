@@ -3,6 +3,7 @@ import { createProfile, getProfile, listProfilesByRole, updateProfile } from '@/
 import { addRecording, getUserRecordings } from '@/services/Firebase/firebase-recording.js';
 import { getAchievements } from '@/services/Firebase/firebase-user.js';
 import { getRequestId, logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
+import { sendApprovalEmail, setVerified } from '@/services/email-service.js';
 
 export function helloWorldController(req: Request, res: Response) {
   res.status(200).json({ message: 'OK', requestId: getRequestId(req), timestamp: new Date().toISOString() });
@@ -93,6 +94,31 @@ export async function getUserAchievementsController(req: Request, res: Response)
     return res.status(200).json(achievementsList);
   } catch (err: any) {
     logControllerError(req, err, 'getUserAchievementsController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
+  }
+}
+
+export async function sendApprovalEmailController(req: Request, res: Response) {
+  const { uid, userEmail, userName } = req.body;
+  try {
+    await sendApprovalEmail(uid, userEmail, userName ?? '');
+    return res.status(200).json({ message: 'Email sent.' });
+  } catch (err: any) {
+    logControllerError(req, err, 'sendApprovalEmailController failed');
+    return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
+  }
+}
+
+export async function verifyAccountController(req: Request, res: Response) {
+  const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
+  if (!token?.trim()) {
+    return sendErrorResponse(req, res, 400, 'token is required.');
+  }
+  try {
+    await setVerified(token);
+    return res.status(200).json({ message: 'Account verified.' });
+  } catch (err: any) {
+    logControllerError(req, err, 'verifyAccountController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
   }
 }

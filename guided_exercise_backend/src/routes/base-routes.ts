@@ -6,7 +6,9 @@ import {
   getUserRecordingsController,
   getUserAchievementsController,
   listProfilesController,
-  updateProfileController
+  updateProfileController,
+  sendApprovalEmailController,
+  verifyAccountController
 } from '@/controllers/firebase-controller.js';
 import { addRecordingController } from '@/controllers/firebase-controller.js';
 import { uploadVideoController, getVideoUrlController } from '@/controllers/aws-controller.js';
@@ -60,6 +62,8 @@ router.post('/api/firebase/getUserRecordings', getUserRecordingsController);
 router.post('/api/firebase/addTimestamp', addExerciseTimestampController);
 router.post('/api/firebase/addClip', addClipController);
 router.post('/api/firebase/addFeedback', addFeedbackController);
+router.post('/api/verification/sendEmail', sendApprovalEmailController);
+router.get('/api/verification/verifyEmail/:token', verifyAccountController);
 router.post('/api/recordings/upsert', upsertRecordingController);
 router.post('/api/recordings/:recordingId/process', startRecordingProcessingController);
 router.post('/api/recordings/worker-complete', completeRecordingProcessingController);
