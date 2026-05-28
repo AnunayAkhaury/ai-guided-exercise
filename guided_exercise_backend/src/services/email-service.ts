@@ -32,14 +32,19 @@ export async function addApprovalRequestEntry(userId: string, token: string) {
   }
 }
 
-export async function sendApprovalEmail(userId: string, userEmail: string, userName: string) {
-  const backendUrl = process.env.EXPO_PUBLIC_API_URL;
+export async function createApprovalRequest(userId: string, userEmail: string, userName: string) {
+  const backendUrl = process.env.BACKEND_URL;
+  const mailServerEmail = process.env.MAIL_SERVER_EMAIL;
+  const appPassword = process.env.GOOGLE_APP_PASSWORD;
+  const supervisorEmail = process.env.SUPERVISOR_EMAIL;
   try {
-    if (!process.env.ADMIN_EMAIL || !process.env.GOOGLE_APP_PASSWORD) {
-      throw new Error('ADMIN_EMAIL and GOOGLE_APP_PASSWORD is required.');
+    if (!backendUrl || !mailServerEmail || !appPassword || !supervisorEmail) {
+      throw new Error(
+        'Missing one or more environment variables [BACKEND_URL, MAIL_SERVER_EMAIL, GOOGLE_APP_PASSWORD].'
+      );
     }
-    if (!userEmail) {
-      throw new Error('userEmail is required.');
+    if (!userEmail || !userId) {
+      throw new Error('Missing userEmail or userId.');
     }
 
     const token = generateToken();
@@ -59,29 +64,30 @@ export async function sendApprovalEmail(userId: string, userEmail: string, userN
         If 24 hours passed since the request, please ask the student/instructor to resend the request.
         `;
 
-    await sendEmail(userEmail, content);
+    const subject = 'ACTION REQUIRED: Verify New User Registration';
+    await sendEmail(supervisorEmail, subject, content);
     await addApprovalRequestEntry(userId, token);
   } catch (err: any) {
     throw err;
   }
 }
 
-export async function sendEmail(to: string, content: string) {
+export async function sendEmail(to: string, subject: string, content: string) {
   try {
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port: 587,
       secure: false,
       auth: {
-        user: process.env.ADMIN_EMAIL,
+        user: process.env.MAIL_SERVER_EMAIL,
         pass: process.env.GOOGLE_APP_PASSWORD
       }
     });
 
     const info = await transporter.sendMail({
-      from: process.env.ADMIN_EMAIL,
+      from: process.env.MAIL_SERVER_EMAIL,
       to,
-      subject: 'ACTION REQUIRED: Verify New User Registration',
+      subject: subject,
       text: content
     });
 

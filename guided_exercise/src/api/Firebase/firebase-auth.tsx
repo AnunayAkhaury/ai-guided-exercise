@@ -225,7 +225,7 @@ export async function sendVerificationEmail(uid: string, userEmail: string, user
       uid: string;
       userEmail: string;
       userName: string;
-    }>('/api/verification/sendEmail', { uid, userEmail, userName }, 'Failed to send verification email.');
+    }>('/api/verification/createApprovalRequest', { uid, userEmail, userName }, 'Failed to send verification email.');
   } catch (err) {
     console.log(err);
     throw new Error(getErrorMessage(err, 'Failed to send verification email.'));

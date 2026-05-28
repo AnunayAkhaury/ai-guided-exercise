@@ -3,7 +3,7 @@ import { createProfile, getProfile, listProfilesByRole, updateProfile } from '@/
 import { addRecording, getUserRecordings } from '@/services/Firebase/firebase-recording.js';
 import { getAchievements } from '@/services/Firebase/firebase-user.js';
 import { getRequestId, logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
-import { getUserVerificationStatus, sendApprovalEmail, setVerified } from '@/services/email-service.js';
+import { createApprovalRequest, getUserVerificationStatus, setVerified } from '@/services/email-service.js';
 
 export function helloWorldController(req: Request, res: Response) {
   res.status(200).json({ message: 'OK', requestId: getRequestId(req), timestamp: new Date().toISOString() });
@@ -98,13 +98,13 @@ export async function getUserAchievementsController(req: Request, res: Response)
   }
 }
 
-export async function sendApprovalEmailController(req: Request, res: Response) {
+export async function createApprovalRequestController(req: Request, res: Response) {
   const { uid, userEmail, userName } = req.body;
   try {
-    await sendApprovalEmail(uid, userEmail, userName ?? '');
+    await createApprovalRequest(uid, userEmail, userName ?? '');
     return res.status(200).json({ message: 'Email sent.' });
   } catch (err: any) {
-    logControllerError(req, err, 'sendApprovalEmailController failed');
+    logControllerError(req, err, 'createApprovalRequestController failed');
     return sendErrorResponse(req, res, 500, err?.message || 'Internal Server Error');
   }
 }

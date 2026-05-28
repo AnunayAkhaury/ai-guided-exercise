@@ -7,7 +7,7 @@ import {
   getUserAchievementsController,
   listProfilesController,
   updateProfileController,
-  sendApprovalEmailController,
+  createApprovalRequestController,
   verifyAccountController,
   getUserVerificationStatusController
 } from '@/controllers/firebase-controller.js';
@@ -63,7 +63,7 @@ router.post('/api/firebase/getUserRecordings', getUserRecordingsController);
 router.post('/api/firebase/addTimestamp', addExerciseTimestampController);
 router.post('/api/firebase/addClip', addClipController);
 router.post('/api/firebase/addFeedback', addFeedbackController);
-router.post('/api/verification/sendEmail', sendApprovalEmailController);
+router.post('/api/verification/createApprovalRequest', createApprovalRequestController);
 router.get('/api/verification/verifyEmail/:token', verifyAccountController);
 router.get('/api/verification/verificationStatus/:uid', getUserVerificationStatusController);
 router.post('/api/recordings/upsert', upsertRecordingController);
