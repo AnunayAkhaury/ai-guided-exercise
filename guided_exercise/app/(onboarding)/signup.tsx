@@ -35,6 +35,7 @@ export default function Signup() {
   const [role, setRole] = useState<'student' | 'instructor'>('student');
   const [instructorCode, setInstructorCode] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  console.log('Backend URL:', process.env.EXPO_PUBLIC_API_URL);
 
   const handleSignUp = async () => {
     const trimmedEmail = email.trim();

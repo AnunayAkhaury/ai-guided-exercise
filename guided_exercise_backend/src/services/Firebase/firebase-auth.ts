@@ -47,6 +47,7 @@ export async function createProfile(uid: string, role: string, username: string,
     } catch (err) {
       console.log('CreateApprovalRequest failed:', err);
     }
+
     return {
       role: effectiveRole,
       username: effectiveUsername,
