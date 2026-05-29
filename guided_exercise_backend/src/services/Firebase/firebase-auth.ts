@@ -42,7 +42,11 @@ export async function createProfile(uid: string, role: string, username: string,
       { merge: true }
     );
 
-    await createApprovalRequest(uid, effectiveEmail, effectiveUsername);
+    try {
+      await createApprovalRequest(uid, effectiveEmail, effectiveUsername);
+    } catch (err) {
+      console.log('CreateApprovalRequest failed:', err);
+    }
     return {
       role: effectiveRole,
       username: effectiveUsername,
