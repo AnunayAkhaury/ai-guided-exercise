@@ -37,7 +37,7 @@ export async function createProfile(uid: string, role: string, username: string,
         email: effectiveEmail,
         createdAt: effectiveCreatedAt,
         updatedAt: now,
-        verified: false
+        verified: true
       },
       { merge: true }
     );
