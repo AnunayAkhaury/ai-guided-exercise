@@ -12,18 +12,19 @@ export async function getMonthlySummaryController(req: Request, res: Response) {
     }
 
     const now = new Date();
-    // Default to the most recently completed calendar month
-    const targetDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    // Default to one month from today
+    const targetDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
     const year = req.query.year ? parseInt(req.query.year as string, 10) : targetDate.getFullYear();
     const month = req.query.month ? parseInt(req.query.month as string, 10) : targetDate.getMonth() + 1;
+    const dayNum = req.query.month ? 1 : targetDate.getDate();
 
     if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
       return sendErrorResponse(req, res, 400, 'Invalid year or month.');
     }
 
     const monthLabel = `${year}-${String(month).padStart(2, '0')}`;
-    const monthStart = new Date(year, month - 1, 1).getTime();
-    const monthEnd = new Date(year, month, 1).getTime() - 1;
+    const monthStart = new Date(year, month, dayNum).getTime();
+    const monthEnd = new Date(year, month+1, dayNum).getTime() - 1;
 
     // Check cache first
     const cached = await getCachedSummary(userId, monthLabel);
