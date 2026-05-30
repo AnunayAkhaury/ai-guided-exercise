@@ -13,6 +13,7 @@ import { ToastProvider } from '@/src/components/ui/ToastProvider';
 import { PushNotificationProvider } from '@/src/components/notifications/PushNotificationProvider';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { AuthProvider } from '@/src/components/auth-provider';
 
 export default function RootLayout() {
   const [interLoaded, interError] = useFontsInter({
@@ -32,14 +33,16 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <BottomSheetModalProvider>
-        <ToastProvider>
-          <PushNotificationProvider>
-            <Stack screenOptions={{ headerShown: false }} />
-          </PushNotificationProvider>
-        </ToastProvider>
-      </BottomSheetModalProvider>
-    </GestureHandlerRootView>
+    <AuthProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <BottomSheetModalProvider>
+          <ToastProvider>
+            <PushNotificationProvider>
+              <Stack screenOptions={{ headerShown: false }} />
+            </PushNotificationProvider>
+          </ToastProvider>
+        </BottomSheetModalProvider>
+      </GestureHandlerRootView>
+    </AuthProvider>
   );
 }

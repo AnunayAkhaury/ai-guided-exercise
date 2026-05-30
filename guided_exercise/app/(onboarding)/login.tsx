@@ -12,8 +12,6 @@ import {
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import React, { useState } from 'react';
-import { getVerificationStatus, login, sendPasswordReset } from '@/src/api/Firebase/firebase-auth';
-import { useUserStore } from '@/src/store/userStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '@/src/components/ui/ToastProvider';
 
@@ -40,22 +38,8 @@ export default function Login() {
     try {
       setIsSubmitting(true);
       await login(trimmedEmail, password);
-
-      const uid = useUserStore.getState().uid;
-      const verificationStatus = await getVerificationStatus(uid!);
-      console.log('verificationStatus', verificationStatus);
-      if (verificationStatus === false) {
-        router.replace('/(onboarding)/pending-verification');
-      } else {
-        const latestRole = useUserStore.getState().role;
-        if (latestRole === 'student') {
-          router.replace('/(tabs)/(student)/classes');
-        } else {
-          router.replace('/(tabs)/(teacher)/classes');
-        }
-      }
+      router.replace('/');
     } catch (error: any) {
-      console.error('Login failed:', error);
       showToast({
         title: 'Login failed',
         message: error?.message || 'Please check your email/password and try again.',

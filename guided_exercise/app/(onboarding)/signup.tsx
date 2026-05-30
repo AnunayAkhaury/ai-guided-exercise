@@ -17,7 +17,6 @@ import { auth } from '@/src/api/Firebase/firebase-config';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '@/src/components/ui/ToastProvider';
-import { getVerificationStatus } from '@/src/api/Firebase/firebase-auth';
 
 const INSTRUCTOR_SIGNUP_CODE = 'UCDavis123';
 
@@ -73,33 +72,19 @@ export default function Signup() {
       return;
     }
     const defaultFullName = normalizedName;
-    const routeAfterAuth = async (uid: string) => {
-      const verificationStatus = await getVerificationStatus(uid);
-
-      if (verificationStatus === false) {
-        router.replace('/(onboarding)/pending-verification');
-        return;
-      }
-
-      if (role === 'student') {
-        router.replace('/(tabs)/(student)/classes');
-      } else {
-        router.replace('/(tabs)/(teacher)/classes');
-      }
-    };
 
     try {
       setIsSubmitting(true);
       const uid = await createAccount(trimmedEmail, password);
       await createProfile(uid, role, normalizedName, defaultFullName, trimmedEmail);
-      await routeAfterAuth(uid);
+      router.replace('/');
     } catch (err: any) {
       const message = String(err?.message || '');
       if (message.includes('auth/email-already-in-use')) {
         try {
           const credential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
           await createProfile(credential.user.uid, role, normalizedName, defaultFullName, trimmedEmail);
-          await routeAfterAuth(credential.user.uid);
+          router.replace('/');
           return;
         } catch {
           showToast({
