@@ -8,6 +8,7 @@ import { useUserStore } from '@/src/store/userStore';
 export default function VerifyPending() {
   const router = useRouter();
   const { showToast } = useToast();
+  const supervisorEmail = 'movetogetherhealtogether@gmail.com';
 
   const [isResending, setIsResending] = useState(false);
 
@@ -49,9 +50,13 @@ export default function VerifyPending() {
         <Text className="text-2xl font-bold text-[#302E47] text-center">Verification Pending</Text>
 
         <View className="bg-[#F5F2FF] border border-[#D8D5FF] rounded-lg p-3">
-          <Text className="text-[#6155F5] text-center">
-            If this is your first time logging in, an email has been sent to the admin or supervisor of the program. If
-            you have been waiting for a while, please resend the approval email and contact the supervisor.
+          <Text className="text-[#6155F5] text-left">
+            Thanks for your patience! Your account is waiting for approval from the program manager. Please login again
+            at a later time to continue. Only resend the email below if requested by the program manager.
+          </Text>
+          <Text>{'\n'}</Text>
+          <Text className="text-[#6155F5] text-left">
+            Questions or concerns? Contact the program manager at {supervisorEmail}.
           </Text>
         </View>
 

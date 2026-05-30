@@ -1,17 +1,21 @@
-import { create } from 'zustand'
+import { create } from 'zustand';
 
 interface UserStore {
-  uid: null | string,
-  role: null | string
-  fullname: null | string
-  username: null | string
-  email: null | string
-  setUid: (uid: any) => void
-  setRole: (role: string) => void
-  setFullName: (fullname: string) => void
-  setUsername: (username: string) => void
-  setEmail: (email: string | null) => void
-  reset: () => void
+  uid: null | string;
+  role: null | string;
+  fullname: null | string;
+  username: null | string;
+  email: null | string;
+  authInitialized: boolean;
+
+  setUid: (uid: string) => void;
+  setRole: (role: string) => void;
+  setFullName: (fullname: string) => void;
+  setUsername: (username: string) => void;
+  setEmail: (email: string | null) => void;
+  setAuthInitialized: (value: boolean) => void;
+
+  reset: () => void;
 }
 
 export const useUserStore = create<UserStore>()((set) => ({
@@ -20,10 +24,22 @@ export const useUserStore = create<UserStore>()((set) => ({
   fullname: null,
   username: null,
   email: null,
-  setUid: (uid: string) => set({ uid }),
-  setRole: (role: string) => set({ role }),
-  setFullName: (fullname: string) => set({ fullname }),
-  setUsername: (username: string) => set({ username }),
-  setEmail: (email: string | null) => set({ email }),
-  reset: () => set({ uid: null, role: null, fullname: null, username: null, email: null }),
-}))
+  authInitialized: false,
+
+  setUid: (uid) => set({ uid }),
+  setRole: (role) => set({ role }),
+  setFullName: (fullname) => set({ fullname }),
+  setUsername: (username) => set({ username }),
+  setEmail: (email) => set({ email }),
+  setAuthInitialized: (value) => set({ authInitialized: value }),
+
+  reset: () =>
+    set({
+      uid: null,
+      role: null,
+      fullname: null,
+      username: null,
+      email: null,
+      authInitialized: false
+    })
+}));
