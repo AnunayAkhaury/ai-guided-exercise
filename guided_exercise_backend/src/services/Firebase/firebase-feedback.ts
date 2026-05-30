@@ -22,6 +22,7 @@ export interface LLMFeedbackData {
 export interface LLMFeedback {
   summary: string;
   score: number;
+  repCount: number;
   data: LLMFeedbackData[];
 }
 
@@ -32,9 +33,11 @@ export interface Feedback {
   score: number;
   feedbackJson: string;
   exercise: string;
+  repCount: number;
   data: FeedbackData[];
 }
 
+// OUTPUT
 export interface FeedbackData {
   feedback: string;
   timestampStart: number;
@@ -94,7 +97,8 @@ export async function addFeedback(
 
       summary: processedFeedback?.summary ?? null,
       score: processedFeedback?.score ?? 0,
-      data: processedFeedback?.data ?? []
+      data: processedFeedback?.data ?? [],
+      repCount: processedFeedback?.repCount ?? 0
     });
 
     await db.collection('clips').doc(String(clipId)).update({ feedbackRef: feedback.id });
@@ -112,7 +116,7 @@ async function parseFeedbackString(jsonString: string): Promise<LLMFeedback | nu
   try {
     const raw = JSON.parse(jsonString);
 
-    const formattedData: LLMFeedbackData[] = (raw.repetition_feedbacks || []).map((item: any) => ({
+    const formattedData: LLMFeedbackData[] = (raw.flag_feedbacks || []).map((item: any) => ({
       timestampStart: item.timestamp_start,
       timestampEnd: item.timestamp_end <= item.timestamp_start ? item.timestamp_start + 1000 : item.timestamp_end,
       feedback: item.feedback
@@ -121,7 +125,8 @@ async function parseFeedbackString(jsonString: string): Promise<LLMFeedback | nu
     return {
       summary: raw.summary || 'No summary available.',
       score: raw.score || 0,
-      data: formattedData.sort((a, b) => a.timestampStart - b.timestampStart)
+      data: formattedData.sort((a, b) => a.timestampStart - b.timestampStart),
+      repCount: raw.rep_count
     };
   } catch (error) {
     console.error('JSON Parsing failed:', error);

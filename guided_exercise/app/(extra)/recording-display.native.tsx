@@ -104,7 +104,7 @@ export default function RecordingDisplayNative() {
             <Text className="text-[#5B5685] leading-6 text-base">{feedbackDocument.summary}</Text>
 
             <View className="mt-4 pt-4 border-t border-[#E5DCFF] flex-row items-center justify-between">
-              <Text className="text-[#6155F5] text-xs font-semibold">{feedbackDocument.data.length} Reps Detected</Text>
+              <Text className="text-[#6155F5] text-xs font-semibold">{feedbackDocument.repCount} Reps Detected</Text>
             </View>
           </View>
         ) : (
