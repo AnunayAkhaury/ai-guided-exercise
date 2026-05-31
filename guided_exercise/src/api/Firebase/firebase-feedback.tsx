@@ -36,6 +36,7 @@ export interface Feedback {
   score: number;
   feedbackJson: string;
   exercise: string;
+  repCount: number;
   data: FeedbackData[];
 }
 
