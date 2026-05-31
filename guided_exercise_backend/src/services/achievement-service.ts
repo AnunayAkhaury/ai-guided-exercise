@@ -3,6 +3,8 @@ import { db } from "./Firebase/firebase-service.js";
 import { sendNotificationToUsers } from "./notification-service.js";
 
 export async function checkAchievement(event: EventType, payload: any) {
+    let newAchievementId;
+
     if (allAchievements[event]!.type === "count") {
         for (const a of allAchievements[event]!.achievements) {        
             const userToAchievementSnapshot = await db
@@ -46,14 +48,7 @@ export async function checkAchievement(event: EventType, payload: any) {
 
             // If just completed (not previously completed), send notification
             if (completed && !achievementData?.completed) {
-                console.log(
-                    `User ${payload.uid} completed achievement ${a.id}`
-                );
-
-                sendNotificationToUsers([payload.uid], {
-                    title: 'Count Achievement',
-                    body: 'Good job!',
-                });
+                newAchievementId = a.id;
             }
         }
     } else if (allAchievements[event]!.type == "thres") {
@@ -74,15 +69,26 @@ export async function checkAchievement(event: EventType, payload: any) {
                     updated_at: new Date(),
                 })
 
-                console.log(
-                    `User ${payload.uid} completed achievement ${a.id}`
-                );
-
-                sendNotificationToUsers([payload.uid], {
-                    title: 'Threshold Achievement',
-                    body: 'Good job!',
-                });
+                newAchievementId = a.id;
             }
         }
+    }
+
+    if (newAchievementId) {
+        console.log(
+            `User ${payload.uid} completed achievement ${newAchievementId}`
+        );
+
+        const doc = await db.collection('users').doc(newAchievementId).get();
+        if (!doc.exists) {
+            return;
+        }
+        const achievement = doc.data();
+        console.log(achievement)
+
+        sendNotificationToUsers([payload.uid], {
+            title: achievement?.title,
+            body: achievement?.description,
+        });
     }
 }
