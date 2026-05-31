@@ -16,18 +16,19 @@ async function getFirebaseToken(): Promise<string | null> {
   const user = getAuth().currentUser;
   if (!user) return null;
 
-  return await user.getIdToken();
+  const token = await user.getIdToken(true);
+  return token;
 }
 
-export function getAuthHeader(): HeadersInit {
-  const user = getFirebaseToken();
+export async function getAuthHeader(): Promise<HeadersInit> {
+  const token = await getFirebaseToken();
 
-  if (!user) {
+  if (!token) {
     return {};
   }
 
   return {
-    Authorization: `Bearer ${user}`
+    Authorization: `Bearer ${token}`
   };
 }
 
