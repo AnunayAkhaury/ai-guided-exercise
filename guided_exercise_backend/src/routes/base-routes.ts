@@ -51,6 +51,7 @@ import {
   unregisterPushTokenController
 } from '@/controllers/notification-controller.js';
 import { verifyFirebaseToken } from '@/middleware/firebase-jwt-middleware.js';
+import { getMonthlySummaryController } from '@/controllers/monthly-summary-controller.js';
 
 const router = Router();
 
@@ -94,6 +95,7 @@ router.get('/api/ivs/sessions/:sessionId/participants', listSessionParticipantsC
 router.post('/api/notifications/register-token', registerPushTokenController);
 router.post('/api/notifications/unregister-token', unregisterPushTokenController);
 router.post('/api/notifications/class-reminders/send-due', sendDueClassRemindersController);
+router.get('/api/monthly-summary/user/:userId', getMonthlySummaryController);
 router.post('/api/aws/uploadVideo', uploadVideoController);
 router.post('/api/aws/getVideo', verifyFirebaseToken, getVideoUrlController);
 router.post('/api/firebase/getAchievements', verifyFirebaseToken, getUserAchievementsController);
