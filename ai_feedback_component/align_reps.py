@@ -255,6 +255,95 @@ class DeepCycleCounter:
         return joint_results
 
 
+def _fallback_detect_reps(stud_df, inst_df, counter, imp_joints, fps):
+    to_ms = lambda f: round((f / fps) * 1000, 2)
+
+    # Get instructor period (max across joints)
+    inst_period = 0
+    for joint in imp_joints:
+        if joint in inst_df.columns:
+            p = counter.estimate_period_autocorr(inst_df[joint].values)
+            if p > inst_period:
+                inst_period = p
+    if inst_period == 0:
+        return []
+    inst_period = int(inst_period)
+
+    # Find best instructor template window (most self-consistent segment)
+    inst_template_start = 0
+    anchor_joint = next((j for j in imp_joints if j in inst_df.columns), None)
+    if anchor_joint:
+        inst_sig = inst_df[anchor_joint].values
+        best_score, best_start = -np.inf, 0
+        for i in range(len(inst_sig) - 2 * inst_period):
+            seg1 = inst_sig[i : i + inst_period]
+            seg2 = inst_sig[i + inst_period : i + 2 * inst_period]
+            score = np.corrcoef(seg1, seg2)[0, 1]
+            if score > best_score:
+                best_score, best_start = score, i
+        inst_template_start = best_start
+
+    # Detect peaks directly from student signal with loose thresholds
+    all_peaks = []
+    for joint in imp_joints:
+        if joint not in stud_df.columns:
+            continue
+        signal = stud_df[joint].values
+        rom = np.nanmax(signal) - np.nanmin(signal)
+        if rom < 10.0:
+            continue
+        peaks, _ = find_peaks(
+            signal,
+            prominence=max(0.1 * rom, 5.0),
+            distance=int(inst_period * 0.5),
+        )
+        all_peaks.extend(peaks.tolist())
+
+    if not all_peaks:
+        return []
+
+    all_peaks = sorted(all_peaks)
+    tol = int(0.4 * inst_period)
+
+    # Cluster nearby peaks from different joints
+    clusters = []
+    curr = [all_peaks[0]]
+    for p in all_peaks[1:]:
+        if p - np.mean(curr) <= tol:
+            curr.append(p)
+        else:
+            clusters.append(int(np.mean(curr)))
+            curr = [p]
+    clusters.append(int(np.mean(curr)))
+
+    # Remove clusters that are too close together
+    final_clusters = [clusters[0]]
+    for c in clusters[1:]:
+        if c - final_clusters[-1] >= int(inst_period * 0.9):
+            final_clusters.append(c)
+
+    student_reps = []
+    for i, s in enumerate(final_clusters):
+        student_reps.append({
+            "rep_index": i + 1,
+            "student_boundary": {
+                "start_frame": s,
+                "end_frame": s + inst_period,
+                "start_ms": to_ms(s),
+                "end_ms": to_ms(s + inst_period),
+            },
+            "instructor_template": {
+                "joint": anchor_joint or imp_joints[0],
+                "start_frame": inst_template_start,
+                "end_frame": inst_template_start + inst_period,
+                "start_ms": to_ms(inst_template_start),
+                "end_ms": to_ms(inst_template_start + inst_period),
+            },
+            "confidence": "low",
+        })
+    return student_reps
+
+
 def find_start_frame(ideal_angles_path, comparison_angles_path, joints, max_avg_deviation=20.0):
     with open(ideal_angles_path) as f:
         ideal_data = json.load(f)
@@ -317,82 +406,76 @@ def align_reps(json_dir, exercise_name):
 
     joint_results = counter.analyze(inst_df, stud_df)
 
-    if not joint_results: return
-
-    # Timing Constants
     fps = counter.fps
     to_ms = lambda f: round((f / fps) * 1000, 2)
-    stud_period = joint_results[0]["stud_period_frames"]
-    num_joints = len(joint_results)
 
-    # 1. Consensus Peak Clustering (Modified to track source joint)
-    all_peaks = []
-    for r in joint_results: 
-        for p in r["peaks_frames"]:
-            all_peaks.append({"frame": p, "result": r})
-    
-    # Sort by frame index
-    all_peaks.sort(key=lambda x: x["frame"])
-    
-    clusters = []
-    if len(all_peaks) > 0:
-        curr_cluster = [all_peaks[0]]
-        tol = int(0.4 * stud_period)
+    if joint_results:
+        stud_period = joint_results[0]["stud_period_frames"]
+        num_joints = len(joint_results)
 
-        for i in range(1, len(all_peaks)):
-            p_val = all_peaks[i]["frame"]
-            if p_val - np.mean([x["frame"] for x in curr_cluster]) <= tol:
-                curr_cluster.append(all_peaks[i])
-            else:
-                unique_joints = len(set([x["result"]["joint"] for x in curr_cluster]))
-                if unique_joints / num_joints >= 0.5:
-                    # Save the cluster with the joint result that is closest to the mean
-                    mean_frame = np.mean([x["frame"] for x in curr_cluster])
-                    best_match = min(curr_cluster, key=lambda x: abs(x["frame"] - mean_frame))
-                    clusters.append(best_match)
-                curr_cluster = [all_peaks[i]]
-        
-        # Process the last cluster
-        unique_joints = len(set([x["result"]["joint"] for x in curr_cluster]))
-        if (unique_joints / num_joints) >= 0.5:
-            mean_frame = np.mean([x["frame"] for x in curr_cluster])
-            best_match = min(curr_cluster, key=lambda x: abs(x["frame"] - mean_frame))
-            clusters.append(best_match)
+        # 1. Consensus Peak Clustering
+        all_peaks = []
+        for r in joint_results:
+            for p in r["peaks_frames"]:
+                all_peaks.append({"frame": p, "result": r})
+        all_peaks.sort(key=lambda x: x["frame"])
 
-    # 2. Final Overlap Cleanup
-    final_reps = []
-    if clusters:
-        clusters.sort(key=lambda x: x["frame"])
-        final_reps.append(clusters[0])
-        for i in range(1, len(clusters)):
-            if clusters[i]["frame"] - final_reps[-1]["frame"] >= int(stud_period * 0.9):
-                final_reps.append(clusters[i])
+        clusters = []
+        if all_peaks:
+            curr_cluster = [all_peaks[0]]
+            tol = int(0.4 * stud_period)
+            for i in range(1, len(all_peaks)):
+                p_val = all_peaks[i]["frame"]
+                if p_val - np.mean([x["frame"] for x in curr_cluster]) <= tol:
+                    curr_cluster.append(all_peaks[i])
+                else:
+                    unique_joints = len(set(x["result"]["joint"] for x in curr_cluster))
+                    if unique_joints / num_joints >= 0.5:
+                        mean_frame = np.mean([x["frame"] for x in curr_cluster])
+                        best_match = min(curr_cluster, key=lambda x: abs(x["frame"] - mean_frame))
+                        clusters.append(best_match)
+                    curr_cluster = [all_peaks[i]]
+            unique_joints = len(set(x["result"]["joint"] for x in curr_cluster))
+            if unique_joints / num_joints >= 0.5:
+                mean_frame = np.mean([x["frame"] for x in curr_cluster])
+                best_match = min(curr_cluster, key=lambda x: abs(x["frame"] - mean_frame))
+                clusters.append(best_match)
 
-    # 3. Prepare Final Output (Linking specific joint to instructor template)
-    student_reps = []
-    for i, rep in enumerate(final_reps):
-        s = rep["frame"]
-        # The specific joint result that defined this cluster
-        source_joint = rep["result"] 
-        
-        rep_entry = {
-            "rep_index": i + 1,
-            "student_boundary": {
-                "start_frame": s,
-                "end_frame": s + stud_period,
-                "start_ms": to_ms(s),
-                "end_ms": to_ms(s + stud_period)
-            },
-            "instructor_template": {
-                "joint": source_joint["joint"], # The joint that defined this specific boundary
-                "start_frame": source_joint["template_start_frame"],
-                "end_frame": source_joint["template_start_frame"] + source_joint["inst_period_frames"],
-                "start_ms": source_joint["template_start_ms"],
-                "end_ms": source_joint["template_end_ms"]
-            },
-            "confidence": "high"
-        }
-        student_reps.append(rep_entry)
+        # 2. Final Overlap Cleanup
+        final_reps = []
+        if clusters:
+            clusters.sort(key=lambda x: x["frame"])
+            final_reps.append(clusters[0])
+            for i in range(1, len(clusters)):
+                if clusters[i]["frame"] - final_reps[-1]["frame"] >= int(stud_period * 0.9):
+                    final_reps.append(clusters[i])
+
+        student_reps = []
+        for i, rep in enumerate(final_reps):
+            s = rep["frame"]
+            source_joint = rep["result"]
+            student_reps.append({
+                "rep_index": i + 1,
+                "student_boundary": {
+                    "start_frame": s,
+                    "end_frame": s + stud_period,
+                    "start_ms": to_ms(s),
+                    "end_ms": to_ms(s + stud_period),
+                },
+                "instructor_template": {
+                    "joint": source_joint["joint"],
+                    "start_frame": source_joint["template_start_frame"],
+                    "end_frame": source_joint["template_start_frame"] + source_joint["inst_period_frames"],
+                    "start_ms": source_joint["template_start_ms"],
+                    "end_ms": source_joint["template_end_ms"],
+                },
+                "confidence": "high",
+            })
+    else:
+        print("Template matching failed — using fallback peak detection.")
+        student_reps = _fallback_detect_reps(stud_df, inst_df, counter, imp_joints, fps)
+        if not student_reps:
+            raise ValueError("No reps detected")
 
     output = {
         "metadata": {

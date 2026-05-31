@@ -17,7 +17,8 @@ def load_angles(path: str) -> list[dict]:
     return data["frames"]
 
 def _series(frames: list[dict], joint: str) -> np.ndarray:
-    return np.array([f["angles"][joint] for f in frames])
+    return np.array([f["angles"][joint] if f["angles"][joint] is not None else np.nan
+                     for f in frames], dtype=float)
 
 def analyze_good_form(frames: list[dict]) -> dict:
     """
@@ -39,10 +40,19 @@ def analyze_good_form(frames: list[dict]) -> dict:
     for joint in joints:
         series = _series(frames, joint)
 
-        rom = float(series.max() - series.min())
+        if np.all(np.isnan(series)):
+            continue
+
+        rom = float(np.nanmax(series) - np.nanmin(series))
 
         if rom < STATIC_ROM_THRESHOLD:
             continue
+
+        nans = np.isnan(series)
+        if nans.any():
+            x = np.arange(len(series))
+            series = series.copy()
+            series[nans] = np.interp(x[nans], x[~nans], series[~nans])
 
         prominence = PROMINENCE_FACTOR * rom
         peak_indices, _ = find_peaks(series, prominence=prominence)

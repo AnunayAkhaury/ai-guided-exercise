@@ -35,8 +35,18 @@ def load_json_and_compute_velocity(input_path):
     
     angle_matrix = []
     for f in frames:
-        angle_matrix.append([f["angles"].get(j, 0) for j in joint_names])
-    angle_matrix = np.array(angle_matrix)
+        angle_matrix.append([f["angles"].get(j) if f["angles"].get(j) is not None else np.nan
+                             for j in joint_names])
+    angle_matrix = np.array(angle_matrix, dtype=float)
+
+    for col_idx in range(angle_matrix.shape[1]):
+        col = angle_matrix[:, col_idx]
+        nans = np.isnan(col)
+        if nans.any() and not np.all(nans):
+            x = np.arange(len(col))
+            angle_matrix[:, col_idx] = np.interp(x, x[~nans], col[~nans])
+        elif np.all(nans):
+            angle_matrix[:, col_idx] = 0.0
 
     # Replicate velocity logic: (val_next - val_curr) / (frame_next - frame_curr)
     frame_indices = np.array([f["frameIndex"] for f in frames])

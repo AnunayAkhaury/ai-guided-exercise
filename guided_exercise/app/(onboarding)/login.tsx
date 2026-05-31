@@ -12,8 +12,6 @@ import {
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import React, { useState } from 'react';
-import { login, sendPasswordReset } from '@/src/api/Firebase/firebase-auth';
-import { useUserStore } from '@/src/store/userStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '@/src/components/ui/ToastProvider';
 
@@ -40,14 +38,8 @@ export default function Login() {
     try {
       setIsSubmitting(true);
       await login(trimmedEmail, password);
-      const latestRole = useUserStore.getState().role;
-      if (latestRole === 'student') {
-        router.replace('/(tabs)/(student)/classes');
-      } else {
-        router.replace('/(tabs)/(teacher)/classes');
-      }
+      router.replace('/');
     } catch (error: any) {
-      console.error('Login failed:', error);
       showToast({
         title: 'Login failed',
         message: error?.message || 'Please check your email/password and try again.',
@@ -61,7 +53,11 @@ export default function Login() {
   const handleForgotPassword = async () => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      showToast({ title: 'Email required', message: 'Enter your email first so we know where to send the reset link.', variant: 'error' });
+      showToast({
+        title: 'Email required',
+        message: 'Enter your email first so we know where to send the reset link.',
+        variant: 'error'
+      });
       return;
     }
     if (isResettingPassword) return;
@@ -91,15 +87,13 @@ export default function Login() {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-    >
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}>
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
           { paddingTop: insets.top + (isSmallPhone ? 8 : 14), paddingBottom: Math.max(insets.bottom + 16, 24) }
         ]}
-        keyboardShouldPersistTaps="handled"
-      >
+        keyboardShouldPersistTaps="handled">
         <View style={[styles.formCard, { width: cardWidth }]}>
           <Text style={[styles.title, isSmallPhone && styles.titleCompact]}>Login</Text>
           <View style={styles.inputContainer}>
@@ -123,8 +117,7 @@ export default function Login() {
           <Pressable
             style={[styles.button, isSubmitting && styles.buttonDisabled]}
             onPress={handleLogin}
-            disabled={isSubmitting}
-          >
+            disabled={isSubmitting}>
             {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Log In</Text>}
           </Pressable>
           <Link href="/signup" push>

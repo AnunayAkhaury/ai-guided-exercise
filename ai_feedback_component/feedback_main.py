@@ -41,8 +41,12 @@ def generate_comparison(exercise_name, video_file, json_dir):
     # 2. Calculate Angles for the test video
     calculate_joint_angles(json_dir)
 
-    # 3. Detect reps in student and instructor
-    align_reps(json_dir, exercise_name)
+    try:
+        # 3. Detect reps in student and instructor
+        align_reps(json_dir, exercise_name)
+    except ValueError:
+        print("No reps detected")
+        return None
 
     # 4. Compare test angles against the specified ideal baseline
     run_form_analysis(json_dir, exercise_name)
@@ -57,7 +61,7 @@ def generate_comparison(exercise_name, video_file, json_dir):
 def print_usage():
     print("Usage:")
     print("  To create ideal: python -m ai_feedback_component.feedback_main ideal [ExerciseName] [IdealVideoAbsolutePath]")
-    print("  To compare: python -m ai_feedback_component.feedback_main ideal compare [ExerciseName] [TestVideoAbsolutePath]")
+    print("  To compare: python -m ai_feedback_component.feedback_main compare [ExerciseName] [TestVideoAbsolutePath]")
     print("  ***Note: Make sure the exercise name used in both ideal and compare pipeline matches")
     print("  ***Note: Make sure to run the pipeline in the directory that contains ai_feedback_component")
 

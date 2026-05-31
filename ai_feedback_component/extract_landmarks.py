@@ -29,26 +29,29 @@ CONFIDENCE_THRES = 0.5
 
 MODEL_PATH = "pose_landmarker_heavy.task"
 
-def filter_pose_to_schema(landmarks):
-    """
-    Replicates the nested worldLandmarks structure from extract_landmarks.py.
-    """
-    world_landmarks = []
+def filter_pose_to_schema(world_landmarks, img_landmarks=None):
+    result_landmarks = []
     for i in KEEP_INDICES:
-        lm = landmarks[i]
-        # Confidence logic from get_pose.py/extract_landmarks.py 
+        lm = world_landmarks[i]
         vis = getattr(lm, "visibility", 0.0) or 0.0
         pres = getattr(lm, "presence", 0.0) or 0.0
         confidence = vis * 0.6 + pres * 0.4
-        
-        world_landmarks.append({
+
+        entry = {
             "name": ALL_LANDMARKS[i],
             "x": round(lm.x, 6),
             "y": round(lm.y, 6),
             "z": round(lm.z, 6),
             "confident": True if confidence > CONFIDENCE_THRES else False,
-        })
-    return {"worldLandmarks": world_landmarks}
+        }
+
+        if img_landmarks is not None:
+            ilm = img_landmarks[i]
+            entry["x_img"] = round(ilm.x, 6)
+            entry["y_img"] = round(ilm.y, 6)
+
+        result_landmarks.append(entry)
+    return {"worldLandmarks": result_landmarks}
 
 def extract_landmarks(video_file, json_dir):
     
@@ -91,8 +94,8 @@ def extract_landmarks(video_file, json_dir):
 
         poses = []
         if result.pose_world_landmarks:
-            # Replicating the nested 'poses' array structure
-            poses.append(filter_pose_to_schema(result.pose_world_landmarks[0]))
+            img_lms = result.pose_landmarks[0] if result.pose_landmarks else None
+            poses.append(filter_pose_to_schema(result.pose_world_landmarks[0], img_lms))
 
         frames_list.append({
             "frameIndex": frame_idx,
