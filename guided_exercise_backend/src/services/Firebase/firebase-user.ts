@@ -5,6 +5,7 @@ export async function getAchievements(uid: string) {
     const userToAchievementsSnapshot = await db
       .collection('users_to_achievements')
       .where('user_id', '==', uid)
+      .where('completed', '==', true)
       .get();
 
     if (userToAchievementsSnapshot.empty) {
