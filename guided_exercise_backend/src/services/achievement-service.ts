@@ -87,8 +87,11 @@ export async function checkAchievement(event: EventType, payload: any) {
         console.log(achievement)
 
         sendNotificationToUsers([payload.uid], {
-            title: achievement?.title,
-            body: achievement?.description,
+            title: "New Achievement",
+            body: achievement?.title,
+            data: {
+                type: 'achievement'
+            }
         });
     }
 }

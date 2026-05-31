@@ -102,7 +102,8 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
     const notificationListener = Notifications.addNotificationReceivedListener((notification) => {
       const title = notification.request.content.title ?? 'Notification';
       const message = notification.request.content.body ?? undefined;
-      showToast({ title, message, variant: 'info' });
+      const isAchievement =  notification.request.content.data.type === 'achievement';
+      showToast({ title, message, variant: isAchievement ? 'achievement' : 'info' });
     });
 
     const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
