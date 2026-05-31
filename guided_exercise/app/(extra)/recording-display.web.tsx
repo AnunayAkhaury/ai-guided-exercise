@@ -250,8 +250,7 @@ export default function RecordingDisplayWeb() {
                     }}>
                     {feedbackDocument.summary}
                   </div>
-
-                  <div
+                  <p
                     style={{
                       marginTop: 12,
                       paddingTop: 10,
@@ -260,8 +259,8 @@ export default function RecordingDisplayWeb() {
                       color: '#A3EFFF',
                       fontWeight: 600
                     }}>
-                    {feedbackDocument.data.length} Reps Detected
-                  </div>
+                    {feedbackDocument.repCount || 0} Reps Detected
+                  </p>
                 </div>
               ) : (
                 <div
