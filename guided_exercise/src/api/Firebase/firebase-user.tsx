@@ -1,5 +1,5 @@
 import { useUserStore } from '@/src/store/userStore';
-
+import { getAuthHeader } from './firebase-auth';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string') {
@@ -14,7 +14,8 @@ export async function getAchievements() {
     const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/firebase/getAchievements`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(await getAuthHeader())
       },
       body: JSON.stringify({ uid: uid })
     });

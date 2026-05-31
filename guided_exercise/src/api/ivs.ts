@@ -182,6 +182,8 @@ function isReusableToken(token: IvsTokenResponse): boolean {
   return true;
 }
 
+import { getAuthHeader } from './Firebase/firebase-auth';
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const endpoint = buildUrl(path);
 
@@ -204,7 +206,8 @@ async function postJson<T>(path: string, body: Record<string, unknown>): Promise
   return request<T>(path, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      ...(await getAuthHeader())
     },
     body: JSON.stringify(body)
   });
@@ -212,7 +215,10 @@ async function postJson<T>(path: string, body: Record<string, unknown>): Promise
 
 async function getJson<T>(path: string): Promise<T> {
   return request<T>(path, {
-    method: 'GET'
+    method: 'GET',
+    headers: {
+      ...(await getAuthHeader())
+    }
   });
 }
 

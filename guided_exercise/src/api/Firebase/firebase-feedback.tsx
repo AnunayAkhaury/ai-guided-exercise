@@ -6,6 +6,7 @@ export type ExerciseTimestamp = {
   endtime: number | null;
 };
 
+import { getAuthHeader } from './firebase-auth';
 export async function addExerciseTimestamp(timestamp: ExerciseTimestamp) {
   try {
     if (!timestamp.sessionId || !timestamp.exercise || !timestamp.starttime || !timestamp.endtime) {
@@ -15,7 +16,8 @@ export async function addExerciseTimestamp(timestamp: ExerciseTimestamp) {
     await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/firebase/addTimestamp`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(await getAuthHeader())
       },
       body: JSON.stringify({
         sessionId: timestamp.sessionId,
@@ -53,7 +55,8 @@ export async function getFeedbackFromRef(feedbackRef: string): Promise<Feedback 
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(await getAuthHeader())
       }
     });
 
@@ -77,7 +80,8 @@ export async function getFeedbackFromUserId(userId: string): Promise<Feedback[] 
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(await getAuthHeader())
       }
     });
 

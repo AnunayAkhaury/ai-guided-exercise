@@ -1,5 +1,6 @@
 import { useUserStore } from '@/src/store/userStore';
 import { auth } from './firebase-config';
+import { getAuth } from 'firebase/auth';
 
 import {
   createUserWithEmailAndPassword,
@@ -10,6 +11,25 @@ import {
 import type { UserCredential } from 'firebase/auth';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+
+async function getFirebaseToken(): Promise<string | null> {
+  const user = getAuth().currentUser;
+  if (!user) return null;
+
+  return await user.getIdToken();
+}
+
+export function getAuthHeader(): HeadersInit {
+  const user = getFirebaseToken();
+
+  if (!user) {
+    return {};
+  }
+
+  return {
+    Authorization: `Bearer ${user}`
+  };
+}
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string') {
@@ -52,7 +72,8 @@ async function postBackendJson<T>(path: string, body: Record<string, unknown>, f
     response = await fetch(endpoint, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(await getAuthHeader())
       },
       body: JSON.stringify(body)
     });
@@ -77,7 +98,8 @@ async function getBackendJson<T>(path: string, fallback: string): Promise<T> {
     response = await fetch(endpoint, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(await getAuthHeader())
       }
     });
   } catch {
