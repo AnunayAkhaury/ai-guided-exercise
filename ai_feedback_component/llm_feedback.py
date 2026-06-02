@@ -44,8 +44,9 @@ def llm_generate_feedback(exercise_name, json_dir):
         json_str = json.dumps(json_data, indent=2)
 
         print("LLM generating feedback...")
+        model = "gemini-3.5-flash"
         response = client.models.generate_content(
-            model="gemini-3-flash-preview",
+            model=model,
             contents=[
                 types.Content(
                     role="user",
