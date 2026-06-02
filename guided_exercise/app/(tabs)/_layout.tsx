@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const role = useUserStore((state) => state.role);
+  const authInitialized = useUserStore((state) => state.authInitialized);
   const inCall = useCallStore((state) => state.inCall);
   const pathname = usePathname();
   const segments = useSegments();
@@ -39,7 +40,7 @@ export default function TabLayout() {
     }
   }, [role, routeRole]);
 
-  const effectiveRole = role ?? (__DEV__ ? devRoleOverride : null);
+  const effectiveRole = authInitialized ? role ?? (__DEV__ ? devRoleOverride : null) : null;
   const showStudentTabs = effectiveRole === 'student';
   const showInstructorTabs = effectiveRole === 'instructor';
   const tabBarTopPadding = isWeb ? 8 : isCompactPhone ? 8 : 10;
@@ -60,7 +61,7 @@ export default function TabLayout() {
       }}
       screenOptions={{
         tabBarStyle: {
-          display: inCall || isSessionRoute ? 'none' : 'flex',
+          display: !authInitialized || inCall || isSessionRoute ? 'none' : 'flex',
           backgroundColor: '#A980FE',
           borderTopWidth: 0,
           elevation: 0,
