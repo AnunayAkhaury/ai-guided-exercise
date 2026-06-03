@@ -97,7 +97,7 @@ export default function Stats() {
       const validArray = feedbackRes || [];
       setFeedbacks(validArray);
       setMonthlySummary(summaryRes);
-      console.log(summaryRes, " ", summaryLoading)
+      console.log(summaryRes, ' ', summaryLoading);
 
       if (validArray.length > 0 && validArray[0]?.exercise) {
         setSelectedExercise(validArray[0].exercise);
@@ -180,7 +180,9 @@ export default function Stats() {
   }, [points]);
 
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}>
+    <ScrollView
+      contentContainerStyle={{ flexGrow: 1 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}>
       <View className="flex-1 bg-[#FAF8FF]">
         <Header title="Stats" />
 
@@ -223,11 +225,33 @@ export default function Stats() {
           {/* CHART */}
           <View className="rounded-2xl border border-[#E3DAFF] bg-[#F6F3FF] p-4">
             {loading ? (
-              <ActivityIndicator color="#5B4BFF" />
+              <View className="items-center py-10">
+                <ActivityIndicator color="#5B4BFF" />
+                <Typography className="text-[#6B6490] mt-3">Loading stats...</Typography>
+              </View>
             ) : error ? (
-              <Typography>{error}</Typography>
+              <View className="items-center py-8">
+                <Typography font="inter-semibold" className="text-[#5B4BFF]">
+                  Error
+                </Typography>
+                <Typography className="text-[#6B6490] text-center">{error}</Typography>
+              </View>
             ) : points.length < 2 ? (
-              <Typography>No data</Typography>
+              <View className="items-center py-8">
+                <Typography font="inter-semibold" className="text-[#5B4BFF]">
+                  {points.length === 0 ? 'No data yet' : 'Keep going!'}
+                </Typography>
+
+                <Typography className="text-[#6B6490] mt-2 text-center px-4">
+                  {points.length === 0
+                    ? `You haven't recorded any ${
+                        selectedExercise ? (EXERCISE_TITLE_MAP[selectedExercise] ?? selectedExercise) : 'sessions'
+                      } in this timeframe.`
+                    : `Record one more ${
+                        selectedExercise ? (EXERCISE_TITLE_MAP[selectedExercise] ?? selectedExercise) : 'session'
+                      } to see your trend.`}
+                </Typography>
+              </View>
             ) : (
               <View style={{ width: '100%', height: 220 }}>
                 <ResponsiveContainer width="100%" height="100%">
