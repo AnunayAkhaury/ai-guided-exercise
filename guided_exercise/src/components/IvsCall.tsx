@@ -279,6 +279,8 @@ export default function IvsCall({
   }, [isInStage, onInStageChange]);
 
   const join = async () => {
+    setIsLeaving(false);
+
     if (!activeToken) {
       setError('No token provided.');
       return;
@@ -357,6 +359,10 @@ export default function IvsCall({
       if (onLeave) {
         await Promise.resolve(onLeave());
       }
+      setIsLeaving(false);
+      setIsJoining(false);
+      setIsInStage(false);
+      setStatus('');
     } catch (err: any) {
       setError(err?.message || 'Failed to leave the session.');
       setIsLeaving(false);
