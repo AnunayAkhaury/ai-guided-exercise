@@ -193,7 +193,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   if (!response.ok) {
-    const message = await response.text();
+    const rawMessage = await response.text();
+    let message = rawMessage;
+    try {
+      const parsed = JSON.parse(rawMessage) as { message?: unknown };
+      if (typeof parsed.message === 'string' && parsed.message.trim()) {
+        message = parsed.message;
+      }
+    } catch {
+      // Keep the raw response text when the backend does not return JSON.
+    }
     throw new Error(message || `Request failed: ${response.status}`);
   }
 

@@ -2,13 +2,17 @@ import type { Request, Response } from 'express';
 import { DisconnectParticipantCommand, IVSRealTimeClient } from '@aws-sdk/client-ivs-realtime';
 import {
   createSession,
-  endOtherLiveSessions,
+  deleteSessionById,
+  getActiveLiveSession,
   getSessionByCode,
   getSessionById,
   heartbeatSessionParticipant,
   listSessionParticipants,
   listSessions,
+  LiveSessionConflictError,
   markSessionParticipantLeft,
+  releaseLiveSessionLock,
+  startSessionIfNoOtherLiveSession,
   upsertSessionParticipant,
   updateSessionStatus
 } from '@/services/Firebase/firebase-session.js';
@@ -55,6 +59,8 @@ type ParticipantHeartbeatRequest = {
 const VALID_STATUSES: SessionStatus[] = ['scheduled', 'live', 'ended'];
 const DEFAULT_REGION = process.env.AWS_REGION || 'us-west-2';
 const START_WINDOW_MINUTES = 5;
+const LIVE_SESSION_CONFLICT_MESSAGE =
+  'Another class is already live. Please wait until it ends before starting a new class.';
 
 async function sendStudentSessionNotification(input: {
   title: string;
@@ -181,11 +187,15 @@ async function startOwnedSession(sessionId: string, requesterUid: string) {
     }
   }
 
-  const currentlyLiveSessions = await listSessions(['live']);
-  const otherLiveSessions = currentlyLiveSessions.filter((session) => session.sessionId !== sessionId);
-  await Promise.allSettled(otherLiveSessions.map((session) => disconnectKnownParticipantsForSession(session)));
-  await endOtherLiveSessions(sessionId);
-  await updateSessionStatus(sessionId, 'live');
+  try {
+    await startSessionIfNoOtherLiveSession(sessionId, existing.instructorUid);
+  } catch (err: any) {
+    if (err instanceof LiveSessionConflictError) {
+      return { status: 409 as const, message: LIVE_SESSION_CONFLICT_MESSAGE };
+    }
+    throw err;
+  }
+
   const updated = await getSessionById(sessionId);
   if (updated) {
     void sendStudentSessionNotification({
@@ -215,6 +225,11 @@ export async function createAndStartSessionController(req: Request, res: Respons
       return sendErrorResponse(req, res, 400, 'stageArn is required (or set IVS_STAGE_ARN).');
     }
 
+    const activeLiveSession = await getActiveLiveSession();
+    if (activeLiveSession) {
+      return sendErrorResponse(req, res, 409, LIVE_SESSION_CONFLICT_MESSAGE);
+    }
+
     const session = await createSession({
       sessionName,
       instructorUid,
@@ -224,6 +239,9 @@ export async function createAndStartSessionController(req: Request, res: Respons
     const started = await startOwnedSession(session.sessionId, instructorUid);
 
     if ('message' in started) {
+      await deleteSessionById(session.sessionId).catch((deleteErr) => {
+        console.error('[sessions] Failed to remove blocked instant session', deleteErr);
+      });
       return sendErrorResponse(req, res, started.status, started.message);
     }
 
@@ -343,6 +361,9 @@ export async function endSessionController(req: Request, res: Response) {
       await disconnectKnownParticipantsForSession(existing);
     }
     await updateSessionStatus(sessionId, 'ended');
+    if (existing.status === 'live') {
+      await releaseLiveSessionLock(sessionId);
+    }
     const updated = await getSessionById(sessionId);
     if (existing.status === 'scheduled') {
       void sendStudentSessionNotification({
