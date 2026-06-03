@@ -3,6 +3,7 @@ import React, { useMemo, forwardRef } from 'react';
 import { View, Text, Pressable, FlatList } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
+import { EXERCISE_TITLE_MAP } from '@/src/constants/exerciseMap';
 
 export const EXERCISES = [
   'alternating-lunge',
@@ -45,7 +46,7 @@ export const ExerciseSheet = forwardRef<BottomSheetModal, { onSelect: (ex: Exerc
                 (ref as any).current?.dismiss();
               }}
               style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
-              <Text style={{ fontSize: 16 }}>{item}</Text>
+              <Text style={{ fontSize: 16 }}>{EXERCISE_TITLE_MAP[item]}</Text>
             </Pressable>
           )}
         />

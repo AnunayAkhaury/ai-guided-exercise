@@ -3,6 +3,8 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import type { IvsCallProps } from './IvsCall.types';
 import { type ExerciseType } from '@/src/components/session/exercise-sheet';
 import { addExerciseTimestamp, ExerciseTimestamp } from '../api/Firebase/firebase-feedback';
+import { EXERCISES } from '@/src/components/session/exercise-sheet';
+import { EXERCISE_TITLE_MAP } from '../constants/exerciseMap';
 
 type IvsBroadcastSdk = {
   Stage: new (token: string, strategy: IvsStageStrategy) => IvsStage;
@@ -1227,7 +1229,7 @@ export default function IvsCallWeb({
                     flexDirection: 'column',
                     padding: '6px 0'
                   }}>
-                  {(['pushup', 'lunge'] as ExerciseType[]).map((item) => (
+                  {EXERCISES.map((item) => (
                     <button
                       key={item}
                       type="button"
@@ -1255,7 +1257,7 @@ export default function IvsCallWeb({
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = '#F0ECFF')}
                       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-                      {item}s
+                      {EXERCISE_TITLE_MAP[item]}
                     </button>
                   ))}
                 </div>
