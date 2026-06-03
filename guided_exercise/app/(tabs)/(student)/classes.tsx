@@ -17,6 +17,7 @@ import {
 import { useFirestoreSessions } from '@/src/hooks/use-ivs-firestore';
 import { useUserStore } from '@/src/store/userStore';
 import { useToast } from '@/src/components/ui/ToastProvider';
+import { resolvePreferredDisplayName } from '@/src/utils/display-name';
 
 export default function ClassesScreen() {
   const router = useRouter();
@@ -32,7 +33,11 @@ export default function ClassesScreen() {
   const uid = useUserStore((state) => state.uid);
   const role = useUserStore((state) => state.role);
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
-  const fallbackDisplayName = username?.trim() || fullname?.trim() || 'Student Test';
+  const fallbackDisplayName = resolvePreferredDisplayName({
+    fullname,
+    username,
+    fallback: 'Student'
+  });
   const { data: sessions, loading: sessionsLoading, error: sessionsError } = useFirestoreSessions(
     ['live', 'scheduled'],
     role === 'student'

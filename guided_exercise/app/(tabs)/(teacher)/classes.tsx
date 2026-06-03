@@ -17,6 +17,7 @@ import {
 import { useFirestoreSessions } from '@/src/hooks/use-ivs-firestore';
 import { useUserStore } from '@/src/store/userStore';
 import { useToast } from '@/src/components/ui/ToastProvider';
+import { resolvePreferredDisplayName } from '@/src/utils/display-name';
 
 function toSessionWindow(session: IvsSession) {
   const start = session.scheduledStartAt ? new Date(session.scheduledStartAt) : new Date(session.createdAt);
@@ -96,7 +97,11 @@ export default function ClassesScreen() {
 
   const handleOpenLiveSession = async (session: IvsSession) => {
     const effectiveUid = uid?.trim();
-    const displayName = fullname?.trim() || username?.trim() || 'Instructor';
+    const displayName = resolvePreferredDisplayName({
+      fullname,
+      username,
+      fallback: 'Instructor'
+    });
     const sessionRole = getSessionRole(session, effectiveUid);
 
     if (!effectiveUid) {

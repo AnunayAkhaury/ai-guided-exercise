@@ -23,6 +23,7 @@ import { addExerciseTimestamp, ExerciseTimestamp } from '../api/Firebase/firebas
 import type { IvsCallProps } from './IvsCall.types';
 import { EXERCISE_TITLE_MAP } from '@/src/constants/exerciseMap';
 import Header from '@/src/components/ui/Header';
+import { isGeneratedProfileName } from '@/src/utils/display-name';
 
 type RemoteParticipantInfo = {
   participantId: string;
@@ -42,6 +43,15 @@ function firstNonEmptyString(...values: unknown[]): string | null {
   return null;
 }
 
+function firstDisplayNameString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim().length > 0 && !isGeneratedProfileName(value)) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
 function getParticipantDisplayName(participant: Participant): string {
   const candidate = participant as any;
   const attributes =
@@ -51,7 +61,7 @@ function getParticipantDisplayName(participant: Participant): string {
     candidate?.participantInfo?.attributes;
 
   return (
-    firstNonEmptyString(
+    firstDisplayNameString(
       attributes?.username,
       attributes?.userName,
       attributes?.displayName,
@@ -62,6 +72,18 @@ function getParticipantDisplayName(participant: Participant): string {
       candidate?.userInfo?.userName,
       candidate?.participantInfo?.userName
     ) ?? participant.id
+  );
+}
+
+function getVisibleParticipantLabel(
+  participant: RemoteParticipantInfo,
+  participantNamesById?: Record<string, string>
+): string {
+  return (
+    firstDisplayNameString(
+      ...participant.lookupKeys.map((key) => participantNamesById?.[key]),
+      participant.displayName
+    ) ?? participant.participantId
   );
 }
 
@@ -462,14 +484,14 @@ export default function IvsCall({
         {!localIsInstructor && instructorRemote && (
           <View style={[styles.participantWrapper, styles.localParticipantWrapper]}>
             <View style={styles.participantLabelPill}>
-              <Text style={styles.participantLabel}>
-                {instructorRemote.lookupKeys.map((key) => participantNamesById?.[key]).find(Boolean) ||
-                  instructorRemote.displayName}
-              </Text>
+              <Text style={styles.participantLabel}>{getVisibleParticipantLabel(instructorRemote, participantNamesById)}</Text>
             </View>
             {instructorRemote.hasVideo && instructorRemote.deviceUrn ? (
-              <View style={[styles.remoteVideoFrame, { height: remoteVideoHeight }]}>
+              <View
+                key={`${instructorRemote.participantId}:${instructorRemote.deviceUrn}`}
+                style={[styles.remoteVideoFrame, { height: remoteVideoHeight }]}>
                 <ExpoIVSRemoteStreamView
+                  key={`${instructorRemote.participantId}:${instructorRemote.deviceUrn}`}
                   participantId={instructorRemote.participantId}
                   deviceUrn={instructorRemote.deviceUrn}
                   style={StyleSheet.absoluteFillObject}
@@ -513,10 +535,7 @@ export default function IvsCall({
             key={`${participant.participantId}:${participant.deviceUrn}`}
             style={[styles.participantWrapper, useGridForStudents && styles.gridParticipantWrapper]}>
             <View style={styles.participantLabelPill}>
-              <Text style={styles.participantLabel}>
-                {participant.lookupKeys.map((key) => participantNamesById?.[key]).find(Boolean) ||
-                  participant.displayName}
-              </Text>
+              <Text style={styles.participantLabel}>{getVisibleParticipantLabel(participant, participantNamesById)}</Text>
             </View>
             {participant.hasVideo && participant.deviceUrn ? (
               <View

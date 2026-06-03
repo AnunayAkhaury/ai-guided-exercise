@@ -14,6 +14,7 @@ import { useFirestoreSession, useFirestoreSessionParticipants } from '@/src/hook
 import { useSessionParticipantHeartbeat } from '@/src/hooks/use-session-participant-heartbeat';
 import { useCallStore } from '@/src/store/callStore';
 import { useUserStore } from '@/src/store/userStore';
+import { isGeneratedProfileName, isPlaceholderProfileName, resolvePreferredDisplayName } from '@/src/utils/display-name';
 
 type SessionParams = {
   token?: string;
@@ -35,6 +36,8 @@ export default function SharedSessionScreen() {
   const setInCall = useCallStore((state) => state.setInCall);
   const storeRole = useUserStore((state) => state.role);
   const uid = useUserStore((state) => state.uid);
+  const username = useUserStore((state) => state.username);
+  const fullname = useUserStore((state) => state.fullname);
   const { token, sessionName, userName, sessionCode, sessionId, stageArn, participantId, role } =
     useLocalSearchParams<SessionParams>();
 
@@ -66,10 +69,17 @@ export default function SharedSessionScreen() {
     }
     return normalizedRole;
   }, [normalizedRole, session?.instructorUid, uid]);
-  const normalizedLocalLabel = useMemo(
-    () => normalizedUserName || (sessionRole === 'instructor' ? 'Instructor' : 'Student'),
-    [sessionRole, normalizedUserName]
-  );
+  const normalizedLocalLabel = useMemo(() => {
+    const routeLabel = normalizedUserName?.trim();
+    if (routeLabel && !isPlaceholderProfileName(routeLabel)) {
+      return routeLabel;
+    }
+    return resolvePreferredDisplayName({
+      fullname,
+      username,
+      fallback: sessionRole === 'instructor' ? 'Instructor' : 'Student'
+    });
+  }, [fullname, normalizedUserName, sessionRole, username]);
   const classesRoute = storeRole === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/(student)/classes';
   const { data: participants, error: participantsError } = useFirestoreSessionParticipants(
     normalizedSessionId,
@@ -78,7 +88,7 @@ export default function SharedSessionScreen() {
   const participantNameById = useMemo(
     () =>
       participants.reduce<Record<string, string>>((acc, participant) => {
-        if (participant.displayName && participant.participantId) {
+        if (participant.displayName && participant.participantId && !isGeneratedProfileName(participant.displayName)) {
           acc[participant.participantId] = participant.displayName;
         }
         return acc;
