@@ -477,9 +477,8 @@ export default function IvsCallWeb({
   sessionId
 }: IvsCallProps) {
   const router = useRouter();
-  const classesRoute = localParticipantRole === 'instructor'
-    ? '/(tabs)/(teacher)/classes'
-    : '/(tabs)/(student)/classes';
+  const classesRoute =
+    localParticipantRole === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/(student)/classes';
   const [sdkReady, setSdkReady] = useState(false);
   const [isInStage, setIsInStage] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -494,6 +493,8 @@ export default function IvsCallWeb({
   const [exercise, setExercise] = useState<ExerciseType | null>(null);
   const [exerciseTimestamp, setExerciseTimestamp] = useState<ExerciseTimestamp | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [endSessionCooldown, setEndSessionCooldown] = useState(false);
+  const isDisabled = endSessionDisabled || exerciseTimestamp !== null || endSessionCooldown;
 
   const stageRef = useRef<IvsStage | null>(null);
   const registeredStageListenersRef = useRef<RegisteredStageListener[]>([]);
@@ -512,6 +513,10 @@ export default function IvsCallWeb({
       if (exerciseTimestamp.endtime - exerciseTimestamp.starttime > 3000) {
         // 3 seconds
         addExerciseTimestamp(exerciseTimestamp);
+        setTimeout(() => {
+          setEndSessionCooldown(false);
+          setExerciseTimestamp(null);
+        }, 1500);
       } else {
         // Exercise too short
         setExerciseTimestamp(null);
@@ -988,7 +993,7 @@ export default function IvsCallWeb({
     return (
       <div style={shellStyle}>
         <button
-          onClick={() => router.canGoBack() ? router.back() : router.replace(classesRoute)}
+          onClick={() => (router.canGoBack() ? router.back() : router.replace(classesRoute))}
           style={backButtonStyle}>
           ← Back to Classes
         </button>
@@ -996,7 +1001,8 @@ export default function IvsCallWeb({
           <div style={joinEyebrowStyle}>Live Class</div>
           <h1 style={joinTitleStyle}>Welcome to Class</h1>
           <p style={joinSubtitleStyle}>
-            Join from your browser when you are ready. We will ask for camera and microphone access only after you start.
+            Join from your browser when you are ready. We will ask for camera and microphone access only after you
+            start.
           </p>
 
           {status ? <div style={statusPillStyle}>{status}</div> : null}
@@ -1164,10 +1170,10 @@ export default function IvsCallWeb({
             <button
               type="button"
               onClick={onEndSession}
-              disabled={endSessionDisabled}
+              disabled={isDisabled}
               style={{
                 ...endSessionButtonStyle,
-                ...(endSessionDisabled ? disabledButtonStyle : null)
+                ...(isDisabled ? disabledButtonStyle : null)
               }}>
               <Ionicons name="stop-circle-outline" size={18} color="#FFFFFF" />
               <span>{endSessionLabel}</span>
@@ -1477,7 +1483,7 @@ const backButtonStyle: CSSProperties = {
   cursor: 'pointer',
   fontWeight: 600,
   fontSize: 14,
-  padding: '6px 14px',
+  padding: '6px 14px'
 };
 
 const shellStyle: CSSProperties = {
