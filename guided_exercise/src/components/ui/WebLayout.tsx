@@ -1,5 +1,5 @@
 import { House, Trophy, User } from 'lucide-react-native';
-import { View, Text, Pressable, Image } from 'react-native';
+import { View, Text, Pressable, Image, useWindowDimensions } from 'react-native';
 import { useRouter, usePathname, Slot, Href } from 'expo-router';
 import LogoImage from '@/src/assets/images/logo.png'; 
 import { AntDesign, Entypo, Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -148,11 +148,89 @@ function Navbar({ showInstructorTabs } : {showInstructorTabs: boolean}) {
   );
 }
 
+function BottomNav({ showInstructorTabs }: { showInstructorTabs: boolean }) {
+  return (
+    <View
+      style={{
+        height: 60,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        borderTopWidth: 1,
+        borderTopColor: '#EEE',
+        backgroundColor: '#F7F5FF',
+      }}
+    >
+      <NavItem
+        route={showInstructorTabs ? "/(tabs)/(teacher)/classes" : "/(tabs)/(student)/classes"}
+        title="Classes"
+        icon={(color) => (
+          <Image source={HomeImage} style={{ width: 24, height: 24, tintColor: color }} />
+        )}
+      />
+      <NavItem
+        route={showInstructorTabs ? "/(tabs)/(teacher)/recordings" : "/(tabs)/(student)/recordings"}
+        title="Recordings"
+        icon={(color) => <Ionicons name="videocam-outline" color={color} size={24} />}
+      />
+      {showInstructorTabs && (
+        <NavItem
+          route="/(tabs)/(teacher)/start-meeting"
+          title="Start"
+          icon={(color) => <Ionicons name="add-circle-outline" color={color} size={24} />}
+        />
+      )}
+      {showInstructorTabs && (
+        <NavItem
+          route="/(tabs)/(teacher)/students"
+          title="Students"
+          icon={(color) => <Ionicons name="people" color={color} size={24} />}
+        />
+      )}
+      <NavItem
+        route={showInstructorTabs ? "/(tabs)/(teacher)/stats" : "/(tabs)/(student)/stats"}
+        title="Stats"
+        icon={(color) => <Entypo name="area-graph" color={color} size={24} />}
+      />
+      <NavItem
+        route="/profile"
+        title="Profile"
+        icon={(color) => <User size={24} color={color} />}
+      />
+    </View>
+  );
+}
+
 export default function WebLayout({ showInstructorTabs } : { showInstructorTabs: boolean }) {
+  const { width } = useWindowDimensions();
+  const isPhone = width < 768;
+
+  if (isPhone) {
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={{
+          height: 56,
+          justifyContent: 'center',
+          paddingLeft: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: '#EEE',
+          backgroundColor: '#F7F5FF',
+        }}>
+          <Image
+            source={LogoImage}
+            resizeMode='contain'
+            style={{ height: 100, width: 160, alignSelf: 'flex-start' }}
+          />
+        </View>
+        <Slot />
+        <BottomNav showInstructorTabs={showInstructorTabs} />
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1 }}>
       <Navbar showInstructorTabs={showInstructorTabs} />
-
       <Slot />
     </View>
   );
