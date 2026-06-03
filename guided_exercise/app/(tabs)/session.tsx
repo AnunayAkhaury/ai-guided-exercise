@@ -88,8 +88,13 @@ export default function SharedSessionScreen() {
   const participantNameById = useMemo(
     () =>
       participants.reduce<Record<string, string>>((acc, participant) => {
-        if (participant.displayName && participant.participantId && !isGeneratedProfileName(participant.displayName)) {
-          acc[participant.participantId] = participant.displayName;
+        if (participant.displayName && !isGeneratedProfileName(participant.displayName)) {
+          if (participant.participantId) {
+            acc[participant.participantId] = participant.displayName;
+          }
+          if (participant.userId) {
+            acc[participant.userId] = participant.displayName;
+          }
         }
         return acc;
       }, {}),
@@ -98,8 +103,13 @@ export default function SharedSessionScreen() {
   const participantRoleById = useMemo(
     () =>
       participants.reduce<Record<string, string>>((acc, participant) => {
-        if (participant.role && participant.participantId) {
-          acc[participant.participantId] = participant.role;
+        if (participant.role) {
+          if (participant.participantId) {
+            acc[participant.participantId] = participant.role;
+          }
+          if (participant.userId) {
+            acc[participant.userId] = participant.role;
+          }
         }
         return acc;
       }, {}),
@@ -314,6 +324,8 @@ export default function SharedSessionScreen() {
       endSessionLabel={ending ? 'Ending...' : 'End Session'}
       endSessionDisabled={ending}
       localParticipantLabel={normalizedLocalLabel}
+      localParticipantId={currentParticipantId}
+      localUserId={uid?.trim() || undefined}
       participantNamesById={participantNameById}
       participantRolesById={participantRoleById}
       localParticipantRole={sessionRole}

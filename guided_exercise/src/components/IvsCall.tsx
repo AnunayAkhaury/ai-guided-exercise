@@ -28,6 +28,8 @@ import { ConfirmationModal } from './ConfirmPopup';
 
 type RemoteParticipantInfo = {
   participantId: string;
+  identityKey: string;
+  streamKey: string;
   lookupKeys: string[];
   role: string | undefined;
   displayName: string;
@@ -53,13 +55,52 @@ function firstDisplayNameString(...values: unknown[]): string | null {
   return null;
 }
 
-function getParticipantDisplayName(participant: Participant): string {
+function getParticipantAttributes(participant: Participant): Record<string, any> | undefined {
   const candidate = participant as any;
-  const attributes =
+  return (
     candidate?.attributes ??
     candidate?.info?.attributes ??
     candidate?.userInfo?.attributes ??
-    candidate?.participantInfo?.attributes;
+    candidate?.participantInfo?.attributes
+  );
+}
+
+function uniqueStrings(values: unknown[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    if (typeof value !== 'string') continue;
+    const normalized = value.trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
+}
+
+function getParticipantLookupKeys(participant: Participant): string[] {
+  const candidate = participant as any;
+  const attributes = getParticipantAttributes(participant);
+  return uniqueStrings([
+    participant.id,
+    candidate?.participantId,
+    candidate?.userId,
+    candidate?.uid,
+    candidate?.info?.participantId,
+    candidate?.info?.userId,
+    candidate?.userInfo?.participantId,
+    candidate?.userInfo?.userId,
+    candidate?.participantInfo?.participantId,
+    candidate?.participantInfo?.userId,
+    attributes?.participantId,
+    attributes?.userId,
+    attributes?.uid
+  ]);
+}
+
+function getParticipantDisplayName(participant: Participant): string {
+  const candidate = participant as any;
+  const attributes = getParticipantAttributes(participant);
 
   return (
     firstDisplayNameString(
@@ -72,7 +113,7 @@ function getParticipantDisplayName(participant: Participant): string {
       candidate?.info?.displayName,
       candidate?.userInfo?.userName,
       candidate?.participantInfo?.userName
-    ) ?? participant.id
+    ) ?? 'Participant'
   );
 }
 
@@ -84,24 +125,48 @@ function getVisibleParticipantLabel(
     firstDisplayNameString(
       ...participant.lookupKeys.map((key) => participantNamesById?.[key]),
       participant.displayName
-    ) ?? participant.participantId
+    ) ?? 'Participant'
   );
 }
 
 function selectPreferredVideoStream(streams: ({ mediaType: string; deviceUrn: string } & Record<string, any>)[]) {
   if (!streams.length) return null;
-  const activeStream = streams.find((stream) => {
+  const orderedStreams = [...streams].reverse();
+  const activeStream = orderedStreams.find((stream) => {
     const muted = stream?.isMuted ?? stream?.muted ?? false;
     const disabled = stream?.isDisabled ?? false;
     return !muted && !disabled;
   });
   // Fallback only when muted/disabled flags are not exposed by the SDK object.
-  const streamWithoutFlags = streams.find((stream) => stream?.isMuted == null && stream?.isDisabled == null);
+  const streamWithoutFlags = orderedStreams.find((stream) => stream?.isMuted == null && stream?.isDisabled == null);
   return activeStream ?? streamWithoutFlags ?? null;
 }
 
-function isLocalParticipant(participant: Participant): boolean {
+function getStreamKey(stream: Record<string, any> | null): string {
+  if (!stream) return 'no-video';
+  return (
+    firstNonEmptyString(
+      stream?.id,
+      stream?.streamId,
+      stream?.trackId,
+      stream?.track?.id,
+      stream?.sourceId,
+      stream?.deviceUrn
+    ) ?? 'video'
+  );
+}
+
+function getMappedValue(lookupKeys: string[], valuesById?: Record<string, string>): string | undefined {
+  return lookupKeys.map((key) => valuesById?.[key]).find((value): value is string => Boolean(value));
+}
+
+function isLocalParticipant(participant: Participant, localParticipantId?: string, localUserId?: string): boolean {
   const candidate = participant as any;
+  const lookupKeys = getParticipantLookupKeys(participant);
+  const localIds = uniqueStrings([localParticipantId, localUserId]);
+  if (localIds.some((id) => lookupKeys.includes(id))) {
+    return true;
+  }
   return Boolean(
     candidate?.isLocal ??
     candidate?.local ??
@@ -109,6 +174,37 @@ function isLocalParticipant(participant: Participant): boolean {
     candidate?.userInfo?.isLocal ??
     candidate?.participantInfo?.isLocal
   );
+}
+
+function getParticipantIdentityKey(
+  participant: Participant,
+  lookupKeys: string[],
+  displayName: string,
+  role?: string,
+  participantNamesById?: Record<string, string>
+): string {
+  const attributes = getParticipantAttributes(participant);
+  const candidate = participant as any;
+  const userId = firstNonEmptyString(
+    attributes?.userId,
+    attributes?.uid,
+    candidate?.userId,
+    candidate?.uid,
+    candidate?.info?.userId,
+    candidate?.userInfo?.userId,
+    candidate?.participantInfo?.userId
+  );
+  if (userId) {
+    return `user:${userId}`;
+  }
+
+  const mappedName = getMappedValue(lookupKeys, participantNamesById);
+  const stableName = firstDisplayNameString(mappedName, displayName);
+  if (stableName) {
+    return `name:${role ?? 'unknown'}:${stableName.toLowerCase()}`;
+  }
+
+  return `participant:${participant.id}`;
 }
 
 export default function IvsCall({
@@ -124,6 +220,8 @@ export default function IvsCall({
   onJoinAttempt,
   onJoinFailed,
   localParticipantLabel,
+  localParticipantId,
+  localUserId,
   participantNamesById,
   participantRolesById,
   localParticipantRole,
@@ -152,6 +250,7 @@ export default function IvsCall({
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
   const [activeToken, setActiveToken] = useState(token);
+  const [remoteRenderEpoch, setRemoteRenderEpoch] = useState(0);
   const publishOnJoinRef = useRef(publishOnJoin);
   const isAudioMutedRef = useRef(isAudioMuted);
   const hasJoinAttemptRef = useRef(false);
@@ -161,52 +260,90 @@ export default function IvsCall({
 
   const sheetRef = useRef<BottomSheetModal>(null);
   const [exercise, setExercise] = useState<ExerciseType | null>(null);
-  const handlePresentModalPress = () => {
-    sheetRef.current?.present();
-  };
 
   const { participants } = useStageParticipants() as { participants: Participant[] };
   const remoteParticipants = useMemo<RemoteParticipantInfo[]>(() => {
-    return participants
-      .map<RemoteParticipantInfo | null>((participant) => {
-        if (isLocalParticipant(participant)) {
-          return null;
-        }
-        const candidate = participant as any;
-        const attributes =
-          candidate?.attributes ??
-          candidate?.info?.attributes ??
-          candidate?.userInfo?.attributes ??
-          candidate?.participantInfo?.attributes;
-        const lookupKeys = [participant.id, candidate?.participantId, candidate?.info?.participantId].filter(
-          (value): value is string => typeof value === 'string' && value.trim().length > 0
+    const participantsByIdentity = new Map<string, RemoteParticipantInfo & { rank: number }>();
+
+    participants.forEach((participant, participantIndex) => {
+      if (isLocalParticipant(participant, localParticipantId, localUserId)) {
+        return;
+      }
+      const candidate = participant as any;
+      const attributes = getParticipantAttributes(participant);
+      const lookupKeys = getParticipantLookupKeys(participant);
+      const resolvedRole =
+        getMappedValue(lookupKeys, participantRolesById) ||
+        firstNonEmptyString(
+          attributes?.role,
+          candidate?.role,
+          candidate?.info?.role,
+          candidate?.userInfo?.role,
+          candidate?.participantInfo?.role
         );
-        const resolvedRole =
-          lookupKeys.map((key) => participantRolesById?.[key]).find(Boolean) ||
-          firstNonEmptyString(
-            attributes?.role,
-            candidate?.role,
-            candidate?.info?.role,
-            candidate?.userInfo?.role,
-            candidate?.participantInfo?.role
-          );
-        const videoStreams = participant.streams.filter((stream) => stream.mediaType === 'video') as ({
-          mediaType: string;
-          deviceUrn: string;
-        } & Record<string, any>)[];
-        const videoStream = selectPreferredVideoStream(videoStreams);
-        return {
-          participantId: participant.id,
-          lookupKeys,
-          role: typeof resolvedRole === 'string' ? resolvedRole.toLowerCase() : undefined,
-          displayName: getParticipantDisplayName(participant),
-          deviceUrn: videoStream?.deviceUrn ?? null,
-          hasVideo: Boolean(videoStream)
-        };
-      })
-      .filter((value): value is RemoteParticipantInfo => value !== null)
-      .sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [participantRolesById, participants]);
+      const role = typeof resolvedRole === 'string' ? resolvedRole.toLowerCase() : undefined;
+      const videoStreams = participant.streams.filter((stream) => stream.mediaType === 'video') as ({
+        mediaType: string;
+        deviceUrn: string;
+      } & Record<string, any>)[];
+      const videoStream = selectPreferredVideoStream(videoStreams);
+      const displayName =
+        firstDisplayNameString(getMappedValue(lookupKeys, participantNamesById), getParticipantDisplayName(participant)) ??
+        'Participant';
+      const identityKey = getParticipantIdentityKey(participant, lookupKeys, displayName, role, participantNamesById);
+      const streamKey = getStreamKey(videoStream);
+      const hasActiveParticipantRecord = lookupKeys.some(
+        (key) => Boolean(participantNamesById?.[key]) || Boolean(participantRolesById?.[key])
+      );
+      const rank =
+        participantIndex * 64 +
+        (hasActiveParticipantRecord ? 32 : 0) +
+        (videoStream ? 16 : 0) +
+        (videoStream?.deviceUrn ? 8 : 0) +
+        (!isGeneratedProfileName(displayName) ? 4 : 0) +
+        (identityKey.startsWith('user:') ? 2 : 0);
+
+      const nextParticipant = {
+        participantId: participant.id,
+        identityKey,
+        streamKey,
+        lookupKeys,
+        role,
+        displayName,
+        deviceUrn: videoStream?.deviceUrn ?? null,
+        hasVideo: Boolean(videoStream),
+        rank
+      };
+      const current = participantsByIdentity.get(identityKey);
+      if (!current || nextParticipant.rank >= current.rank) {
+        participantsByIdentity.set(identityKey, nextParticipant);
+      }
+    });
+
+    return Array.from(participantsByIdentity.values())
+      .map(({ rank: _rank, ...participant }) => participant)
+      .sort((a, b) => {
+        if (a.role === 'instructor' && b.role !== 'instructor') return -1;
+        if (b.role === 'instructor' && a.role !== 'instructor') return 1;
+        return a.displayName.localeCompare(b.displayName);
+      });
+  }, [localParticipantId, localUserId, participantNamesById, participantRolesById, participants]);
+
+  const remoteParticipantSignature = useMemo(
+    () =>
+      remoteParticipants
+        .map((participant) => `${participant.identityKey}:${participant.participantId}:${participant.streamKey}`)
+        .join('|'),
+    [remoteParticipants]
+  );
+
+  useEffect(() => {
+    setRemoteRenderEpoch((value) => value + 1);
+  }, [remoteParticipantSignature]);
+
+  const getRemoteViewKey = (participant: RemoteParticipantInfo) =>
+    `${participant.identityKey}:${participant.participantId}:${participant.streamKey}:${remoteRenderEpoch}`;
+
   const localIsInstructor = localParticipantRole === 'instructor';
   const instructorRemote = useMemo(
     () => remoteParticipants.find((participant) => participant.role === 'instructor') ?? null,
@@ -251,16 +388,6 @@ export default function IvsCall({
   }, [isAudioMuted]);
 
   useEffect(() => {
-    console.log(
-      '[IVS][Client] participants',
-      participants.map((p) => ({
-        id: p.id,
-        videoStreams: p.streams.filter((s) => s.mediaType === 'video').map((s) => s.deviceUrn)
-      }))
-    );
-  }, [participants]);
-
-  useEffect(() => {
     // setup the connection listener
     const connectionListener = addOnStageConnectionStateChangedListener(({ state, error: connError }) => {
       setStatus(`State: ${state}`);
@@ -272,6 +399,8 @@ export default function IvsCall({
         }
         setIsInStage(true);
         setIsJoining(false);
+        setRemoteRenderEpoch((value) => value + 1);
+        setTimeout(() => setRemoteRenderEpoch((value) => value + 1), 600);
         if (publishOnJoinRef.current) {
           // Ensure publish state is applied after the stage is actually connected.
           void (async () => {
@@ -312,6 +441,7 @@ export default function IvsCall({
 
   const join = async () => {
     setIsLeaving(false);
+    setRemoteRenderEpoch((value) => value + 1);
 
     if (!activeToken) {
       setError('No token provided.');
@@ -385,6 +515,7 @@ export default function IvsCall({
 
   const handleLeave = async () => {
     setIsLeaving(true);
+    setRemoteRenderEpoch((value) => value + 1);
     try {
       hasJoinAttemptRef.current = false;
       await leaveStage();
@@ -395,6 +526,7 @@ export default function IvsCall({
       setIsJoining(false);
       setIsInStage(false);
       setStatus('');
+      setRemoteRenderEpoch((value) => value + 1);
     } catch (err: any) {
       setError(err?.message || 'Failed to leave the session.');
       setIsLeaving(false);
@@ -490,11 +622,9 @@ export default function IvsCall({
               <Text style={styles.participantLabel}>{getVisibleParticipantLabel(instructorRemote, participantNamesById)}</Text>
             </View>
             {instructorRemote.hasVideo && instructorRemote.deviceUrn ? (
-              <View
-                key={`${instructorRemote.participantId}:${instructorRemote.deviceUrn}`}
-                style={[styles.remoteVideoFrame, { height: remoteVideoHeight }]}>
+              <View key={getRemoteViewKey(instructorRemote)} style={[styles.remoteVideoFrame, { height: remoteVideoHeight }]}>
                 <ExpoIVSRemoteStreamView
-                  key={`${instructorRemote.participantId}:${instructorRemote.deviceUrn}`}
+                  key={getRemoteViewKey(instructorRemote)}
                   participantId={instructorRemote.participantId}
                   deviceUrn={instructorRemote.deviceUrn}
                   style={StyleSheet.absoluteFillObject}
@@ -535,7 +665,7 @@ export default function IvsCall({
 
         {remainingRemoteParticipants.map((participant) => (
           <View
-            key={`${participant.participantId}:${participant.deviceUrn}`}
+            key={getRemoteViewKey(participant)}
             style={[styles.participantWrapper, useGridForStudents && styles.gridParticipantWrapper]}>
             <View style={styles.participantLabelPill}>
               <Text style={styles.participantLabel}>{getVisibleParticipantLabel(participant, participantNamesById)}</Text>
@@ -547,6 +677,7 @@ export default function IvsCall({
                   { height: useGridForStudents ? gridVideoHeight : remoteVideoHeight }
                 ]}>
                 <ExpoIVSRemoteStreamView
+                  key={getRemoteViewKey(participant)}
                   participantId={participant.participantId}
                   deviceUrn={participant.deviceUrn}
                   style={StyleSheet.absoluteFillObject}
