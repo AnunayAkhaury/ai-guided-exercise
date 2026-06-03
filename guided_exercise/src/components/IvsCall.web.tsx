@@ -983,11 +983,10 @@ export default function IvsCallWeb({
     return (
       <div style={shellStyle}>
         <div style={joinCardStyle}>
-          <div style={joinEyebrowStyle}>Desktop Web Class</div>
+          <div style={joinEyebrowStyle}>Live Class</div>
           <h1 style={joinTitleStyle}>Welcome to Class</h1>
           <p style={joinSubtitleStyle}>
-            The browser client now joins the same IVS session as mobile. Camera and microphone access are requested only
-            when you choose to join.
+            Join from your browser when you are ready. We will ask for camera and microphone access only after you start.
           </p>
 
           {status ? <div style={statusPillStyle}>{status}</div> : null}
@@ -996,15 +995,15 @@ export default function IvsCallWeb({
           <div style={joinChecklistStyle}>
             <div style={joinChecklistRowStyle}>
               <Ionicons name="laptop-outline" size={18} color="#6155F5" />
-              <span>Desktop Chrome or Edge recommended for the first release.</span>
+              <span>For the best experience, use a desktop or laptop browser.</span>
             </div>
             <div style={joinChecklistRowStyle}>
               <Ionicons name="videocam-outline" size={18} color="#6155F5" />
-              <span>Join starts with microphone muted, matching the mobile experience.</span>
+              <span>You can turn your camera and microphone on or off during class.</span>
             </div>
             <div style={joinChecklistRowStyle}>
-              <Ionicons name="sync-outline" size={18} color="#6155F5" />
-              <span>Token refresh continues to use the existing backend session APIs.</span>
+              <Ionicons name="people-outline" size={18} color="#6155F5" />
+              <span>Your instructor and classmates will appear once you join the session.</span>
             </div>
           </div>
 
