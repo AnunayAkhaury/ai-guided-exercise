@@ -314,7 +314,8 @@ export default function Stats() {
                     <Typography font="inter-medium" className="text-[#8A82B6] text-xs">
                       {new Date(monthlySummary.month + '-01').toLocaleString('en-US', {
                         month: 'long',
-                        year: 'numeric'
+                        year: 'numeric',
+                        timeZone: 'UTC',
                       })}
                     </Typography>
                   </View>

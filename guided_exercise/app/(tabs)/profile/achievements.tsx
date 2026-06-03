@@ -10,20 +10,23 @@ export default function AchievementsPage() {
     const router = useRouter();
 
     return (
-    <View className="bg-[#F5F2FF] flex-1">
+    <View className="bg-[#FAF8FF] flex-1">
       <Header title="Achievements" showBack={true} onBack={() => router.replace("/(tabs)/profile")} />
       <ScrollView
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="pt-9">
-          <Typography font='inter-semibold' className="pl-4 pb-5">{data.length} Achievement(s)</Typography>
+        <View className="pt-9 px-4">
+          <Typography font='inter-semibold' className="pb-5">{data.length} Achievement(s)</Typography>
 
-          <FlatList
-            data={data}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <AchievementCard title={item["title"]} desc={item["description"]} />}
-          />
+          <View className="flex flex-row flex-wrap gap-4">
+            {data.map((item) => 
+              <View key={item.id}>
+                <AchievementCard title={item["title"]} desc={item["description"]} />
+              </View>
+            )}
+          </View>
+          
         </View>
       </ScrollView>
     </View>
