@@ -6,6 +6,7 @@ import { type ExerciseType } from '@/src/components/session/exercise-sheet';
 import { addExerciseTimestamp, ExerciseTimestamp } from '../api/Firebase/firebase-feedback';
 import { EXERCISES } from '@/src/components/session/exercise-sheet';
 import { EXERCISE_TITLE_MAP } from '../constants/exerciseMap';
+import { ConfirmationModal } from './ConfirmPopup';
 
 type IvsBroadcastSdk = {
   Stage: new (token: string, strategy: IvsStageStrategy) => IvsStage;
@@ -507,6 +508,8 @@ export default function IvsCallWeb({
   const isCompactDesktop = viewportWidth < 1180;
   const heroHeight = isCompactDesktop ? 360 : 560;
   const gridTileHeight = isCompactDesktop ? 180 : 220;
+
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     if (exerciseTimestamp?.starttime && exerciseTimestamp?.endtime) {
@@ -1168,7 +1171,7 @@ export default function IvsCallWeb({
             </button>
           ) : null}
 
-          <button type="button" onClick={() => void handleLeave()} style={leaveButtonStyle}>
+          <button type="button" onClick={() => setModalOpen(true)} style={leaveButtonStyle}>
             <Ionicons name="call" size={18} color="#FFFFFF" />
             <span>Leave</span>
           </button>
@@ -1286,6 +1289,16 @@ export default function IvsCallWeb({
               )}
             </>
           )}
+
+          <ConfirmationModal
+            isVisible={modalOpen}
+            title="Are you sure you want to leave?"
+            message="Leaving and rejoining can disrupt the recording segmentation and feedback generation."
+            confirmText="Confirm"
+            cancelText="Cancel"
+            onConfirm={() => { setModalOpen(false); handleLeave(); }}
+            onCancel={() => setModalOpen(false)}
+          />
         </div>
       )}
     </div>

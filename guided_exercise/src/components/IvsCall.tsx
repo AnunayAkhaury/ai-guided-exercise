@@ -24,6 +24,7 @@ import type { IvsCallProps } from './IvsCall.types';
 import { EXERCISE_TITLE_MAP } from '@/src/constants/exerciseMap';
 import Header from '@/src/components/ui/Header';
 import { isGeneratedProfileName } from '@/src/utils/display-name';
+import { ConfirmationModal } from './ConfirmPopup';
 
 type RemoteParticipantInfo = {
   participantId: string;
@@ -218,6 +219,8 @@ export default function IvsCall({
   const includeLocalInGrid = publishOnJoin && !localIsInstructor;
   const totalStudentTiles = remainingRemoteParticipants.length + (includeLocalInGrid ? 1 : 0);
   const useGridForStudents = totalStudentTiles > 1;
+
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     if (exerciseTimestamp?.starttime && exerciseTimestamp?.endtime) {
@@ -621,7 +624,7 @@ export default function IvsCall({
         {!onEndSession && (
           <Pressable
             style={[styles.endCallButton, compactControls && styles.compactControlButton]}
-            onPress={handleLeave}>
+            onPress={() => setModalOpen(true)}>
             <Ionicons name="call" size={18} color="#fff" />
             <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
               Leave
@@ -649,7 +652,7 @@ export default function IvsCall({
           )}
           <Pressable
             style={[styles.endCallButton, compactControls && styles.compactControlButton]}
-            onPress={handleLeave}>
+            onPress={() => setModalOpen(true)}>
             <Ionicons name="call" size={18} color="#fff" />
             <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
               Leave
@@ -718,6 +721,16 @@ export default function IvsCall({
           />
         </View>
       )}
+
+      <ConfirmationModal
+        isVisible={modalOpen}
+        title="Are you sure you want to leave?"
+        message="Leaving and rejoining can disrupt the recording segmentation and feedback generation."
+        confirmText="Confirm"
+        cancelText="Cancel"
+        onConfirm={() => { setModalOpen(false); handleLeave(); }}
+        onCancel={() => setModalOpen(false)}
+      />
     </View>
   );
 }
