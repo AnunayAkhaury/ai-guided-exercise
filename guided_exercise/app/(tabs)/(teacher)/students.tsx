@@ -1,12 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image, ScrollView, TextInput, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  View,
+  useWindowDimensions
+} from 'react-native';
 import DefaultImage from '@/src/assets/images/default-profile.jpg';
-import { AntDesign, Ionicons } from "@expo/vector-icons";
-import Header from "@/src/components/ui/Header";
+import { AntDesign, Ionicons } from '@expo/vector-icons';
+import Header from '@/src/components/ui/Header';
 import Gradient from '@/src/assets/images/RecordingsGradient.jpeg';
-import Typography from "@/src/components/ui/Typography";
-import { listProfiles, type AppUserProfile } from "@/src/api/Firebase/firebase-auth";
-import { resolvePreferredDisplayName } from "@/src/utils/display-name";
+import Typography from '@/src/components/ui/Typography';
+import { listProfiles, type AppUserProfile } from '@/src/api/Firebase/firebase-auth';
+import { resolvePreferredDisplayName } from '@/src/utils/display-name';
 
 export default function Students() {
   const { width, height } = useWindowDimensions();
@@ -57,10 +65,12 @@ export default function Students() {
       }).toLowerCase();
       const email = student.email?.toLowerCase() || '';
       const username = student.username?.toLowerCase() || '';
-      return !normalizedQuery
-        || displayName.includes(normalizedQuery)
-        || email.includes(normalizedQuery)
-        || username.includes(normalizedQuery);
+      return (
+        !normalizedQuery ||
+        displayName.includes(normalizedQuery) ||
+        email.includes(normalizedQuery) ||
+        username.includes(normalizedQuery)
+      );
     });
 
     filtered.sort((a, b) => {
@@ -85,10 +95,13 @@ export default function Students() {
       <Header title="Students" />
 
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: isSmallPhone ? 14 : 20, paddingVertical: isSmallPhone ? 14 : 20, paddingBottom: 30 }}
+        contentContainerStyle={{
+          paddingHorizontal: isSmallPhone ? 14 : 20,
+          paddingVertical: isSmallPhone ? 14 : 20,
+          paddingBottom: 30
+        }}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
+        keyboardShouldPersistTaps="handled">
         <View className="flex flex-row justify-between items-center">
           <View className="flex flex-row items-center bg-[#E6E6E6] flex-1 h-11 rounded-xl gap-1 pl-3 mr-2">
             <Ionicons name="search-sharp" size={12} color="black" />
@@ -103,12 +116,8 @@ export default function Students() {
           </View>
           <TouchableOpacity onPress={() => setSortAscending((prev) => !prev)}>
             <View className="relative flex flex-row items-center gap-1 p-2 rounded-xl overflow-hidden">
-              <Image
-                source={Gradient}
-                resizeMode="cover"
-                className="absolute flex-grow inset-0"
-              />
-              <AntDesign name={sortAscending ? "sort-ascending" : "sort-descending"} size={16} color="black" />
+              <Image source={Gradient} resizeMode="cover" className="absolute flex-grow inset-0" />
+              <AntDesign name={sortAscending ? 'sort-ascending' : 'sort-descending'} size={16} color="black" />
               <AntDesign name="down" size={14} color="black" />
             </View>
           </TouchableOpacity>
@@ -116,7 +125,7 @@ export default function Students() {
 
         <View className="my-2 w-full bg-[#D3D3D3] h-[1px]" />
 
-        <Typography font='inter-semibold' className="text-sm pb-3">
+        <Typography font="inter-semibold" className="text-sm pb-3">
           {isLoading ? 'Loading students...' : `${filteredStudents.length} students`}
         </Typography>
 
@@ -126,13 +135,13 @@ export default function Students() {
           </View>
         ) : error ? (
           <View className="py-6">
-            <Typography font='inter-medium' className="text-[#FF0000]">
+            <Typography font="inter-medium" className="text-[#FF0000]">
               {error}
             </Typography>
           </View>
         ) : filteredStudents.length === 0 ? (
           <View className="py-6">
-            <Typography font='inter-medium'>
+            <Typography font="inter-medium">
               {searchQuery.trim() ? 'No students matched your search.' : 'No student accounts found.'}
             </Typography>
           </View>
@@ -154,11 +163,12 @@ export default function Students() {
                       source={DefaultImage}
                       resizeMode="cover"
                       className="w-10 h-10 rounded-full"
+                      style={{ width: 50, height: 50 }}
                     />
                     <View className="flex-1">
-                      <Typography font='inter-medium'>{displayName}</Typography>
+                      <Typography font="inter-medium">{displayName}</Typography>
                       {secondaryText ? (
-                        <Typography font='inter-medium' className="text-xs text-[#666] mt-1">
+                        <Typography font="inter-medium" className="text-xs text-[#666] mt-1">
                           {secondaryText}
                         </Typography>
                       ) : null}

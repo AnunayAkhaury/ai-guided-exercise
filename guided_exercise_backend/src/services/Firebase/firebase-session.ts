@@ -44,10 +44,22 @@ export type CreateSessionInput = {
 
 const SESSIONS_COLLECTION = 'sessions';
 const PARTICIPANTS_SUBCOLLECTION = 'participants';
+const PLATFORM_LOCKS_COLLECTION = 'platformLocks';
+const LIVE_SESSION_LOCK_DOC = 'liveSession';
 const SESSION_CODE_LENGTH = 6;
 const SESSION_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const SESSION_CODE_MAX_RETRIES = 20;
 const PARTICIPANT_STALE_MS = 90 * 1000;
+
+export class LiveSessionConflictError extends Error {
+  activeSessionId: string | null;
+
+  constructor(activeSessionId: string | null) {
+    super('Another class is already live. Please wait until it ends before starting a new class.');
+    this.name = 'LiveSessionConflictError';
+    this.activeSessionId = activeSessionId;
+  }
+}
 
 function isParticipantFresh(lastSeenAt: Date | null | undefined) {
   if (!lastSeenAt) {
@@ -206,6 +218,118 @@ export async function updateSessionStatus(sessionId: string, status: SessionStat
   await db.collection(SESSIONS_COLLECTION).doc(sessionId).update(payload);
 }
 
+export async function getActiveLiveSession(excludeSessionId?: string): Promise<SessionDocument | null> {
+  const normalizedExcludeSessionId = excludeSessionId?.trim();
+  const snapshot = await db
+    .collection(SESSIONS_COLLECTION)
+    .where('status', '==', 'live')
+    .limit(25)
+    .get();
+
+  const session = snapshot.docs
+    .map((doc) => mapSessionDoc(doc.id, doc.data()))
+    .find((item): item is SessionDocument =>
+      Boolean(item && item.sessionId !== normalizedExcludeSessionId)
+    );
+
+  return session ?? null;
+}
+
+export async function startSessionIfNoOtherLiveSession(
+  sessionId: string,
+  instructorUid: string
+): Promise<void> {
+  const normalizedSessionId = sessionId.trim();
+  const normalizedInstructorUid = instructorUid.trim();
+  if (!normalizedSessionId || !normalizedInstructorUid) {
+    throw new Error('sessionId and instructorUid are required.');
+  }
+
+  const now = new Date();
+  const sessionRef = db.collection(SESSIONS_COLLECTION).doc(normalizedSessionId);
+  const liveLockRef = db.collection(PLATFORM_LOCKS_COLLECTION).doc(LIVE_SESSION_LOCK_DOC);
+
+  await db.runTransaction(async (transaction) => {
+    const sessionSnapshot = await transaction.get(sessionRef);
+    if (!sessionSnapshot.exists) {
+      throw new Error('Session not found.');
+    }
+
+    const session = mapSessionDoc(sessionSnapshot.id, sessionSnapshot.data());
+    if (!session) {
+      throw new Error('Session not found.');
+    }
+    if (session.instructorUid !== normalizedInstructorUid) {
+      throw new Error('Only the session creator can start this class.');
+    }
+
+    const liveLockSnapshot = await transaction.get(liveLockRef);
+    const liveLockData = liveLockSnapshot.data();
+    const lockedSessionId =
+      typeof liveLockData?.sessionId === 'string' ? liveLockData.sessionId.trim() : '';
+
+    if (lockedSessionId && lockedSessionId !== normalizedSessionId) {
+      const lockedSessionSnapshot = await transaction.get(
+        db.collection(SESSIONS_COLLECTION).doc(lockedSessionId)
+      );
+      const lockedSession = lockedSessionSnapshot.exists
+        ? mapSessionDoc(lockedSessionSnapshot.id, lockedSessionSnapshot.data())
+        : null;
+
+      if (lockedSession?.status === 'live') {
+        throw new LiveSessionConflictError(lockedSession.sessionId);
+      }
+    }
+
+    const liveSessionsSnapshot = await transaction.get(
+      db.collection(SESSIONS_COLLECTION).where('status', '==', 'live').limit(25)
+    );
+    const otherLiveSession = liveSessionsSnapshot.docs
+      .map((doc) => mapSessionDoc(doc.id, doc.data()))
+      .find((item): item is SessionDocument =>
+        Boolean(item && item.sessionId !== normalizedSessionId)
+      );
+
+    if (otherLiveSession) {
+      throw new LiveSessionConflictError(otherLiveSession.sessionId);
+    }
+
+    transaction.update(sessionRef, {
+      status: 'live',
+      startedAt: now,
+      updatedAt: now
+    });
+    transaction.set(
+      liveLockRef,
+      {
+        sessionId: normalizedSessionId,
+        instructorUid: normalizedInstructorUid,
+        updatedAt: now
+      },
+      { merge: true }
+    );
+  });
+}
+
+export async function releaseLiveSessionLock(sessionId: string): Promise<void> {
+  const normalizedSessionId = sessionId.trim();
+  if (!normalizedSessionId) {
+    return;
+  }
+
+  const liveLockRef = db.collection(PLATFORM_LOCKS_COLLECTION).doc(LIVE_SESSION_LOCK_DOC);
+  await db.runTransaction(async (transaction) => {
+    const liveLockSnapshot = await transaction.get(liveLockRef);
+    const liveLockData = liveLockSnapshot.data();
+    const lockedSessionId =
+      typeof liveLockData?.sessionId === 'string' ? liveLockData.sessionId.trim() : '';
+
+    if (lockedSessionId === normalizedSessionId) {
+      transaction.delete(liveLockRef);
+    }
+  });
+}
+
 export async function markSessionReminderSent(sessionId: string): Promise<void> {
   const now = new Date();
   await db.collection(SESSIONS_COLLECTION).doc(sessionId).set(
@@ -241,30 +365,6 @@ export async function listSessions(statuses?: SessionStatus[]): Promise<SessionD
   });
 
   return sessions;
-}
-
-export async function endOtherLiveSessions(currentSessionId: string): Promise<number> {
-  const snapshot = await db
-    .collection(SESSIONS_COLLECTION)
-    .where('status', '==', 'live')
-    .get();
-
-  const now = new Date();
-  const docsToEnd = snapshot.docs.filter((doc) => doc.id !== currentSessionId);
-  if (docsToEnd.length === 0) {
-    return 0;
-  }
-
-  const batch = db.batch();
-  docsToEnd.forEach((doc) => {
-    batch.update(doc.ref, {
-      status: 'ended',
-      endedAt: now,
-      updatedAt: now
-    });
-  });
-  await batch.commit();
-  return docsToEnd.length;
 }
 
 export async function deleteSessionById(sessionId: string): Promise<void> {
