@@ -242,7 +242,9 @@ export default function Stats() {
   }, [points]);
 
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}>
+    <ScrollView
+      contentContainerStyle={{ flexGrow: 1 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}>
       <View className="flex-1 bg-[#FAF8FF]">
         <Header title="Stats" />
 
@@ -326,7 +328,9 @@ export default function Stats() {
                 </Typography>
               </View>
             ) : (
-              <View style={{ width: '100%', height: 220 }}>
+              <View
+                key={`${selectedExercise}-${selectedTimeframe}-${points.length}-${xAxisData.join(',')}`}
+                style={{ width: '100%', height: 220 }}>
                 <ReanimatedGraph
                   type="line"
                   showExtremeValues={false}
