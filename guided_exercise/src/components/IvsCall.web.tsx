@@ -477,9 +477,8 @@ export default function IvsCallWeb({
   sessionId
 }: IvsCallProps) {
   const router = useRouter();
-  const classesRoute = localParticipantRole === 'instructor'
-    ? '/(tabs)/(teacher)/classes'
-    : '/(tabs)/(student)/classes';
+  const classesRoute =
+    localParticipantRole === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/(student)/classes';
   const [sdkReady, setSdkReady] = useState(false);
   const [isInStage, setIsInStage] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -494,6 +493,8 @@ export default function IvsCallWeb({
   const [exercise, setExercise] = useState<ExerciseType | null>(null);
   const [exerciseTimestamp, setExerciseTimestamp] = useState<ExerciseTimestamp | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [endSessionCooldown, setEndSessionCooldown] = useState(false);
+  const isDisabled = endSessionDisabled || exerciseTimestamp !== null || endSessionCooldown;
 
   const stageRef = useRef<IvsStage | null>(null);
   const registeredStageListenersRef = useRef<RegisteredStageListener[]>([]);
@@ -512,6 +513,10 @@ export default function IvsCallWeb({
       if (exerciseTimestamp.endtime - exerciseTimestamp.starttime > 3000) {
         // 3 seconds
         addExerciseTimestamp(exerciseTimestamp);
+        setTimeout(() => {
+          setEndSessionCooldown(false);
+          setExerciseTimestamp(null);
+        }, 1500);
       } else {
         // Exercise too short
         setExerciseTimestamp(null);
@@ -617,6 +622,8 @@ export default function IvsCallWeb({
     totalStudentTiles > 1 ? `repeat(auto-fit, minmax(${REMOTE_TILE_MIN_WIDTH}px, 1fr))` : 'minmax(0, 720px)';
 
   const handleJoin = async () => {
+    setIsLeaving(false);
+
     if (!activeToken) {
       const message = 'No token provided.';
       setError(message);
@@ -944,6 +951,11 @@ export default function IvsCallWeb({
       if (onLeave) {
         await Promise.resolve(onLeave());
       }
+
+      setIsLeaving(false);
+      setIsJoining(false);
+      setIsInStage(false);
+      setStatus('');
     } catch (leaveError: any) {
       setError(leaveError?.message || 'Failed to leave the session.');
       setIsLeaving(false);
@@ -988,16 +1000,16 @@ export default function IvsCallWeb({
     return (
       <div style={shellStyle}>
         <button
-          onClick={() => router.canGoBack() ? router.back() : router.replace(classesRoute)}
+          onClick={() => (router.canGoBack() ? router.back() : router.replace(classesRoute))}
           style={backButtonStyle}>
           ← Back to Classes
         </button>
         <div style={joinCardStyle}>
-          <div style={joinEyebrowStyle}>Desktop Web Class</div>
+          <div style={joinEyebrowStyle}>Live Class</div>
           <h1 style={joinTitleStyle}>Welcome to Class</h1>
           <p style={joinSubtitleStyle}>
-            The browser client now joins the same IVS session as mobile. Camera and microphone access are requested only
-            when you choose to join.
+            Join from your browser when you are ready. We will ask for camera and microphone access only after you
+            start.
           </p>
 
           {status ? <div style={statusPillStyle}>{status}</div> : null}
@@ -1006,15 +1018,15 @@ export default function IvsCallWeb({
           <div style={joinChecklistStyle}>
             <div style={joinChecklistRowStyle}>
               <Ionicons name="laptop-outline" size={18} color="#6155F5" />
-              <span>Desktop Chrome or Edge recommended for the first release.</span>
+              <span>For the best experience, use a desktop or laptop browser.</span>
             </div>
             <div style={joinChecklistRowStyle}>
               <Ionicons name="videocam-outline" size={18} color="#6155F5" />
-              <span>Join starts with microphone muted, matching the mobile experience.</span>
+              <span>You can turn your camera and microphone on or off during class.</span>
             </div>
             <div style={joinChecklistRowStyle}>
-              <Ionicons name="sync-outline" size={18} color="#6155F5" />
-              <span>Token refresh continues to use the existing backend session APIs.</span>
+              <Ionicons name="people-outline" size={18} color="#6155F5" />
+              <span>Your instructor and classmates will appear once you join the session.</span>
             </div>
           </div>
 
@@ -1165,10 +1177,10 @@ export default function IvsCallWeb({
             <button
               type="button"
               onClick={onEndSession}
-              disabled={endSessionDisabled}
+              disabled={isDisabled}
               style={{
                 ...endSessionButtonStyle,
-                ...(endSessionDisabled ? disabledButtonStyle : null)
+                ...(isDisabled ? disabledButtonStyle : null)
               }}>
               <Ionicons name="stop-circle-outline" size={18} color="#FFFFFF" />
               <span>{endSessionLabel}</span>
@@ -1478,11 +1490,11 @@ const backButtonStyle: CSSProperties = {
   cursor: 'pointer',
   fontWeight: 600,
   fontSize: 14,
-  padding: '6px 14px',
+  padding: '6px 14px'
 };
 
 const shellStyle: CSSProperties = {
-  minHeight: '100vh',
+  minHeight: '100%',
   display: 'flex',
   flexDirection: 'column',
   gap: 20,

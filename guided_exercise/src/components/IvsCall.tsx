@@ -109,9 +109,10 @@ export default function IvsCall({
   const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isSmallPhone = width < 380 || height < 760;
-  const classesRoute = localParticipantRole === 'instructor'
-    ? '/(tabs)/(teacher)/classes' as const
-    : '/(tabs)/(student)/classes' as const;
+  const classesRoute =
+    localParticipantRole === 'instructor'
+      ? ('/(tabs)/(teacher)/classes' as const)
+      : ('/(tabs)/(student)/classes' as const);
   const compactControls = isSmallPhone || fontScale > 1.15;
   const localVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.5625)));
   const remoteVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.5625)));
@@ -132,6 +133,8 @@ export default function IvsCall({
   const isAudioMutedRef = useRef(isAudioMuted);
   const hasJoinAttemptRef = useRef(false);
   const [exerciseTimestamp, setExerciseTimestamp] = useState<ExerciseTimestamp | null>(null);
+  const [endSessionCooldown, setEndSessionCooldown] = useState(false);
+  const isDisabled = endSessionDisabled || exerciseTimestamp !== null || endSessionCooldown;
 
   const sheetRef = useRef<BottomSheetModal>(null);
   const [exercise, setExercise] = useState<ExerciseType | null>(null);
@@ -199,6 +202,10 @@ export default function IvsCall({
       if (exerciseTimestamp.endtime - exerciseTimestamp.starttime > 3000) {
         // 3 seconds
         addExerciseTimestamp(exerciseTimestamp);
+        setTimeout(() => {
+          setEndSessionCooldown(false);
+          setExerciseTimestamp(null);
+        }, 1500);
       } else {
         // Exercise too short
         setExerciseTimestamp(null);
@@ -279,6 +286,8 @@ export default function IvsCall({
   }, [isInStage, onInStageChange]);
 
   const join = async () => {
+    setIsLeaving(false);
+
     if (!activeToken) {
       setError('No token provided.');
       return;
@@ -357,6 +366,10 @@ export default function IvsCall({
       if (onLeave) {
         await Promise.resolve(onLeave());
       }
+      setIsLeaving(false);
+      setIsJoining(false);
+      setIsInStage(false);
+      setStatus('');
     } catch (err: any) {
       setError(err?.message || 'Failed to leave the session.');
       setIsLeaving(false);
@@ -628,10 +641,10 @@ export default function IvsCall({
               styles.controlButton,
               compactControls && styles.compactControlButton,
               styles.controlButtonMuted,
-              endSessionDisabled && styles.disabledButton
+              isDisabled && styles.disabledButton
             ]}
             onPress={onEndSession}
-            disabled={endSessionDisabled}>
+            disabled={isDisabled}>
             <Ionicons name="stop-circle-outline" size={18} color="#fff" />
             <Text style={styles.controlButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
               {compactControls && endSessionLabel === 'End Session' ? 'End' : endSessionLabel}
