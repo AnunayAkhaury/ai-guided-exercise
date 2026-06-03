@@ -1186,7 +1186,7 @@ export default function IvsCallWeb({
                 setExercise(null);
                 setExerciseTimestamp((prev: any) => (prev ? { ...prev, endtime: Date.now() } : null));
               }}>
-              Cancel: {exercise}
+              Cancel: {EXERCISE_TITLE_MAP[exercise]}
             </button>
           ) : (
             <>

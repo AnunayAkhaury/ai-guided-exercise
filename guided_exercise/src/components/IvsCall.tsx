@@ -21,6 +21,7 @@ import type { Participant } from 'expo-realtime-ivs-broadcast';
 import BottomSheetModal from '@gorhom/bottom-sheet/lib/typescript/components/bottomSheetModal/BottomSheetModal';
 import { addExerciseTimestamp, ExerciseTimestamp } from '../api/Firebase/firebase-feedback';
 import type { IvsCallProps } from './IvsCall.types';
+import { EXERCISE_TITLE_MAP } from '@/src/constants/exerciseMap';
 
 type RemoteParticipantInfo = {
   participantId: string;
@@ -650,7 +651,7 @@ export default function IvsCall({
                     : null
                 );
               }}>
-              <Text style={styles.primaryButtonText}>Cancel: {exercise}</Text>
+              <Text style={styles.primaryButtonText}>Cancel: {EXERCISE_TITLE_MAP[exercise]}</Text>
             </Pressable>
           ) : (
             // Start exercise
