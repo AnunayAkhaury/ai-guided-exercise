@@ -1,6 +1,8 @@
-import { Pressable, StyleSheet, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import Typography from "./Typography";
+
+import LogoImage from '@/src/assets/images/logo.png'; 
 
 type HeaderProps = {
     title: string;
@@ -26,7 +28,7 @@ export default function Header({ title, showBack = false, onBack, backFallback }
     };
 
     return (
-        <View className="w-full pt-8 pb-3 shadow bg-white flex items-center" style={styles.header}>
+        <View className="w-full pt-8 pb-3 flex items-center" style={styles.header}>
             {showBack ? (
                 <Pressable
                     accessibilityRole="button"
@@ -37,7 +39,16 @@ export default function Header({ title, showBack = false, onBack, backFallback }
                     <Typography font='inter-semibold' style={styles.backText}>Back</Typography>
                 </Pressable>
             ) : null}
-            <Typography font='inter-semibold' className="text-xl">{title}</Typography>
+            {showBack ?
+                <Typography font='inter-semibold' className="text-xl">{title}</Typography>
+                : 
+                <Image
+                    source={LogoImage}
+                    resizeMode='contain'
+                    style={{position: 'absolute', left: 0, bottom: -20, width: 200}}
+                />
+            }
+            <View style={{ position: 'absolute', bottom: 0, width: '100%', height: 1, backgroundColor: 'lightgrey' }} />
         </View>
     );
 }

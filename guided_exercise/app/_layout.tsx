@@ -8,12 +8,36 @@ import {
   Inter_600SemiBold
 } from '@expo-google-fonts/inter';
 import { useFonts as useFontsIstokWeb, IstokWeb_400Regular, IstokWeb_700Bold } from '@expo-google-fonts/istok-web';
-import { Text } from 'react-native';
 import { ToastProvider } from '@/src/components/ui/ToastProvider';
 import { PushNotificationProvider } from '@/src/components/notifications/PushNotificationProvider';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { AuthProvider } from '@/src/components/auth-provider';
+import { View, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+export function SplashScreen() {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#F7F5FF',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}>
+      <Text
+        style={{
+          fontSize: 32,
+          fontWeight: '700',
+          marginBottom: 16,
+          textAlign: 'center',
+          paddingHorizontal: 24
+        }}>
+        Move Together, Heal Together
+      </Text>
+    </View>
+  );
+}
 
 export default function RootLayout() {
   const [interLoaded, interError] = useFontsInter({
@@ -29,7 +53,7 @@ export default function RootLayout() {
   });
 
   if ((!interLoaded && !interError) || (!istokWebLoaded && !istokWebError)) {
-    return <Text>Splash Screen</Text>;
+    return <SplashScreen />;
   }
 
   return (
@@ -38,7 +62,9 @@ export default function RootLayout() {
         <BottomSheetModalProvider>
           <ToastProvider>
             <PushNotificationProvider>
-              <Stack screenOptions={{ headerShown: false }} />
+              <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+                <Stack screenOptions={{ headerShown: false }} />
+              </SafeAreaView>
             </PushNotificationProvider>
           </ToastProvider>
         </BottomSheetModalProvider>

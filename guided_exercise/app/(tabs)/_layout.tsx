@@ -3,9 +3,56 @@ import { Tabs, usePathname, useSegments } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useUserStore } from '@/src/store/userStore';
 import { AntDesign, Entypo, Ionicons, Octicons } from '@expo/vector-icons';
-import { Alert, Platform, useWindowDimensions } from 'react-native';
+import { Alert, Platform, Text, useWindowDimensions, View } from 'react-native';
 import { useCallStore } from '@/src/store/callStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+
+import HomeImage from '@/src/assets/images/home.svg'; 
+
+function TabIcon({
+  icon,
+  focused,
+  color,
+  title,
+}: {
+  icon: React.ReactNode;
+  focused: boolean;
+  color: string;
+  title: string;
+}) {
+  return (
+    <View style={{ alignItems: 'center' }}>
+      {icon}
+
+      <Text
+        numberOfLines={1}
+        style={{
+          fontSize: 12,
+          color,
+          marginTop: 2,
+          width: 100,
+          alignSelf: 'center',
+          textAlign: 'center'
+        }}
+      >
+        {title}
+      </Text>
+
+      {focused && (
+        <View
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: 3,
+            backgroundColor: '#8B5CF6',
+            marginTop: 4,
+          }}
+        />
+      )}
+    </View>
+  );
+}
 
 export default function TabLayout() {
   const role = useUserStore((state) => state.role);
@@ -43,8 +90,8 @@ export default function TabLayout() {
   const effectiveRole = authInitialized ? role ?? (__DEV__ ? devRoleOverride : null) : null;
   const showStudentTabs = effectiveRole === 'student';
   const showInstructorTabs = effectiveRole === 'instructor';
-  const tabBarTopPadding = isWeb ? 8 : isCompactPhone ? 8 : 10;
-  const tabBarBottomPadding = isWeb ? 12 : Math.max(insets.bottom, isCompactPhone ? 8 : 10);
+  const tabBarTopPadding = isWeb ? 10 : isCompactPhone ? 8 : 10;
+  const tabBarBottomPadding = isWeb ? 5 : Math.max(insets.bottom, isCompactPhone ? 8 : 10);
   const tabBarHeight = (isWeb ? 70 : isCompactPhone ? 54 : 60) + tabBarBottomPadding;
   const tabBarLabelFontSize = isWeb ? 12 : isCompactPhone ? 11 : 12;
   const recordingsTitle = isCompactPhone ? 'Videos' : 'Recordings';
@@ -62,7 +109,7 @@ export default function TabLayout() {
       screenOptions={{
         tabBarStyle: {
           display: !authInitialized || inCall || isSessionRoute ? 'none' : 'flex',
-          backgroundColor: '#A980FE',
+          backgroundColor: '#FBF5FF',
           borderTopWidth: 0,
           elevation: 0,
           height: tabBarHeight,
@@ -86,15 +133,27 @@ export default function TabLayout() {
         tabBarLabelPosition: 'below-icon',
         tabBarHideOnKeyboard: true,
         tabBarAllowFontScaling: false,
-        tabBarActiveTintColor: '#FFFFFF',
-        tabBarInactiveTintColor: '#000000'
+        tabBarActiveTintColor: '#6155F5',
+        tabBarInactiveTintColor: '#919191'
       }}>
       {/* Student tabs */}
       <Tabs.Screen
         name="(student)/classes"
         options={{
           title: 'Classes',
-          tabBarIcon: ({ color, size }) => <AntDesign name="book" color={color} size={size} />,
+          tabBarShowLabel: false,
+          tabBarIcon: ({ focused, color, size }) => 
+            <TabIcon
+              focused={focused}
+              icon={
+                <Image
+                  source={HomeImage}
+                  style={{ width: size, height: size, tintColor: color }}
+                />
+              }
+              color={color}
+              title="Classes"
+            />,
           href: showStudentTabs ? '/(tabs)/(student)/classes' : null,
           headerShown: false
         }}
@@ -103,7 +162,14 @@ export default function TabLayout() {
         name="(student)/recordings"
         options={{
           title: recordingsTitle,
-          tabBarIcon: ({ color, size }) => <Entypo name="folder-video" color={color} size={size} />,
+          tabBarShowLabel: false,
+          tabBarIcon: ({ focused, color, size }) => 
+            <TabIcon
+              focused={focused}
+              color={color}
+              icon={<Ionicons name="videocam-outline" color={color} size={size} />}
+              title={recordingsTitle}
+            />,
           href: showStudentTabs ? '/(tabs)/(student)/recordings' : null,
           headerShown: false
         }}
@@ -112,7 +178,14 @@ export default function TabLayout() {
         name="(student)/stats"
         options={{
           title: 'Stats',
-          tabBarIcon: ({ color, size }) => <Octicons name="graph" color={color} size={size} />,
+          tabBarShowLabel: false,
+          tabBarIcon: ({ focused, color, size }) => 
+            <TabIcon
+              focused={focused}
+              color={color}
+              icon={<Entypo name="area-graph" color={color} size={size} />}
+              title="Stats"
+            />,
           href: showStudentTabs ? '/(tabs)/(student)/stats' : null,
           headerShown: false
         }}
@@ -123,7 +196,19 @@ export default function TabLayout() {
         name="(teacher)/classes"
         options={{
           title: 'Classes',
-          tabBarIcon: ({ color, size }) => <AntDesign name="book" color={color} size={size} />,
+          tabBarShowLabel: false,
+          tabBarIcon: ({ focused, color, size }) =>
+            <TabIcon
+              focused={focused}
+              color={color}
+              icon={
+                <Image
+                  source={HomeImage}
+                  style={{ width: size, height: size, tintColor: color }}
+                />
+              }
+              title="Classes"
+            />,
           href: showInstructorTabs ? '/(tabs)/(teacher)/classes' : null,
           headerShown: false
         }}
@@ -132,7 +217,14 @@ export default function TabLayout() {
         name="(teacher)/recordings"
         options={{
           title: recordingsTitle,
-          tabBarIcon: ({ color, size }) => <Entypo name="folder-video" color={color} size={size} />,
+          tabBarShowLabel: false,
+          tabBarIcon: ({ focused, color, size }) =>
+            <TabIcon
+              focused={focused}
+              color={color}
+              icon={<Ionicons name="videocam-outline" color={color} size={size} />}
+              title={recordingsTitle}
+            />,
           href: showInstructorTabs ? '/(tabs)/(teacher)/recordings' : null,
           headerShown: false
         }}
@@ -141,7 +233,14 @@ export default function TabLayout() {
         name="(teacher)/start-meeting"
         options={{
           title: startMeetingTitle,
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="screenshot-monitor" color={color} size={size} />,
+          tabBarShowLabel: false,
+          tabBarIcon: ({ focused, color, size }) =>
+            <TabIcon
+              focused={focused}
+              color={color}
+              icon={<MaterialIcons name="screenshot-monitor" color={color} size={size} />}
+              title={startMeetingTitle}
+            />,
           href: showInstructorTabs ? '/(tabs)/(teacher)/start-meeting' : null,
           headerShown: false
         }}
@@ -150,7 +249,14 @@ export default function TabLayout() {
         name="(teacher)/schedule"
         options={{
           title: 'Schedule',
-          tabBarIcon: ({ color, size }) => <AntDesign name="schedule" color={color} size={size} />,
+          tabBarShowLabel: false,
+          tabBarIcon: ({ focused, color, size }) =>
+            <TabIcon
+              focused={focused}
+              color={color}
+              icon={<AntDesign name="schedule" color={color} size={size} />}
+              title="Schedule"
+            />,
           // Keep schedule reachable from the Classes screen CTA instead of overcrowding bottom navigation.
           href: null,
           headerShown: false
@@ -160,7 +266,14 @@ export default function TabLayout() {
         name="(teacher)/students"
         options={{
           title: 'Students',
-          tabBarIcon: ({ color, size }) => <Ionicons name="people" color={color} size={size} />,
+          tabBarShowLabel: false,
+          tabBarIcon: ({ focused, color, size }) =>
+            <TabIcon
+              focused={focused}
+              color={color}
+              icon={<Ionicons name="people" color={color} size={size} />}
+              title="Students"
+            />,
           href: showInstructorTabs ? '/(tabs)/(teacher)/students' : null,
           headerShown: false
         }}
@@ -170,7 +283,14 @@ export default function TabLayout() {
         name="(teacher)/stats"
         options={{
           title: 'Stats',
-          tabBarIcon: ({ color, size }) => <Octicons name="graph" color={color} size={size} />,
+          tabBarShowLabel: false,
+          tabBarIcon: ({ focused, color, size }) =>
+            <TabIcon
+              focused={focused}
+              color={color}
+              icon={<Entypo name="area-graph" color={color} size={size} />}
+              title="Stats"
+            />,
           href: showInstructorTabs ? '/(tabs)/(teacher)/stats' : null,
           headerShown: false
         }}
@@ -179,7 +299,8 @@ export default function TabLayout() {
         name="session"
         options={{
           href: null,
-          headerShown: false
+          headerShown: false,
+          tabBarShowLabel: false,
         }}
       />
 
@@ -188,7 +309,14 @@ export default function TabLayout() {
         name="video-ui-test"
         options={{
           title: 'UI Test',
-          tabBarIcon: ({ color, size }) => <Ionicons name="flask-outline" color={color} size={size} />,
+          tabBarShowLabel: false,
+          tabBarIcon: ({ focused, color, size }) =>
+            <TabIcon
+              focused={focused}
+              color={color}
+              icon={<Ionicons name="flask-outline" color={color} size={size} />} 
+              title="UI Test"
+            />,
           href: null,
           headerShown: false
         }}
@@ -197,7 +325,14 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size }) => <Octicons name="person" color={color} size={size} />,
+          tabBarShowLabel: false,
+          tabBarIcon: ({ focused, color, size }) => 
+            <TabIcon
+              focused={focused}
+              color={color}
+              icon={<Ionicons name="person-outline" color={color} size={size} />}
+              title="Profile"
+            />,
           headerShown: false
         }}
       />
@@ -206,7 +341,8 @@ export default function TabLayout() {
         options={{
           title: 'Achievements',
           href: null,
-          headerShown: false
+          headerShown: false,
+          tabBarShowLabel: false,
         }}
       />
     </Tabs>
