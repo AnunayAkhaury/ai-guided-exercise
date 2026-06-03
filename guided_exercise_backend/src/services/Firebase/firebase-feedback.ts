@@ -1,3 +1,4 @@
+import { eventBus } from '../event-bus.js';
 import { db } from './firebase-service.js';
 
 export async function addExerciseTimestamp(sessionId: string, exercise: string, starttime: string, endtime: string) {
@@ -102,6 +103,11 @@ export async function addFeedback(
     });
 
     await db.collection('clips').doc(String(clipId)).update({ feedbackRef: feedback.id });
+
+    const event: Record<string, string | number> = { uid: userId };
+    event[exercise] = processedFeedback?.score ?? 0;
+
+    eventBus.emit('FEEDBACK_SAVED', event);
 
     return feedback.id;
   } catch (error) {

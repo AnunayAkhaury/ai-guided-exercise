@@ -41,7 +41,19 @@ export const allAchievements : Record<string, AchievementGroup> = {
         achievements: [
             {
                 id: "100_PUSHUP_SCORE",
-                check: (stats: any) => stats.pushupScore >= 100,
+                check: (stats: any) => stats.pushup >= 100,
+            },
+            {
+                id: "300_LUNGE_SCORE",
+                check: (stats: any) => stats.lunge >= 300,
+            },
+            {
+                id: "1000_PUSHUP_SCORE",
+                check: (stats: any) => stats.pushup >= 1000,
+            },
+            {
+                id: "1000_SQUAT_SCORE",
+                check: (stats: any) => stats.squat >= 1000,
             },
         ]
     },

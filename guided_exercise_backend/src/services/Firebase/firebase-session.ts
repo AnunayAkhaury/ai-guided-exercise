@@ -1,3 +1,4 @@
+import { eventBus } from '../event-bus.js';
 import { db } from './firebase-service.js';
 
 export type SessionStatus = 'scheduled' | 'live' | 'ended';
@@ -540,6 +541,10 @@ export async function markSessionParticipantLeft(
 
   const data = existing.data();
   const joinedAt = data?.joinedAt?.toDate ? data.joinedAt.toDate() : data?.joinedAt ?? now;
+
+  if (!data?.leftAt && data?.userId) {
+    eventBus.emit('WORKOUT_COMPLETED', { uid: data.userId });
+  }
 
   await participantRef.set(
     {
