@@ -179,7 +179,7 @@ export default function SharedSessionScreen() {
 
   const callView = (
     <IvsCall
-      sessionId={sessionId!}
+      sessionId={normalizedSessionId!}
       token={normalizedToken}
       publishOnJoin
       onLeave={async () => {

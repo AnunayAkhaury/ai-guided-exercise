@@ -622,6 +622,8 @@ export default function IvsCallWeb({
     totalStudentTiles > 1 ? `repeat(auto-fit, minmax(${REMOTE_TILE_MIN_WIDTH}px, 1fr))` : 'minmax(0, 720px)';
 
   const handleJoin = async () => {
+    setIsLeaving(false);
+
     if (!activeToken) {
       const message = 'No token provided.';
       setError(message);
@@ -949,6 +951,11 @@ export default function IvsCallWeb({
       if (onLeave) {
         await Promise.resolve(onLeave());
       }
+
+      setIsLeaving(false);
+      setIsJoining(false);
+      setIsInStage(false);
+      setStatus('');
     } catch (leaveError: any) {
       setError(leaveError?.message || 'Failed to leave the session.');
       setIsLeaving(false);
