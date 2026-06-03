@@ -8,6 +8,7 @@ import { getFeedbackFromUserId, type Feedback } from '@/src/api/Firebase/firebas
 import { useUserStore } from '@/src/store/userStore';
 import { EXERCISE_TITLE_MAP } from '@/src/constants/exerciseMap';
 import * as Haptics from 'expo-haptics';
+import { getMonthlySummary, MonthlySummaryResponse } from '@/src/api/monthly-summary';
 
 type GraphPoint = {
   value: number;
@@ -42,6 +43,9 @@ export default function Stats() {
 
   const [selectedPoint, setSelectedPoint] = useState<GraphPoint | null>(null);
   const [lastHaptickedPointId, setLastHaptickedPointId] = useState<string | null>(null);
+
+  const [monthlySummary, setMonthlySummary] = useState<MonthlySummaryResponse | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const uid = useUserStore((state) => state.uid);
 
@@ -96,10 +100,21 @@ export default function Stats() {
       setLoading(true);
       setError(null);
 
-      const res = await getFeedbackFromUserId(uid);
-      const validArray = res || [];
+      const [feedbackRes, summaryRes] = await Promise.all([
+        getFeedbackFromUserId(uid),
+        (async () => {
+          setSummaryLoading(true);
+          try {
+            return await getMonthlySummary(uid);
+          } finally {
+            setSummaryLoading(false);
+          }
+        })()
+      ]);
 
+      const validArray = feedbackRes || [];
       setFeedbacks(validArray);
+      setMonthlySummary(summaryRes);
 
       if (validArray.length > 0 && validArray[0]?.exercise) {
         setSelectedExercise(validArray[0].exercise);
@@ -192,182 +207,194 @@ export default function Stats() {
     }
   };
 
-  const avgPoint = useMemo(() => {
-    if (points.length === 0) return null;
+  const { avgPoint } = useMemo(() => {
+    if (points.length === 0) {
+      return { avgPoint: null };
+    }
+
+    let min = points[0];
+    let max = points[0];
 
     let sum = 0;
+
     let minTime = points[0].date.getTime();
     let maxTime = points[0].date.getTime();
 
     for (const p of points) {
-      sum += p.value; // Tracks the total score for the average calculation
+      sum += p.value;
 
       const t = p.date.getTime();
       if (t < minTime) minTime = t;
       if (t > maxTime) maxTime = t;
+
+      if (p.value < min.value) min = p;
+      if (p.value > max.value) max = p;
     }
 
-    const firstDate = new Date(minTime);
-    const lastDate = new Date(maxTime);
-    const sameDay = firstDate.toDateString() === lastDate.toDateString();
-
-    let dateRange = '';
-
-    if (minTime === maxTime) {
-      // 1. Single session or identical timestamps
-      dateRange = formatDate(minTime);
-    } else if (sameDay) {
-      // 2. Multiple sessions on the exact same day
-      dateRange = `${firstDate.toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric'
-      })} (${firstDate.toLocaleTimeString(undefined, {
-        hour: '2-digit',
-        minute: '2-digit'
-      })} – ${lastDate.toLocaleTimeString(undefined, {
-        hour: '2-digit',
-        minute: '2-digit'
-      })})`;
-    } else {
-      // 3. Sessions spanning across different days
-      dateRange = `${formatDate(minTime)} – ${formatDate(maxTime)}`;
-    }
+    const sameDay = new Date(minTime).toDateString() === new Date(maxTime).toDateString();
 
     return {
-      value: sum / points.length,
-      dateRange
+      avgPoint: {
+        value: sum / points.length,
+        dateRange: sameDay ? formatDate(minTime) : `${formatDate(minTime)} – ${formatDate(maxTime)}`
+      }
     };
   }, [points]);
 
   return (
-    <ScrollView
-      className="flex-1 bg-[#FAF8FF]"
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}>
-      <Header title="Stats" />
+    <ScrollView contentContainerStyle={{ flexGrow: 1 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}>
+      <View className="flex-1 bg-[#FAF8FF]">
+        <Header title="Stats" />
 
-      <View className="px-5 pt-5">
-        {!loading && exerciseTypes.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-6">
-            {exerciseTypes.map((type) => (
-              <TouchableOpacity
-                key={type}
-                onPress={() => setSelectedExercise(type)}
-                className={`mr-2 px-5 py-2 rounded-full border ${
-                  selectedExercise === type ? 'bg-[#5B4BFF] border-[#5B4BFF]' : 'bg-white border-[#E3DAFF]'
-                }`}>
-                <Typography
-                  className={selectedExercise === type ? 'text-white' : 'text-[#6B6490]'}
-                  font={selectedExercise === type ? 'inter-semibold' : 'inter-medium'}>
-                  {EXERCISE_TITLE_MAP[type] ?? type}
-                </Typography>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
+        <View className="px-5 pt-5">
+          {!loading && exerciseTypes.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-6">
+              {exerciseTypes.map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  onPress={() => setSelectedExercise(type)}
+                  className={`mr-2 px-5 py-2 rounded-full border ${
+                    selectedExercise === type ? 'bg-[#5B4BFF] border-[#5B4BFF]' : 'bg-white border-[#E3DAFF]'
+                  }`}>
+                  <Typography
+                    className={selectedExercise === type ? 'text-white' : 'text-[#6B6490]'}
+                    font={selectedExercise === type ? 'inter-semibold' : 'inter-medium'}>
+                    {EXERCISE_TITLE_MAP[type] ?? type}
+                  </Typography>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
 
-        <View className="mb-4 min-h-[54px] justify-center">
-          {selectedPoint || !points.length ? (
-            selectedPoint ? (
+          <View className="mb-4 min-h-[54px] justify-center">
+            {selectedPoint || !points.length ? (
+              selectedPoint ? (
+                <View>
+                  <Typography font="inter-bold" className="text-[#5B4BFF] text-xl">
+                    Score: {selectedPoint.value}
+                  </Typography>
+
+                  <Typography font="inter-medium" className="text-[#8A82B6] text-xs mt-0.5">
+                    {formatDate(selectedPoint.date)}
+                  </Typography>
+                </View>
+              ) : null
+            ) : avgPoint ? (
               <View>
                 <Typography font="inter-bold" className="text-[#5B4BFF] text-xl">
-                  Score: {selectedPoint.value}
+                  Avg Score: {avgPoint.value.toFixed(1)}
                 </Typography>
 
                 <Typography font="inter-medium" className="text-[#8A82B6] text-xs mt-0.5">
-                  {formatDate(selectedPoint.date)}
+                  {avgPoint.dateRange}
+                </Typography>
+
+                <Typography font="inter-medium" className="text-[#8A82B6] text-xs mt-4">
+                  Swipe across the graph to see each point
                 </Typography>
               </View>
-            ) : null
-          ) : avgPoint ? (
-            <View>
-              <Typography font="inter-bold" className="text-[#5B4BFF] text-xl">
-                Avg Score: {avgPoint.value.toFixed(1)}
-              </Typography>
+            ) : null}
+          </View>
 
-              <Typography font="inter-medium" className="text-[#8A82B6] text-xs mt-0.5">
-                {avgPoint.dateRange}
-              </Typography>
+          <View className="rounded-2xl border border-[#E3DAFF] bg-[#F6F3FF] p-4 shadow-sm overflow-hidden">
+            {loading ? (
+              <View className="items-center py-10">
+                <ActivityIndicator color="#5B4BFF" />
+                <Typography className="text-[#6B6490] mt-3">Loading stats...</Typography>
+              </View>
+            ) : error ? (
+              <View className="items-center py-8">
+                <Typography font="inter-semibold" className="text-[#5B4BFF]">
+                  Error
+                </Typography>
+                <Typography className="text-[#6B6490] text-center">{error}</Typography>
+              </View>
+            ) : points.length < 2 ? (
+              <View className="items-center py-8">
+                <Typography font="inter-semibold" className="text-[#5B4BFF]">
+                  {points.length === 0 ? 'No data yet' : 'Keep going!'}
+                </Typography>
 
-              <Typography font="inter-medium" className="text-[#8A82B6] text-xs mt-4">
-                Swipe across the graph to see each point
-              </Typography>
-            </View>
-          ) : null}
-        </View>
+                <Typography className="text-[#6B6490] mt-2 text-center px-4">
+                  {points.length === 0
+                    ? `You haven't recorded any ${
+                        selectedExercise ? (EXERCISE_TITLE_MAP[selectedExercise] ?? selectedExercise) : 'sessions'
+                      } in this timeframe.`
+                    : `Record one more ${
+                        selectedExercise ? (EXERCISE_TITLE_MAP[selectedExercise] ?? selectedExercise) : 'session'
+                      } to see your trend.`}
+                </Typography>
+              </View>
+            ) : (
+              <View style={{ width: '100%', height: 220 }}>
+                <ReanimatedGraph
+                  type="line"
+                  showExtremeValues={false}
+                  xAxis={xAxisData}
+                  yAxis={yAxisData}
+                  color="#5B4BFF"
+                  graphStyle={{ width: '100%', height: '100%' }}
+                  onGestureStart={handleGestureStart}
+                  onGestureEnd={resetSelectedPoint}
+                  onGestureUpdate={(x, y, index) => {
+                    const originalPoint = points[index];
+                    if (originalPoint) {
+                      updateSelectedPoint(originalPoint);
+                    }
+                  }}
+                />
+              </View>
+            )}
+          </View>
 
-        <View className="rounded-2xl border border-[#E3DAFF] bg-[#F6F3FF] p-4 shadow-sm overflow-hidden">
-          {loading ? (
-            <View className="items-center py-10">
-              <ActivityIndicator color="#5B4BFF" />
-              <Typography className="text-[#6B6490] mt-3">Loading stats...</Typography>
-            </View>
-          ) : error ? (
-            <View className="items-center py-8">
-              <Typography font="inter-semibold" className="text-[#5B4BFF]">
-                Error
-              </Typography>
-              <Typography className="text-[#6B6490] text-center">{error}</Typography>
-            </View>
-          ) : points.length < 2 ? (
-            <View className="items-center py-8">
-              <Typography font="inter-semibold" className="text-[#5B4BFF]">
-                {points.length === 0 ? 'No data yet' : 'Keep going!'}
-              </Typography>
+          {!loading && (
+            <View className="flex-row justify-between items-center mt-5 bg-[#F0ECFF] p-1.5 rounded-xl border border-[#E3DAFF]">
+              {(['6h', '1d', '1w', '1m', 'all'] as Timeframe[]).map((timeframe) => {
+                const isActive = selectedTimeframe === timeframe;
 
-              <Typography className="text-[#6B6490] mt-2 text-center px-4">
-                {points.length === 0
-                  ? `You haven't recorded any ${
-                      selectedExercise ? (EXERCISE_TITLE_MAP[selectedExercise] ?? selectedExercise) : 'sessions'
-                    } in this timeframe.`
-                  : `Record one more ${
-                      selectedExercise ? (EXERCISE_TITLE_MAP[selectedExercise] ?? selectedExercise) : 'session'
-                    } to see your trend.`}
-              </Typography>
+                return (
+                  <TouchableOpacity
+                    key={timeframe}
+                    className="flex-1 items-center py-1.5"
+                    onPress={() => setSelectedTimeframe(timeframe)}>
+                    <Typography
+                      font={isActive ? 'inter-semibold' : 'inter-medium'}
+                      className={isActive ? 'text-[#5B4BFF]' : 'text-[#8A82B6]'}>
+                      {TIMEFRAME_LABELS[timeframe]}
+                    </Typography>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          ) : (
-            <View
-              key={`${selectedExercise}-${selectedTimeframe}-${points.length}-${xAxisData.join(',')}`}
-              style={{ width: '100%', height: 220 }}>
-              <ReanimatedGraph
-                type="line"
-                showExtremeValues={false}
-                xAxis={xAxisData}
-                yAxis={yAxisData}
-                color="#5B4BFF"
-                graphStyle={{ width: '100%', height: '100%' }}
-                onGestureStart={handleGestureStart}
-                onGestureEnd={resetSelectedPoint}
-                onGestureUpdate={(x, y, index) => {
-                  const originalPoint = points[index];
-                  if (originalPoint) {
-                    updateSelectedPoint(originalPoint);
-                  }
-                }}
-              />
+          )}
+
+          {(summaryLoading || (monthlySummary && monthlySummary.summary)) && (
+            <View className="mt-5 rounded-2xl border border-[#E3DAFF] bg-[#F6F3FF] p-4">
+              {summaryLoading ? (
+                <View className="items-center py-4">
+                  <ActivityIndicator color="#5B4BFF" />
+                </View>
+              ) : monthlySummary?.summary ? (
+                <>
+                  <View className="flex-row justify-between items-center mb-3">
+                    <Typography font="inter-semibold" className="text-[#5B4BFF]">
+                      Monthly Recap
+                    </Typography>
+                    <Typography font="inter-medium" className="text-[#8A82B6] text-xs">
+                      {new Date(monthlySummary.month + '-01').toLocaleString('en-US', {
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </Typography>
+                  </View>
+                  <Typography font="inter-medium" className="text-[#3D3560] leading-5">
+                    {monthlySummary.summary}
+                  </Typography>
+                </>
+              ) : null}
             </View>
           )}
         </View>
-
-        {!loading && (
-          <View className="flex-row justify-between items-center mt-5 bg-[#F0ECFF] p-1.5 rounded-xl border border-[#E3DAFF]">
-            {(['6h', '1d', '1w', '1m', 'all'] as Timeframe[]).map((timeframe) => {
-              const isActive = selectedTimeframe === timeframe;
-
-              return (
-                <TouchableOpacity
-                  key={timeframe}
-                  className="flex-1 items-center py-1.5"
-                  onPress={() => setSelectedTimeframe(timeframe)}>
-                  <Typography
-                    font={isActive ? 'inter-semibold' : 'inter-medium'}
-                    className={isActive ? 'text-[#5B4BFF]' : 'text-[#8A82B6]'}>
-                    {TIMEFRAME_LABELS[timeframe]}
-                  </Typography>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
       </View>
     </ScrollView>
   );

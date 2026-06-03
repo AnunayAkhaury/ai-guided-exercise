@@ -8,6 +8,7 @@ import { getFeedbackFromUserId, type Feedback } from '@/src/api/Firebase/firebas
 import { useUserStore } from '@/src/store/userStore';
 import { EXERCISE_TITLE_MAP } from '@/src/constants/exerciseMap';
 import * as Haptics from 'expo-haptics';
+import { getMonthlySummary, MonthlySummaryResponse } from '@/src/api/monthly-summary';
 
 type GraphPoint = {
   value: number;
@@ -42,6 +43,9 @@ export default function Stats() {
 
   const [selectedPoint, setSelectedPoint] = useState<GraphPoint | null>(null);
   const [lastHaptickedPointId, setLastHaptickedPointId] = useState<string | null>(null);
+
+  const [monthlySummary, setMonthlySummary] = useState<MonthlySummaryResponse | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const uid = useUserStore((state) => state.uid);
 
@@ -96,10 +100,21 @@ export default function Stats() {
       setLoading(true);
       setError(null);
 
-      const res = await getFeedbackFromUserId(uid);
-      const validArray = res || [];
+      const [feedbackRes, summaryRes] = await Promise.all([
+        getFeedbackFromUserId(uid),
+        (async () => {
+          setSummaryLoading(true);
+          try {
+            return await getMonthlySummary(uid);
+          } finally {
+            setSummaryLoading(false);
+          }
+        })()
+      ]);
 
+      const validArray = feedbackRes || [];
       setFeedbacks(validArray);
+      setMonthlySummary(summaryRes);
 
       if (validArray.length > 0 && validArray[0]?.exercise) {
         setSelectedExercise(validArray[0].exercise);
@@ -227,7 +242,7 @@ export default function Stats() {
   }, [points]);
 
   return (
-    <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}>
+    <ScrollView contentContainerStyle={{ flexGrow: 1 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}>
       <View className="flex-1 bg-[#FAF8FF]">
         <Header title="Stats" />
 
@@ -350,6 +365,33 @@ export default function Stats() {
                   </TouchableOpacity>
                 );
               })}
+            </View>
+          )}
+
+          {(summaryLoading || (monthlySummary && monthlySummary.summary)) && (
+            <View className="mt-5 rounded-2xl border border-[#E3DAFF] bg-[#F6F3FF] p-4">
+              {summaryLoading ? (
+                <View className="items-center py-4">
+                  <ActivityIndicator color="#5B4BFF" />
+                </View>
+              ) : monthlySummary?.summary ? (
+                <>
+                  <View className="flex-row justify-between items-center mb-3">
+                    <Typography font="inter-semibold" className="text-[#5B4BFF]">
+                      Monthly Recap
+                    </Typography>
+                    <Typography font="inter-medium" className="text-[#8A82B6] text-xs">
+                      {new Date(monthlySummary.month + '-01').toLocaleString('en-US', {
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </Typography>
+                  </View>
+                  <Typography font="inter-medium" className="text-[#3D3560] leading-5">
+                    {monthlySummary.summary}
+                  </Typography>
+                </>
+              ) : null}
             </View>
           )}
         </View>

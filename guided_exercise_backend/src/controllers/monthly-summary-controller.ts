@@ -12,10 +12,10 @@ export async function getMonthlySummaryController(req: Request, res: Response) {
     }
 
     const now = new Date();
-    // Default to one month from today
-    const targetDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    // Default to this month
+    const targetDate = new Date(now.getFullYear(), now.getMonth(), 1);
     const year = req.query.year ? parseInt(req.query.year as string, 10) : targetDate.getFullYear();
-    const month = req.query.month ? parseInt(req.query.month as string, 10) : targetDate.getMonth() + 1;
+    const month = req.query.month ? parseInt(req.query.month as string, 10) : targetDate.getMonth();
     const dayNum = req.query.month ? 1 : targetDate.getDate();
 
     if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
@@ -24,7 +24,7 @@ export async function getMonthlySummaryController(req: Request, res: Response) {
 
     const monthLabel = `${year}-${String(month).padStart(2, '0')}`;
     const monthStart = new Date(year, month, dayNum).getTime();
-    const monthEnd = new Date(year, month+1, dayNum).getTime() - 1;
+    const monthEnd = new Date(year, month+1, dayNum).getTime();
 
     // Check cache first
     const cached = await getCachedSummary(userId, monthLabel);
@@ -76,7 +76,7 @@ export async function getMonthlySummaryController(req: Request, res: Response) {
 
     const sessionSummaries = monthFeedbacks.map((f) => f.summary).filter(Boolean);
 
-    const displayMonth = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    const displayMonth = new Date(year, month, dayNum).toLocaleString('en-US', { month: 'long', year: 'numeric' });
     const summary = await generateMonthlySummary(
       sessionCount,
       exercises,
