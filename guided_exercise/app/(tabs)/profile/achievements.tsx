@@ -10,7 +10,7 @@ export default function AchievementsPage() {
     const router = useRouter();
 
     return (
-    <View className="bg-white flex-1">
+    <View className="bg-[#F5F2FF] flex-1">
       <Header title="Achievements" showBack={true} onBack={() => router.replace("/(tabs)/profile")} />
       <ScrollView
         contentContainerStyle={{ flexGrow: 1 }}

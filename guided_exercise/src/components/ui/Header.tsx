@@ -1,4 +1,4 @@
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Image, Platform, Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import Typography from "./Typography";
 
@@ -26,6 +26,10 @@ export default function Header({ title, showBack = false, onBack, backFallback }
             router.replace(backFallback);
         }
     };
+
+    if (Platform.OS === 'web' && !showBack) {
+        return null;
+    }
 
     return (
         <View className="w-full pt-8 pb-3 flex items-center" style={styles.header}>

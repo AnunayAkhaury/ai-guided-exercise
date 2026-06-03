@@ -143,7 +143,7 @@ export default function ExerciseClipBrowser({
   }, [selectedSessionKey, sessionGroups]);
 
   return (
-    <View className="flex-1 bg-white">
+    <View className="flex-1 bg-[#FAF8FF]">
       <Header title={selectedSession ? selectedSession.title : 'Exercise Clips'} />
 
       <ScrollView
