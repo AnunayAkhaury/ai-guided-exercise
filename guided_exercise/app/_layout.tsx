@@ -29,7 +29,9 @@ export function SplashScreen() {
         style={{
           fontSize: 32,
           fontWeight: '700',
-          marginBottom: 16
+          marginBottom: 16,
+          textAlign: 'center',
+          paddingHorizontal: 24
         }}>
         Move Together, Heal Together
       </Text>
