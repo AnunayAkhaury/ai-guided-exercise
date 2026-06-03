@@ -2,14 +2,16 @@ import AchievementCard from "@/src/components/profile/AchievementCard";
 import Header from "@/src/components/ui/Header";
 import Typography from "@/src/components/ui/Typography";
 import useUserAchievements from "@/src/hooks/useUserAchievements";
+import { useRouter } from "expo-router";
 import { FlatList, ScrollView, View } from "react-native";
 
 export default function AchievementsPage() {
     const { data } = useUserAchievements();
+    const router = useRouter();
 
     return (
     <View className="bg-white flex-1">
-      <Header title="Achievements" />
+      <Header title="Achievements" showBack={true} onBack={() => router.replace("/(tabs)/profile")} />
       <ScrollView
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}

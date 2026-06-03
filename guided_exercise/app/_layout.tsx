@@ -14,6 +14,7 @@ import { PushNotificationProvider } from '@/src/components/notifications/PushNot
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { AuthProvider } from '@/src/components/auth-provider';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function RootLayout() {
   const [interLoaded, interError] = useFontsInter({
@@ -38,7 +39,9 @@ export default function RootLayout() {
         <BottomSheetModalProvider>
           <ToastProvider>
             <PushNotificationProvider>
+              <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
               <Stack screenOptions={{ headerShown: false }} />
+              </SafeAreaView>
             </PushNotificationProvider>
           </ToastProvider>
         </BottomSheetModalProvider>
