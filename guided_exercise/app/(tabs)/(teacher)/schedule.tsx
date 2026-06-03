@@ -27,6 +27,10 @@ function withRoundedHour(date: Date) {
   return next;
 }
 
+function isPastScheduleTime(date: Date) {
+  return date.getTime() <= Date.now();
+}
+
 export default function ScheduleScreen() {
   const router = useRouter();
   const { showToast } = useToast();
@@ -89,6 +93,15 @@ export default function ScheduleScreen() {
     setIsDatePickerVisible(false);
     const next = new Date(startAt);
     next.setFullYear(pickedDate.getFullYear(), pickedDate.getMonth(), pickedDate.getDate());
+    if (isPastScheduleTime(next)) {
+      setStartAt(withRoundedHour(new Date()));
+      showToast({
+        title: 'Pick a future time',
+        message: 'Scheduled classes must start in the future.',
+        variant: 'error'
+      });
+      return;
+    }
     setStartAt(next);
   };
 
@@ -96,6 +109,15 @@ export default function ScheduleScreen() {
     setIsTimePickerVisible(false);
     const next = new Date(startAt);
     next.setHours(pickedTime.getHours(), pickedTime.getMinutes(), 0, 0);
+    if (isPastScheduleTime(next)) {
+      setStartAt(withRoundedHour(new Date()));
+      showToast({
+        title: 'Pick a future time',
+        message: 'Scheduled classes must start in the future.',
+        variant: 'error'
+      });
+      return;
+    }
     setStartAt(next);
   };
 
@@ -108,6 +130,15 @@ export default function ScheduleScreen() {
     const parsedDuration = Number(durationMinutes);
     if (!Number.isInteger(parsedDuration) || parsedDuration < 15 || parsedDuration > 240) {
       showToast({ title: 'Invalid duration', message: 'Duration must be between 15 and 240 minutes.', variant: 'error' });
+      return;
+    }
+    if (isPastScheduleTime(startAt)) {
+      setStartAt(withRoundedHour(new Date()));
+      showToast({
+        title: 'Pick a future time',
+        message: 'Scheduled classes must start in the future.',
+        variant: 'error'
+      });
       return;
     }
     if (isSubmitting) return;
