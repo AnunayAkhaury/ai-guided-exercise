@@ -22,7 +22,7 @@ export async function getMonthlySummaryController(req: Request, res: Response) {
       return sendErrorResponse(req, res, 400, 'Invalid year or month.');
     }
 
-    const monthLabel = `${year}-${String(month).padStart(2, '0')}`;
+    const monthLabel = `${year}-${String(month + 1).padStart(2, '0')}`; // month returned from getMonth() is 0-indexed
     const monthStart = new Date(year, month, dayNum).getTime();
     const monthEnd = new Date(year, month+1, dayNum).getTime();
 
