@@ -39,7 +39,7 @@ export default function Login() {
     try {
       setIsSubmitting(true);
       await login(trimmedEmail, password);
-      router.replace('/');
+      router.replace(Platform.OS === 'web' ? '/auth-redirect' : '/');
     } catch (error: any) {
       showToast({
         title: 'Login failed',
