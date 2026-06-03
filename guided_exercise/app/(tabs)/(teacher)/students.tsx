@@ -91,7 +91,7 @@ export default function Students() {
   }, [searchQuery, sortAscending, students]);
 
   return (
-    <View className="flex-1 bg-white">
+    <View className="flex-1 bg-[#FAF8FF]">
       <Header title="Students" />
 
       <ScrollView

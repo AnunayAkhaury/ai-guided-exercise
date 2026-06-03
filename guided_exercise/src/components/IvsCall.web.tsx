@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import type { IvsCallProps } from './IvsCall.types';
 import { type ExerciseType } from '@/src/components/session/exercise-sheet';
 import { addExerciseTimestamp, ExerciseTimestamp } from '../api/Firebase/firebase-feedback';
@@ -475,6 +476,10 @@ export default function IvsCallWeb({
   localParticipantRole,
   sessionId
 }: IvsCallProps) {
+  const router = useRouter();
+  const classesRoute = localParticipantRole === 'instructor'
+    ? '/(tabs)/(teacher)/classes'
+    : '/(tabs)/(student)/classes';
   const [sdkReady, setSdkReady] = useState(false);
   const [isInStage, setIsInStage] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -982,6 +987,11 @@ export default function IvsCallWeb({
   if (!isInStage) {
     return (
       <div style={shellStyle}>
+        <button
+          onClick={() => router.canGoBack() ? router.back() : router.replace(classesRoute)}
+          style={backButtonStyle}>
+          ← Back to Classes
+        </button>
         <div style={joinCardStyle}>
           <div style={joinEyebrowStyle}>Live Class</div>
           <h1 style={joinTitleStyle}>Welcome to Class</h1>
@@ -1457,6 +1467,18 @@ function teardownStageRuntime({
     setError('');
   }
 }
+
+const backButtonStyle: CSSProperties = {
+  alignSelf: 'flex-start',
+  background: '#F0ECFF',
+  border: 'none',
+  borderRadius: 999,
+  color: '#6155F5',
+  cursor: 'pointer',
+  fontWeight: 600,
+  fontSize: 14,
+  padding: '6px 14px',
+};
 
 const shellStyle: CSSProperties = {
   minHeight: '100vh',

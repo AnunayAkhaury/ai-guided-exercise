@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 
 import HomeImage from '@/src/assets/images/home.svg'; 
+import WebLayout from '@/src/components/ui/WebLayout';
 
 function TabIcon({
   icon,
@@ -97,6 +98,9 @@ export default function TabLayout() {
   const recordingsTitle = isCompactPhone ? 'Videos' : 'Recordings';
   const startMeetingTitle = isCompactPhone ? 'Start' : 'Start';
 
+  if (isWeb) {
+    return <WebLayout showInstructorTabs={showInstructorTabs} />
+  }
   return (
     <Tabs
       screenListeners={{
@@ -238,7 +242,7 @@ export default function TabLayout() {
             <TabIcon
               focused={focused}
               color={color}
-              icon={<MaterialIcons name="screenshot-monitor" color={color} size={size} />}
+              icon={<Ionicons name="add-circle-outline" color={color} size={size} />}
               title={startMeetingTitle}
             />,
           href: showInstructorTabs ? '/(tabs)/(teacher)/start-meeting' : null,

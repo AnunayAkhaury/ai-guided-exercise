@@ -22,6 +22,7 @@ import BottomSheetModal from '@gorhom/bottom-sheet/lib/typescript/components/bot
 import { addExerciseTimestamp, ExerciseTimestamp } from '../api/Firebase/firebase-feedback';
 import type { IvsCallProps } from './IvsCall.types';
 import { EXERCISE_TITLE_MAP } from '@/src/constants/exerciseMap';
+import Header from '@/src/components/ui/Header';
 
 type RemoteParticipantInfo = {
   participantId: string;
@@ -108,6 +109,9 @@ export default function IvsCall({
   const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isSmallPhone = width < 380 || height < 760;
+  const classesRoute = localParticipantRole === 'instructor'
+    ? '/(tabs)/(teacher)/classes' as const
+    : '/(tabs)/(student)/classes' as const;
   const compactControls = isSmallPhone || fontScale > 1.15;
   const localVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.5625)));
   const remoteVideoHeight = Math.max(190, Math.min(260, Math.round(width * 0.5625)));
@@ -397,20 +401,23 @@ export default function IvsCall({
 
   if (!isInStage) {
     return (
-      <View style={[styles.preJoinContainer, isSmallPhone && styles.preJoinContainerCompact]}>
-        <View style={styles.joinCard}>
-          <Text style={styles.joinTitle}>Welcome to Class</Text>
-          <Text style={styles.joinSubtitle}>Join when you are ready.</Text>
-          {!!status && <Text style={styles.status}>{status}</Text>}
-          {!!error && <Text style={styles.error}>{error}</Text>}
-          <Pressable
-            style={[styles.primaryButton, isJoining && styles.disabledButton]}
-            onPress={join}
-            disabled={isJoining}>
-            <Text style={styles.primaryButtonText}>{isJoining ? 'Joining...' : 'Join Session'}</Text>
-          </Pressable>
+      <>
+        <Header title="Join Class" showBack backFallback={classesRoute} />
+        <View style={[styles.preJoinContainer, isSmallPhone && styles.preJoinContainerCompact]}>
+          <View style={styles.joinCard}>
+            <Text style={styles.joinTitle}>Welcome to Class</Text>
+            <Text style={styles.joinSubtitle}>Join when you are ready.</Text>
+            {!!status && <Text style={styles.status}>{status}</Text>}
+            {!!error && <Text style={styles.error}>{error}</Text>}
+            <Pressable
+              style={[styles.primaryButton, isJoining && styles.disabledButton]}
+              onPress={join}
+              disabled={isJoining}>
+              <Text style={styles.primaryButtonText}>{isJoining ? 'Joining...' : 'Join Session'}</Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
+      </>
     );
   }
 

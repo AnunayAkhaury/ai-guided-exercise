@@ -163,13 +163,6 @@ export default function StartMeeting() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
     >
-      <Pressable
-        style={[styles.backButton, { top: insets.top + 10, left: isSmallPhone ? 14 : 20 }]}
-        onPress={() => router.replace('/(tabs)/(teacher)/classes')}
-      >
-        <Text style={styles.backText}>Back</Text>
-      </Pressable>
-
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingHorizontal: isSmallPhone ? 16 : 24 }]}
         keyboardShouldPersistTaps="handled"
