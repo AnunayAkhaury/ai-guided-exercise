@@ -1481,7 +1481,7 @@ const backButtonStyle: CSSProperties = {
 };
 
 const shellStyle: CSSProperties = {
-  minHeight: '100vh',
+  minHeight: '100%',
   display: 'flex',
   flexDirection: 'column',
   gap: 20,
