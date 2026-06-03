@@ -1,5 +1,5 @@
 // DELETE FILE ON PRODUCTION
-import { LineGraph } from 'react-native-graph';
+import ReanimatedGraph from '@birdwingo/react-native-reanimated-graph';
 import { View, ActivityIndicator, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import Typography from '@/src/components/ui/Typography';
 import Header from '@/src/components/ui/Header';
@@ -81,6 +81,14 @@ export default function Stats() {
     }
   }, [feedbacks, selectedExercise, selectedTimeframe]);
 
+  // Transform structured points into parallel numerical arrays required by the new library
+  const { xAxisData, yAxisData } = useMemo(() => {
+    return {
+      xAxisData: points.map((p) => p.date.getTime()),
+      yAxisData: points.map((p) => p.value)
+    };
+  }, [points]);
+
   const fetchData = useCallback(async () => {
     if (!uid) return;
 
@@ -146,7 +154,6 @@ export default function Stats() {
 
       if (lastHaptickedPointId !== pointId) {
         setLastHaptickedPointId(pointId);
-
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     } catch (e) {
@@ -185,9 +192,9 @@ export default function Stats() {
     }
   };
 
-  const { minPoint, maxPoint, avgPoint } = useMemo(() => {
+  const { avgPoint } = useMemo(() => {
     if (points.length === 0) {
-      return { minPoint: null, maxPoint: null, avgPoint: null };
+      return { avgPoint: null };
     }
 
     let min = points[0];
@@ -212,21 +219,12 @@ export default function Stats() {
     const sameDay = new Date(minTime).toDateString() === new Date(maxTime).toDateString();
 
     return {
-      minPoint: min,
-      maxPoint: max,
       avgPoint: {
         value: sum / points.length,
         dateRange: sameDay ? formatDate(minTime) : `${formatDate(minTime)} – ${formatDate(maxTime)}`
       }
     };
   }, [points]);
-
-  const AxisLabel = ({ value, date }: { value: number; date: Date }) => (
-    <View>
-      <Typography className="text-[#6B6490] text-xs">{value.toFixed(1)}</Typography>
-      <Typography className="text-[#8A82B6] text-[10px]">{formatDate(date)}</Typography>
-    </View>
-  );
 
   return (
     <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}>
@@ -287,7 +285,6 @@ export default function Stats() {
             {loading ? (
               <View className="items-center py-10">
                 <ActivityIndicator color="#5B4BFF" />
-
                 <Typography className="text-[#6B6490] mt-3">Loading stats...</Typography>
               </View>
             ) : error ? (
@@ -295,7 +292,6 @@ export default function Stats() {
                 <Typography font="inter-semibold" className="text-[#5B4BFF]">
                   Error
                 </Typography>
-
                 <Typography className="text-[#6B6490] text-center">{error}</Typography>
               </View>
             ) : points.length < 2 ? (
@@ -316,19 +312,21 @@ export default function Stats() {
               </View>
             ) : (
               <View style={{ width: '100%', height: 220 }}>
-                <LineGraph
-                  points={points}
-                  animated={points.length > 1}
+                <ReanimatedGraph
+                  type="line"
+                  showExtremeValues={false}
+                  xAxis={xAxisData}
+                  yAxis={yAxisData}
                   color="#5B4BFF"
-                  enablePanGesture={points.length > 1}
-                  panGestureDelay={0}
-                  style={{ width: '100%', height: '100%' }}
+                  graphStyle={{ width: '100%', height: '100%' }}
                   onGestureStart={handleGestureStart}
-                  onPointSelected={(p) => {
-                    if (!p) return;
-                    updateSelectedPoint(p);
-                  }}
                   onGestureEnd={resetSelectedPoint}
+                  onGestureUpdate={(x, y, index) => {
+                    const originalPoint = points[index];
+                    if (originalPoint) {
+                      updateSelectedPoint(originalPoint);
+                    }
+                  }}
                 />
               </View>
             )}
