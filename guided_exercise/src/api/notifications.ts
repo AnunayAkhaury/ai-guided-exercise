@@ -10,15 +10,12 @@ function getApiBaseUrl(): string {
   return API_BASE_URL.replace(/\/+$/, '');
 }
 
-import { getAuthHeader } from './Firebase/firebase-auth';
-
 async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const endpoint = `${getApiBaseUrl()}${path}`;
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      ...(await getAuthHeader())
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify(body)
   });

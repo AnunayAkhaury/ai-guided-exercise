@@ -4,7 +4,6 @@ import { addRecording, getUserRecordings } from '@/services/Firebase/firebase-re
 import { getAchievements } from '@/services/Firebase/firebase-achievement.js';
 import { getRequestId, logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 import { createApprovalRequest, getUserVerificationStatus, setVerified } from '@/services/email-service.js';
-import { checkUidEqual } from '@/middleware/firebase-jwt-middleware.js';
 
 export function helloWorldController(req: Request, res: Response) {
   res.status(200).json({ message: 'OK', requestId: getRequestId(req), timestamp: new Date().toISOString() });
@@ -23,8 +22,6 @@ export async function createProfileController(req: Request, res: Response) {
 
 export async function getProfileController(req: Request, res: Response) {
   const { uid } = req.body;
-  checkUidEqual(uid, req.jwtUid);
-
   try {
     const user = await getProfile(uid);
     if (!user) {
@@ -50,8 +47,6 @@ export async function listProfilesController(req: Request, res: Response) {
 
 export async function updateProfileController(req: Request, res: Response) {
   const { uid, username, fullname } = req.body;
-  checkUidEqual(uid, req.jwtUid);
-
   if (!uid) {
     return sendErrorResponse(req, res, 400, 'uid is required.');
   }
@@ -94,8 +89,6 @@ export async function getUserRecordingsController(req: Request, res: Response) {
 
 export async function getUserAchievementsController(req: Request, res: Response) {
   const { uid } = req.body;
-  checkUidEqual(uid, req.jwtUid);
-
   try {
     const achievementsList = await getAchievements(uid);
     return res.status(200).json(achievementsList);
