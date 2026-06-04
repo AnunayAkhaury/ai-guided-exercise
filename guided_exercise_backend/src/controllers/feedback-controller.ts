@@ -7,6 +7,7 @@ import {
   getFeedbackFromUserId
 } from '@/services/Firebase/firebase-feedback.js';
 import { logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
+import { checkUidEqual } from '@/middleware/firebase-jwt-middleware.js';
 
 export async function addExerciseTimestampController(req: Request, res: Response) {
   const { sessionId, exercise, starttime, endtime } = req.body;
@@ -91,6 +92,7 @@ export async function getFeedbackFromUserIdController(req: Request, res: Respons
     if (!userId?.trim()) {
       return sendErrorResponse(req, res, 400, 'userId is required.');
     }
+    checkUidEqual(userId, req.jwtUid);
     const getFeedbackFromUserIdResult = await getFeedbackFromUserId(userId);
     return res.status(200).json(getFeedbackFromUserIdResult);
   } catch (err: any) {
