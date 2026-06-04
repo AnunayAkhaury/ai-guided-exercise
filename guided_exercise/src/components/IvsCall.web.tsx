@@ -1289,18 +1289,21 @@ export default function IvsCallWeb({
               )}
             </>
           )}
-
-          <ConfirmationModal
-            isVisible={modalOpen}
-            title="Are you sure you want to leave?"
-            message="Leaving and rejoining can disrupt the recording segmentation and feedback generation."
-            confirmText="Confirm"
-            cancelText="Cancel"
-            onConfirm={() => { setModalOpen(false); handleLeave(); }}
-            onCancel={() => setModalOpen(false)}
-          />
         </div>
       )}
+
+      <ConfirmationModal
+        isVisible={modalOpen}
+        title="Are you sure you want to leave?"
+        message="Leaving and rejoining can disrupt the recording segmentation and feedback generation."
+        confirmText="Confirm"
+        cancelText="Cancel"
+        onConfirm={() => {
+          setModalOpen(false);
+          handleLeave();
+        }}
+        onCancel={() => setModalOpen(false)}
+      />
     </div>
   );
 }
