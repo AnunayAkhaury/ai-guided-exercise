@@ -5,6 +5,7 @@ from scipy.signal import find_peaks, butter, filtfilt
 import os
 import json
 from pathlib import Path
+from scipy.ndimage import uniform_filter1d
 
 class DeepCycleCounter:
     def __init__(self, joints, fps=30):
@@ -49,7 +50,9 @@ class DeepCycleCounter:
         df = df.copy()
 
         # Keep the heavy smoothing (0.8Hz) to keep the "Big Picture" clear
-        def butter_lowpass_filter(data, cutoff=self.butterworth_freq, order=4):
+        def butter_lowpass_filter(data, cutoff=None, order=4):
+            if cutoff is None:
+                cutoff = self.butterworth_freq
             nyq = 0.5 * self.fps
             normal_cutoff = cutoff / nyq
             b, a = butter(order, normal_cutoff, btype='low', analog=False)
@@ -79,7 +82,7 @@ class DeepCycleCounter:
                 current_cutoff = 2.5  # Fast (Mountain Climbers, Jumping Jacks)
             else:
                 current_cutoff = 0.8  # Slow (Squats, Lunges, Pushups)
-                    
+            
             self.butterworth_freq = current_cutoff
             
             # 3. Apply the final filter
@@ -98,17 +101,23 @@ class DeepCycleCounter:
         return df
 
 
-    def estimate_period_autocorr(self, signal):
-        # 1. Center the signal
-        sig_centered = signal - np.mean(signal)
+    def estimate_period_autocorr(self, signal, debug=False):
+        # 1. Expand the signal so it fits its envelope; stretches "global" peaks to the same height
+        sig = signal - uniform_filter1d(signal, size=31)
+        local_std = np.sqrt(
+            uniform_filter1d(sig**2, size=31)
+        )
+
+        sig = sig / (local_std + 1e-8)
         
         # 2. Compute autocorrelation
-        corr = np.correlate(sig_centered, sig_centered, mode='full')
+        corr = np.correlate(sig, sig, mode='full')
         corr = corr[len(corr)//2:]
         
         # 3. Normalize the correlation (so the peak at lag 0 is 1.0)
         # This is critical for defining a "confidence" threshold
         if corr[0] == 0: return 0
+
         corr = corr / corr[0]
 
         # Define search bounds
@@ -129,11 +138,42 @@ class DeepCycleCounter:
             # --- CONFIDENCE THRESHOLD ---
             # 0.4 is a common threshold. If the peak is lower than this, 
             # the repetition is too weak/inconsistent to trust.
-            confidence_threshold = 0.4 
+            confidence_threshold = 0.4
             
             if peak_height < confidence_threshold:
+                print(peak_height)
                 return 0 # Low confidence
-                
+            
+            if debug:
+                fig, axes = plt.subplots(2, 1, figsize=(12, 7))
+
+                # ------------------------
+                # Raw signal
+                # ------------------------
+                axes[0].plot(signal, label="Joint angle")
+                axes[0].set_title("Raw Joint Angle Signal")
+                axes[0].set_xlabel("Frame")
+                axes[0].set_ylabel("Angle (deg)")
+                axes[0].grid(True)
+
+                # ------------------------
+                # Autocorrelation
+                # ------------------------
+                axes[1].plot(corr, label="Autocorrelation")
+
+                axes[1].axvspan(0, min_lag, color="gray", alpha=0.2,
+                                label="Ignored")
+
+                axes[1].set_xlim(0, max_lag)
+                axes[1].set_ylim(-1.05, 1.05)
+                axes[1].set_xlabel("Lag (frames)")
+                axes[1].set_ylabel("Correlation")
+                axes[1].grid(True)
+                axes[1].legend()
+
+                plt.tight_layout()
+                plt.show()
+
             return peaks[best_idx] + min_lag
             
         return 0 # No peaks found
@@ -152,7 +192,7 @@ class DeepCycleCounter:
             
             # Get period and the peak height (confidence) from instructor
             p_inst = self.estimate_period_autocorr(inst_df[joint].values)
-            p_stud = self.estimate_period_autocorr(stud_df[joint].values)
+            p_stud = self.estimate_period_autocorr(stud_df[joint].values, debug=True)
 
             if p_inst > 0 and p_stud > 0:
                 joint_candidates.append({
@@ -243,7 +283,7 @@ class DeepCycleCounter:
             plt.scatter(peaks, scores[peaks], color='red')
             plt.axhline(y=max(0.3, np.max(scores) * 0.5), color='r', linestyle='--')
             plt.title(f"Similarity Score (Template stretched to {stud_period} frames)")
-            # plt.show()
+            plt.show()
 
             inst_to_ms = lambda f: int(inst_df.loc[inst_df['frameIndex'] == f, 'timestampMs'].values[0])
 
@@ -334,9 +374,9 @@ def _fallback_detect_reps(stud_df, inst_df, counter, imp_joints, fps):
             "rep_index": i + 1,
             "student_boundary": {
                 "start_frame": s,
-                "end_frame": s + inst_period,
+                "end_frame": min(s + inst_period, int(stud_df['frameIndex'].max())),
                 "start_ms": stud_to_ms(s),
-                "end_ms": stud_to_ms(s + inst_period),
+                "end_ms": stud_to_ms(min(s + inst_period, int(stud_df['frameIndex'].max()))),
             },
             "instructor_template": {
                 "joint": anchor_joint or imp_joints[0],
@@ -414,7 +454,7 @@ def align_reps(json_dir, exercise_name):
 
     fps = counter.fps
     stud_to_ms = lambda f: int(stud_df.loc[stud_df['frameIndex'] == f, 'timestampMs'].values[0])
-
+    
     if joint_results:
         stud_period = joint_results[0]["stud_period_frames"]
         num_joints = len(joint_results)
@@ -458,7 +498,7 @@ def align_reps(json_dir, exercise_name):
 
         student_reps = []
         for i, rep in enumerate(final_reps):
-            s = rep["frame"]
+            s = rep["frame"] + start_offset
             source_joint = rep["result"]
             student_reps.append({
                 "rep_index": i + 1,
