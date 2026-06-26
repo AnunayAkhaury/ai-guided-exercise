@@ -22,7 +22,7 @@ class DeepCycleCounter:
         
         # Parse frames into a list of dicts
         for f_data in data['frames']:
-            row = {"frameIndex": f_data['frameIndex']}
+            row = {"frameIndex": f_data['frameIndex'], "timestampMs": f_data['timestampMs']}
             for joint in self.joints:
                 # Drop unusable data
                 is_usable = f_data.get("usableDict", {}).get(joint, False)
@@ -36,10 +36,11 @@ class DeepCycleCounter:
 
         df = pd.DataFrame(frames_list)
         
-        # Create a full index from 0 to totalFrames to preserve timing
-        full_idx = pd.DataFrame({"frameIndex": range(total_frames)})
-        df = pd.merge(full_idx, df, on="frameIndex", how="left")
-        df.set_index("frameIndex", inplace=True)
+        # Commented out, we can assume all frames in totalFrames exist and have been accounted for:
+        # # Create a full index from 0 to totalFrames to preserve timing
+        # full_idx = pd.DataFrame({"frameIndex": range(total_frames)})
+        # df = pd.merge(full_idx, df, on="frameIndex", how="left")
+        # df.set_index("frameIndex", inplace=True)
 
         return df
 
@@ -238,17 +239,17 @@ class DeepCycleCounter:
             plt.scatter(peaks, scores[peaks], color='red')
             plt.axhline(y=max(0.3, np.max(scores) * 0.5), color='r', linestyle='--')
             plt.title(f"Similarity Score (Template stretched to {stud_period} frames)")
-            # plt.show()
+            plt.show()
 
-            to_ms = lambda f: round((f / self.fps) * 1000, 2)
+            inst_to_ms = lambda f: int(inst_df.loc[inst_df['frameIndex'] == f, 'timestampMs'].values[0])
 
             joint_results.append({
                 "joint": joint,
                 "inst_period_frames": inst_period,
                 "stud_period_frames": stud_period,
                 "template_start_frame": best_start,
-                "template_start_ms": to_ms(best_start),
-                "template_end_ms": to_ms(best_start + inst_period),
+                "template_start_ms": inst_to_ms(best_start),
+                "template_end_ms": inst_to_ms(best_start + inst_period),
                 "peaks_frames": peaks.tolist()
             })
         
@@ -256,7 +257,8 @@ class DeepCycleCounter:
 
 
 def _fallback_detect_reps(stud_df, inst_df, counter, imp_joints, fps):
-    to_ms = lambda f: round((f / fps) * 1000, 2)
+    stud_to_ms = lambda f: int(stud_df.loc[stud_df['frameIndex'] == f, 'timestampMs'].values[0])
+    inst_to_ms = lambda f: int(inst_df.loc[inst_df['frameIndex'] == f, 'timestampMs'].values[0])
 
     # Get instructor period (max across joints)
     inst_period = 0
@@ -329,15 +331,15 @@ def _fallback_detect_reps(stud_df, inst_df, counter, imp_joints, fps):
             "student_boundary": {
                 "start_frame": s,
                 "end_frame": s + inst_period,
-                "start_ms": to_ms(s),
-                "end_ms": to_ms(s + inst_period),
+                "start_ms": stud_to_ms(s),
+                "end_ms": stud_to_ms(s + inst_period),
             },
             "instructor_template": {
                 "joint": anchor_joint or imp_joints[0],
                 "start_frame": inst_template_start,
                 "end_frame": inst_template_start + inst_period,
-                "start_ms": to_ms(inst_template_start),
-                "end_ms": to_ms(inst_template_start + inst_period),
+                "start_ms": inst_to_ms(inst_template_start),
+                "end_ms": inst_to_ms(inst_template_start + inst_period),
             },
             "confidence": "low",
         })
@@ -407,7 +409,7 @@ def align_reps(json_dir, exercise_name):
     joint_results = counter.analyze(inst_df, stud_df)
 
     fps = counter.fps
-    to_ms = lambda f: round((f / fps) * 1000, 2)
+    stud_to_ms = lambda f: int(stud_df.loc[stud_df['frameIndex'] == f, 'timestampMs'].values[0])
 
     if joint_results:
         stud_period = joint_results[0]["stud_period_frames"]
@@ -459,8 +461,8 @@ def align_reps(json_dir, exercise_name):
                 "student_boundary": {
                     "start_frame": s,
                     "end_frame": s + stud_period,
-                    "start_ms": to_ms(s),
-                    "end_ms": to_ms(s + stud_period),
+                    "start_ms": stud_to_ms(s),
+                    "end_ms": stud_to_ms(s + stud_period),
                 },
                 "instructor_template": {
                     "joint": source_joint["joint"],
