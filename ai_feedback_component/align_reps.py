@@ -81,15 +81,19 @@ class DeepCycleCounter:
                 current_cutoff = 0.8  # Slow (Squats, Lunges, Pushups)
                     
             self.butterworth_freq = current_cutoff
-                    
+            
             # 3. Apply the final filter
-            df[col] = butter_lowpass_filter(signal)
+            for col in self.joints:
+                if col in df.columns:
+                    signal = df[col].interpolate().ffill().bfill().values.astype(float)
+                    smoothed_signal = butter_lowpass_filter(signal)
+                    df[col] = smoothed_signal
         else:
             for col in self.joints:
                 if col in df.columns:
                     signal = df[col].interpolate().ffill().bfill().values.astype(float)
-                    signal = butter_lowpass_filter(signal)
-                    df[col] = signal
+                    smoothed_signal = butter_lowpass_filter(signal)
+                    df[col] = smoothed_signal
                     
         return df
 
@@ -239,7 +243,7 @@ class DeepCycleCounter:
             plt.scatter(peaks, scores[peaks], color='red')
             plt.axhline(y=max(0.3, np.max(scores) * 0.5), color='r', linestyle='--')
             plt.title(f"Similarity Score (Template stretched to {stud_period} frames)")
-            plt.show()
+            # plt.show()
 
             inst_to_ms = lambda f: int(inst_df.loc[inst_df['frameIndex'] == f, 'timestampMs'].values[0])
 
