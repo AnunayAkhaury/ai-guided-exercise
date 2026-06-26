@@ -82,11 +82,12 @@ def calculate_joint_angles(json_dir):
     # Pass 1: Calculate angles
     for frame in pose_data["frames"]:
         poses = frame.get("poses", [])
-        if poses and not is_out_of_frame(poses[0]["worldLandmarks"]):
+        if not is_out_of_frame(poses[0]["worldLandmarks"]):
             lm_dict = landmarks_to_dict(poses[0]["worldLandmarks"])
             angles, usable_dict = compute_angles(lm_dict)
         else:
-            angles = {j: None for j in JOINT_NAMES}
+            lm_dict = landmarks_to_dict(poses[0]["worldLandmarks"])
+            angles, _ = compute_angles(lm_dict)
             usable_dict = {j: False for j in JOINT_NAMES}
 
         angle_frames.append({
