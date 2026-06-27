@@ -84,7 +84,7 @@ class DeepCycleCounter:
                 current_cutoff = 0.8  # Slow (Squats, Lunges, Pushups)
             
             self.butterworth_freq = current_cutoff
-            
+
             # 3. Apply the final filter
             for col in self.joints:
                 if col in df.columns:
@@ -102,14 +102,9 @@ class DeepCycleCounter:
 
 
     def estimate_period_autocorr(self, signal, debug=False):
-        # 1. Expand the signal so it fits its envelope; stretches "global" peaks to the same height
-        sig = signal - uniform_filter1d(signal, size=31)
-        local_std = np.sqrt(
-            uniform_filter1d(sig**2, size=31)
-        )
+        # 1. Center the signal around mean
+        sig = signal - np.mean(signal)
 
-        sig = sig / (local_std + 1e-8)
-        
         # 2. Compute autocorrelation
         corr = np.correlate(sig, sig, mode='full')
         corr = corr[len(corr)//2:]
@@ -143,36 +138,6 @@ class DeepCycleCounter:
             if peak_height < confidence_threshold:
                 print(peak_height)
                 return 0 # Low confidence
-            
-            if debug:
-                fig, axes = plt.subplots(2, 1, figsize=(12, 7))
-
-                # ------------------------
-                # Raw signal
-                # ------------------------
-                axes[0].plot(signal, label="Joint angle")
-                axes[0].set_title("Raw Joint Angle Signal")
-                axes[0].set_xlabel("Frame")
-                axes[0].set_ylabel("Angle (deg)")
-                axes[0].grid(True)
-
-                # ------------------------
-                # Autocorrelation
-                # ------------------------
-                axes[1].plot(corr, label="Autocorrelation")
-
-                axes[1].axvspan(0, min_lag, color="gray", alpha=0.2,
-                                label="Ignored")
-
-                axes[1].set_xlim(0, max_lag)
-                axes[1].set_ylim(-1.05, 1.05)
-                axes[1].set_xlabel("Lag (frames)")
-                axes[1].set_ylabel("Correlation")
-                axes[1].grid(True)
-                axes[1].legend()
-
-                plt.tight_layout()
-                plt.show()
 
             return peaks[best_idx] + min_lag
             
@@ -221,7 +186,6 @@ class DeepCycleCounter:
             stud_sig = stud_df[joint].values
 
             # 2. Extract Template from Instructor
-            # We normalize the shape of the instructor's movement
             best_start = 0
             best_score = -np.inf
             for i in range(len(inst_sig) - 2 * inst_period):
@@ -239,7 +203,10 @@ class DeepCycleCounter:
             scores = []
             for i in range(len(stud_sig) - stud_period):
                 window = stud_sig[i : i + stud_period] # window should match the size of student period
-                if np.std(window) < 0.1:
+
+                # Skip obvious windows of low activity, preventing them from accidentally matching the shape of template
+                rom = np.max(window) - np.min(window)
+                if rom < 10:
                     scores.append(0)
                     continue
                 
