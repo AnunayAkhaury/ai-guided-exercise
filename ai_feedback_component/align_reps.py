@@ -46,62 +46,51 @@ class DeepCycleCounter:
         return df
 
 
-    def preprocess(self, df, is_inst=False):
+    def preprocess(self, df):
         df = df.copy()
 
         # Keep the heavy smoothing (0.8Hz) to keep the "Big Picture" clear
-        def butter_lowpass_filter(data, cutoff=None, order=4):
-            if cutoff is None:
-                cutoff = self.butterworth_freq
+        def butter_lowpass_filter(data, cutoff, order=4):
             nyq = 0.5 * self.fps
             normal_cutoff = cutoff / nyq
             b, a = butter(order, normal_cutoff, btype='low', analog=False)
             return filtfilt(b, a, data)
 
-        if is_inst:
-            inst_periods = []
-            for col in self.joints:
-                if col in df.columns:
-                    signal = df[col].interpolate().ffill().bfill().values.astype(float)
+        periods = []
+        for col in self.joints:
+            if col in df.columns:
+                signal = df[col].interpolate().ffill().bfill().values.astype(float)
 
-                    # 1. Get a rough period estimate using a high-frequency pass
-                    rough_signal = butter_lowpass_filter(signal, cutoff=2.5)
-                    rough_period = self.estimate_period_autocorr(rough_signal)
-                        
-                    # 2. Determine if movement is "Fast" or "Slow"
-                    # If period is less than 40 frames (approx 1.3s at 30fps)
-                    if rough_period > 0:
-                        inst_periods.append(rough_period)
-            
-            if not inst_periods:
-                print("No periodic movement found in instructor.")
-                return df
+                # 1. Get a rough period estimate using a high-frequency pass
+                rough_signal = butter_lowpass_filter(signal, cutoff=2.5)
+                rough_period = self.estimate_period_autocorr(rough_signal)
+                    
+                # 2. Determine if movement is "Fast" or "Slow"
+                # If period is less than 40 frames (approx 1.3s at 30fps)
+                if rough_period > 0:
+                    periods.append(rough_period)
+        
+        if not periods:
+            print("No periodic movement found in instructor.")
+            return df
 
-            inst_period = int(np.max(inst_periods))
-            if inst_period < (self.fps * 1.3):
-                current_cutoff = 2.5  # Fast (Mountain Climbers, Jumping Jacks)
-            else:
-                current_cutoff = 0.8  # Slow (Squats, Lunges, Pushups)
-            
-            self.butterworth_freq = current_cutoff
-
-            # 3. Apply the final filter
-            for col in self.joints:
-                if col in df.columns:
-                    signal = df[col].interpolate().ffill().bfill().values.astype(float)
-                    smoothed_signal = butter_lowpass_filter(signal)
-                    df[col] = smoothed_signal
+        period = int(np.max(periods))
+        if period < (self.fps * 1.5):
+            current_cutoff = 2.5  # Fast (Mountain Climbers, Jumping Jacks)
         else:
-            for col in self.joints:
-                if col in df.columns:
-                    signal = df[col].interpolate().ffill().bfill().values.astype(float)
-                    smoothed_signal = butter_lowpass_filter(signal)
-                    df[col] = smoothed_signal
+            current_cutoff = 0.8  # Slow (Squats, Lunges, Pushups)
+        
+        # 3. Apply the final filter
+        for col in self.joints:
+            if col in df.columns:
+                signal = df[col].interpolate().ffill().bfill().values.astype(float)
+                smoothed_signal = butter_lowpass_filter(signal, cutoff=current_cutoff)
+                df[col] = smoothed_signal
                     
         return df
 
 
-    def estimate_period_autocorr(self, signal, debug=False):
+    def estimate_period_autocorr(self, signal):
         # 1. Center the signal around mean
         sig = signal - np.mean(signal)
 
@@ -157,7 +146,7 @@ class DeepCycleCounter:
             
             # Get period and the peak height (confidence) from instructor
             p_inst = self.estimate_period_autocorr(inst_df[joint].values)
-            p_stud = self.estimate_period_autocorr(stud_df[joint].values, debug=True)
+            p_stud = self.estimate_period_autocorr(stud_df[joint].values)
 
             if p_inst > 0 and p_stud > 0:
                 joint_candidates.append({
@@ -410,7 +399,7 @@ def align_reps(json_dir, exercise_name):
     
     counter = DeepCycleCounter(imp_joints)
     
-    inst_df = counter.preprocess(counter.load_json_to_df(baseline_path, drop_unusable=False), is_inst=True)
+    inst_df = counter.preprocess(counter.load_json_to_df(baseline_path, drop_unusable=False))
     stud_df = counter.preprocess(counter.load_json_to_df(input_path, drop_unusable=True))
 
     start_offset = find_start_frame(baseline_path, input_path, imp_joints)
