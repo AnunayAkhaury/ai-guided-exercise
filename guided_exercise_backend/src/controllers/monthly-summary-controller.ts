@@ -59,29 +59,34 @@ export async function getMonthlySummaryController(req: Request, res: Response) {
       sessions.reduce((sum, f) => sum + (Number(f.score) || 0), 0) / sessions.length;
     const scoreTrend = { firstHalf: avgScore(firstHalf), secondHalf: avgScore(secondHalf) };
 
-    // Count all feedback strings across all sessions and exercises, ranked by frequency
-    const issueCounts: Record<string, number> = {};
+    // Count feedback strings grouped by exercise, ranked by frequency
+    const issuesByExercise: Record<string, Record<string, number>> = {};
     for (const f of monthFeedbacks) {
+      const exercise = f.exercise?.trim();
+      if (!exercise) continue;
+      if (!issuesByExercise[exercise]) issuesByExercise[exercise] = {};
       for (const d of f.data ?? []) {
         if (d.feedback?.trim()) {
           const key = d.feedback.trim();
-          issueCounts[key] = (issueCounts[key] ?? 0) + 1;
+          issuesByExercise[exercise][key] = (issuesByExercise[exercise][key] ?? 0) + 1;
         }
       }
     }
-    const commonIssues = Object.entries(issueCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([issue]) => issue);
+    const perExerciseIssues: Record<string, string[]> = {};
+    for (const [exercise, counts] of Object.entries(issuesByExercise)) {
+      perExerciseIssues[exercise] = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([issue]) => issue);
+    }
 
     const sessionSummaries = monthFeedbacks.map((f) => f.summary).filter(Boolean);
 
     const displayMonth = new Date(year, month, dayNum).toLocaleString('en-US', { month: 'long', year: 'numeric' });
     const summary = await generateMonthlySummary(
       sessionCount,
-      exercises,
       scoreTrend,
-      commonIssues,
+      perExerciseIssues,
       sessionSummaries,
       displayMonth
     );
