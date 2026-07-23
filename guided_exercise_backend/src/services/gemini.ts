@@ -30,12 +30,13 @@ Top form issues by exercise (ranked by frequency):
 ${exerciseIssuesText}
 Session summaries: ${summariesText}
 
-Write 1 short opening sentence followed by one sentence per exercise listed above. Follow these rules strictly:
+Write 1 short opening sentence followed by one line per exercise listed above, each on its own paragraph separated by a blank line. Follow these rules strictly:
 - Opening sentence: Celebrate that the user attended ${sessionCount} sessions and highlight any score improvement. Keep it under 15 words.
-- Exercise sentences: For each exercise, write one sentence formatted as "<ExerciseName>: <top issues to focus on>." Use the exact exercise name as-is. Keep each sentence under 15 words.
+- Exercise lines: For each exercise, write one line formatted exactly as "<ExerciseName>: <top issues to focus on>." Use the exact exercise name as-is. Keep each line under 15 words.
+- Separate the opening sentence and every exercise line with a blank line (double newline) so each appears as its own paragraph.
 - Use an encouraging, specific, motivating tone.
 - NEVER suggest the user needs to attend more often or show up more.
-- Write plain flowing prose — no bullet points, no numbered lists.`;
+- No bullet points, no numbered lists — just the plain lines described above.`;
 
   const result = await model.generateContent(prompt);
   return result.response.text().trim();
