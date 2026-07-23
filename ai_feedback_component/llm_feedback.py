@@ -5,6 +5,9 @@ from google.genai import types
 from pydantic import BaseModel, Field
 from typing import List
 
+# Minimum number of flags a rep must have before LLM feedback is generated for it.
+MIN_FLAGS_PER_REP = 3
+
 class FlagFeedback(BaseModel):
     timestamp_start: int = Field(description="Start timestamp of grouped reps")
     timestamp_end: int = Field(description="End timestamp of grouped reps")
@@ -41,26 +44,32 @@ def llm_generate_feedback(exercise_name, json_dir):
 
     with open(bad_reps_file_path, "r") as f:
         json_data = json.load(f)
-        json_str = json.dumps(json_data, indent=2)
 
-        print("LLM generating feedback...")
-        model = "gemini-3.5-flash"
-        response = client.models.generate_content(
-            model=model,
-            contents=[
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part(text=prompt),
-                        types.Part(text=json_str)
-                    ]
-                )
-            ],
-            config={
-                "response_mime_type": "application/json",
-                "response_json_schema": OutputFeedback.model_json_schema(),
-            },
-        )
+    json_data["reps"] = [
+        rep for rep in json_data.get("reps", [])
+        if len(rep.get("events", [])) >= MIN_FLAGS_PER_REP
+    ]
+
+    json_str = json.dumps(json_data, indent=2)
+    print(f"Reps with >= {MIN_FLAGS_PER_REP} flags: {len(json_data['reps'])} / {json_data.get('total_reps', '?')}")
+    print("LLM generating feedback...")
+    model = "gemini-3.5-flash"
+    response = client.models.generate_content(
+        model=model,
+        contents=[
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part(text=prompt),
+                    types.Part(text=json_str)
+                ]
+            )
+        ],
+        config={
+            "response_mime_type": "application/json",
+            "response_json_schema": OutputFeedback.model_json_schema(),
+        },
+    )
 
     print(response.text)
     return response.text
