@@ -1,6 +1,6 @@
 {
-  "sourceFile": "C:\\Users\\grace\\All Programming\\ai-guided-exercise\\ai_feedback_component\\ideals\\lunge\\ideal.json",
-  "generatedAt": "2026-05-17T09:33:31.972873+00:00",
+  "sourceFile": "C:\\ai-guided-exercise\\ai_feedback_component\\ideals\\lunge\\ideal.json",
+  "generatedAt": "2026-07-23T08:27:39.637932+00:00",
   "joints": {
     "left_elbow": {
       "avg_peak": 75.42867777777776,
@@ -23,20 +23,6 @@
       "avg_valley": 64.96977999999999,
       "prominence": 5.890279999999999,
       "rom": 29.451399999999992,
-      "rep_boundaries": []
-    },
-    "left_shoulder": {
-      "avg_peak": 55.8374,
-      "avg_valley": 43.32266666666667,
-      "prominence": 4.781479999999999,
-      "rom": 23.907399999999996,
-      "rep_boundaries": []
-    },
-    "right_shoulder": {
-      "avg_peak": 37.845016666666666,
-      "avg_valley": 28.406463636363636,
-      "prominence": 3.44422,
-      "rom": 17.2211,
       "rep_boundaries": []
     },
     "left_knee": {
@@ -126,6 +112,34 @@
         9560,
         11160
       ]
+    },
+    "left_shoulder_in_plane": {
+      "avg_peak": 48.03908333333334,
+      "avg_valley": 30.129728571428576,
+      "prominence": 4.897480000000001,
+      "rom": 24.4874,
+      "rep_boundaries": []
+    },
+    "left_shoulder_out_plane": {
+      "avg_peak": 39.19437,
+      "avg_valley": 22.925233333333335,
+      "prominence": 6.66984,
+      "rom": 33.349199999999996,
+      "rep_boundaries": []
+    },
+    "right_shoulder_in_plane": {
+      "avg_peak": 16.5459375,
+      "avg_valley": 8.293742857142858,
+      "prominence": 3.3544800000000006,
+      "rom": 16.7724,
+      "rep_boundaries": []
+    },
+    "right_shoulder_out_plane": {
+      "avg_peak": 36.35678333333333,
+      "avg_valley": 25.765258333333332,
+      "prominence": 3.7584199999999996,
+      "rom": 18.792099999999998,
+      "rep_boundaries": []
     }
   }
 }

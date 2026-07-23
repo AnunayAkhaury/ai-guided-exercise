@@ -1,0 +1,129 @@
+{
+  "sourceFile": "C:\\ai-guided-exercise\\ai_feedback_component\\ideals\\plank shoulder touch\\ideal.json",
+  "generatedAt": "2026-07-23T09:27:03.497479+00:00",
+  "joints": {
+    "left_elbow": {
+      "avg_peak": 176.17172499999998,
+      "avg_valley": 80.32878,
+      "prominence": 21.2035,
+      "rom": 106.01749999999998,
+      "rep_boundaries": [
+        920,
+        3320,
+        5480,
+        7840,
+        9920
+      ]
+    },
+    "right_elbow": {
+      "avg_peak": 176.71034,
+      "avg_valley": 73.57152500000001,
+      "prominence": 22.209,
+      "rom": 111.04499999999999,
+      "rep_boundaries": [
+        2040,
+        4360,
+        6640,
+        9080
+      ]
+    },
+    "left_knee": {
+      "avg_peak": 163.08455833333332,
+      "avg_valley": 154.55884545454543,
+      "prominence": 3.984499999999997,
+      "rom": 19.922499999999985,
+      "rep_boundaries": []
+    },
+    "right_knee": {
+      "avg_peak": 174.34179999999998,
+      "avg_valley": 165.54499166666668,
+      "prominence": 3.9195600000000015,
+      "rom": 19.597800000000007,
+      "rep_boundaries": []
+    },
+    "right_hip": {
+      "avg_peak": 175.23519090909093,
+      "avg_valley": 166.2283,
+      "prominence": 3.0277199999999995,
+      "rom": 15.138599999999997,
+      "rep_boundaries": []
+    },
+    "left_ankle": {
+      "avg_peak": 114.72925,
+      "avg_valley": 93.9137076923077,
+      "prominence": 6.65976,
+      "rom": 33.2988,
+      "rep_boundaries": []
+    },
+    "right_ankle": {
+      "avg_peak": 68.58200000000001,
+      "avg_valley": 48.11087,
+      "prominence": 7.558980000000002,
+      "rom": 37.794900000000005,
+      "rep_boundaries": []
+    },
+    "left_shoulder_in_plane": {
+      "avg_peak": 77.57798888888888,
+      "avg_valley": 35.20322,
+      "prominence": 15.65806,
+      "rom": 78.2903,
+      "rep_boundaries": [
+        240,
+        960,
+        1800,
+        2600,
+        3200,
+        4320,
+        5560,
+        7080,
+        7800,
+        9960
+      ]
+    },
+    "left_shoulder_out_plane": {
+      "avg_peak": 62.17617692307692,
+      "avg_valley": 50.96830833333332,
+      "prominence": 4.945800000000002,
+      "rom": 24.729000000000006,
+      "rep_boundaries": []
+    },
+    "right_shoulder_in_plane": {
+      "avg_peak": 53.637706666666666,
+      "avg_valley": 20.8104,
+      "prominence": 14.37976,
+      "rom": 71.8988,
+      "rep_boundaries": [
+        240,
+        1120,
+        1840,
+        3320,
+        4120,
+        4800,
+        5600,
+        6480,
+        6560,
+        7000,
+        8000,
+        8880,
+        9120,
+        9200,
+        10200,
+        10880
+      ]
+    },
+    "right_shoulder_out_plane": {
+      "avg_peak": 74.13244,
+      "avg_valley": 44.84015,
+      "prominence": 9.982380000000001,
+      "rom": 49.9119,
+      "rep_boundaries": [
+        2120,
+        4360,
+        6640,
+        9000,
+        9200,
+        10880
+      ]
+    }
+  }
+}
