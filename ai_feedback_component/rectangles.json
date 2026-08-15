@@ -1,0 +1,58 @@
+{
+  "right_knee": {
+    "x": 360.5,
+    "y": 487.0,
+    "width": 39.0,
+    "height": 64.0,
+    "angle": 0.0
+  },
+  "left_knee": {
+    "x": 206.5,
+    "y": 487.0,
+    "width": 39.0,
+    "height": 64.0,
+    "angle": 0.0
+  },
+  "right_hip": {
+    "x": 360.5,
+    "y": 357.0,
+    "width": 39.0,
+    "height": 64.0,
+    "angle": 0.0
+  },
+  "left_hip": {
+    "x": 207.5,
+    "y": 357.0,
+    "width": 39.0,
+    "height": 64.0,
+    "angle": 0.0
+  },
+  "right_elbow": {
+    "x": 439.0,
+    "y": 241.5,
+    "width": 39.0,
+    "height": 64.0,
+    "angle": -90.0
+  },
+  "left_elbow": {
+    "x": 131.0,
+    "y": 236.5,
+    "width": 39.0,
+    "height": 64.0,
+    "angle": -90.0
+  },
+  "right_shoulder": {
+    "x": 379.5,
+    "y": 205.0,
+    "width": 39.0,
+    "height": 64.0,
+    "angle": 0.0
+  },
+  "left_shoulder": {
+    "x": 187.5,
+    "y": 205.0,
+    "width": 39.0,
+    "height": 64.0,
+    "angle": 0.0
+  }
+}
