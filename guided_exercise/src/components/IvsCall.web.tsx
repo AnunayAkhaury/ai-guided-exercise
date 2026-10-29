@@ -1,8 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import type { IvsCallProps } from './IvsCall.types';
 import { type ExerciseType } from '@/src/components/session/exercise-sheet';
 import { addExerciseTimestamp, ExerciseTimestamp } from '../api/Firebase/firebase-feedback';
+import { EXERCISES } from '@/src/components/session/exercise-sheet';
+import { EXERCISE_TITLE_MAP } from '../constants/exerciseMap';
+import { ConfirmationModal } from './ConfirmPopup';
 
 type IvsBroadcastSdk = {
   Stage: new (token: string, strategy: IvsStageStrategy) => IvsStage;
@@ -473,6 +477,9 @@ export default function IvsCallWeb({
   localParticipantRole,
   sessionId
 }: IvsCallProps) {
+  const router = useRouter();
+  const classesRoute =
+    localParticipantRole === 'instructor' ? '/(tabs)/(teacher)/classes' : '/(tabs)/(student)/classes';
   const [sdkReady, setSdkReady] = useState(false);
   const [isInStage, setIsInStage] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -487,6 +494,8 @@ export default function IvsCallWeb({
   const [exercise, setExercise] = useState<ExerciseType | null>(null);
   const [exerciseTimestamp, setExerciseTimestamp] = useState<ExerciseTimestamp | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [endSessionCooldown, setEndSessionCooldown] = useState(false);
+  const isDisabled = endSessionDisabled || exerciseTimestamp !== null || endSessionCooldown;
 
   const stageRef = useRef<IvsStage | null>(null);
   const registeredStageListenersRef = useRef<RegisteredStageListener[]>([]);
@@ -500,11 +509,17 @@ export default function IvsCallWeb({
   const heroHeight = isCompactDesktop ? 360 : 560;
   const gridTileHeight = isCompactDesktop ? 180 : 220;
 
+  const [modalOpen, setModalOpen] = useState(false);
+
   useEffect(() => {
     if (exerciseTimestamp?.starttime && exerciseTimestamp?.endtime) {
       if (exerciseTimestamp.endtime - exerciseTimestamp.starttime > 3000) {
         // 3 seconds
         addExerciseTimestamp(exerciseTimestamp);
+        setTimeout(() => {
+          setEndSessionCooldown(false);
+          setExerciseTimestamp(null);
+        }, 1500);
       } else {
         // Exercise too short
         setExerciseTimestamp(null);
@@ -610,6 +625,8 @@ export default function IvsCallWeb({
     totalStudentTiles > 1 ? `repeat(auto-fit, minmax(${REMOTE_TILE_MIN_WIDTH}px, 1fr))` : 'minmax(0, 720px)';
 
   const handleJoin = async () => {
+    setIsLeaving(false);
+
     if (!activeToken) {
       const message = 'No token provided.';
       setError(message);
@@ -937,6 +954,11 @@ export default function IvsCallWeb({
       if (onLeave) {
         await Promise.resolve(onLeave());
       }
+
+      setIsLeaving(false);
+      setIsJoining(false);
+      setIsInStage(false);
+      setStatus('');
     } catch (leaveError: any) {
       setError(leaveError?.message || 'Failed to leave the session.');
       setIsLeaving(false);
@@ -980,12 +1002,17 @@ export default function IvsCallWeb({
   if (!isInStage) {
     return (
       <div style={shellStyle}>
+        <button
+          onClick={() => (router.canGoBack() ? router.back() : router.replace(classesRoute))}
+          style={backButtonStyle}>
+          ← Back to Classes
+        </button>
         <div style={joinCardStyle}>
-          <div style={joinEyebrowStyle}>Desktop Web Class</div>
+          <div style={joinEyebrowStyle}>Live Class</div>
           <h1 style={joinTitleStyle}>Welcome to Class</h1>
           <p style={joinSubtitleStyle}>
-            The browser client now joins the same IVS session as mobile. Camera and microphone access are requested only
-            when you choose to join.
+            Join from your browser when you are ready. We will ask for camera and microphone access only after you
+            start.
           </p>
 
           {status ? <div style={statusPillStyle}>{status}</div> : null}
@@ -994,15 +1021,15 @@ export default function IvsCallWeb({
           <div style={joinChecklistStyle}>
             <div style={joinChecklistRowStyle}>
               <Ionicons name="laptop-outline" size={18} color="#6155F5" />
-              <span>Desktop Chrome or Edge recommended for the first release.</span>
+              <span>For the best experience, use a desktop or laptop browser.</span>
             </div>
             <div style={joinChecklistRowStyle}>
               <Ionicons name="videocam-outline" size={18} color="#6155F5" />
-              <span>Join starts with microphone muted, matching the mobile experience.</span>
+              <span>You can turn your camera and microphone on or off during class.</span>
             </div>
             <div style={joinChecklistRowStyle}>
-              <Ionicons name="sync-outline" size={18} color="#6155F5" />
-              <span>Token refresh continues to use the existing backend session APIs.</span>
+              <Ionicons name="people-outline" size={18} color="#6155F5" />
+              <span>Your instructor and classmates will appear once you join the session.</span>
             </div>
           </div>
 
@@ -1144,7 +1171,7 @@ export default function IvsCallWeb({
             </button>
           ) : null}
 
-          <button type="button" onClick={() => void handleLeave()} style={leaveButtonStyle}>
+          <button type="button" onClick={() => setModalOpen(true)} style={leaveButtonStyle}>
             <Ionicons name="call" size={18} color="#FFFFFF" />
             <span>Leave</span>
           </button>
@@ -1153,10 +1180,10 @@ export default function IvsCallWeb({
             <button
               type="button"
               onClick={onEndSession}
-              disabled={endSessionDisabled}
+              disabled={isDisabled}
               style={{
                 ...endSessionButtonStyle,
-                ...(endSessionDisabled ? disabledButtonStyle : null)
+                ...(isDisabled ? disabledButtonStyle : null)
               }}>
               <Ionicons name="stop-circle-outline" size={18} color="#FFFFFF" />
               <span>{endSessionLabel}</span>
@@ -1184,7 +1211,7 @@ export default function IvsCallWeb({
                 setExercise(null);
                 setExerciseTimestamp((prev: any) => (prev ? { ...prev, endtime: Date.now() } : null));
               }}>
-              Cancel: {exercise}
+              Cancel: {EXERCISE_TITLE_MAP[exercise]}
             </button>
           ) : (
             <>
@@ -1227,7 +1254,7 @@ export default function IvsCallWeb({
                     flexDirection: 'column',
                     padding: '6px 0'
                   }}>
-                  {(['pushup', 'lunge'] as ExerciseType[]).map((item) => (
+                  {EXERCISES.map((item) => (
                     <button
                       key={item}
                       type="button"
@@ -1255,7 +1282,7 @@ export default function IvsCallWeb({
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = '#F0ECFF')}
                       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-                      {item}s
+                      {EXERCISE_TITLE_MAP[item]}
                     </button>
                   ))}
                 </div>
@@ -1264,6 +1291,19 @@ export default function IvsCallWeb({
           )}
         </div>
       )}
+
+      <ConfirmationModal
+        isVisible={modalOpen}
+        title="Are you sure you want to leave?"
+        message="Leaving and rejoining can disrupt the recording segmentation and feedback generation."
+        confirmText="Confirm"
+        cancelText="Cancel"
+        onConfirm={() => {
+          setModalOpen(false);
+          handleLeave();
+        }}
+        onCancel={() => setModalOpen(false)}
+      />
     </div>
   );
 }
@@ -1457,8 +1497,20 @@ function teardownStageRuntime({
   }
 }
 
+const backButtonStyle: CSSProperties = {
+  alignSelf: 'flex-start',
+  background: '#F0ECFF',
+  border: 'none',
+  borderRadius: 999,
+  color: '#6155F5',
+  cursor: 'pointer',
+  fontWeight: 600,
+  fontSize: 14,
+  padding: '6px 14px'
+};
+
 const shellStyle: CSSProperties = {
-  minHeight: '100vh',
+  minHeight: '100%',
   display: 'flex',
   flexDirection: 'column',
   gap: 20,

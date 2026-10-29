@@ -77,14 +77,14 @@ export default function Signup() {
       setIsSubmitting(true);
       const uid = await createAccount(trimmedEmail, password);
       await createProfile(uid, role, normalizedName, defaultFullName, trimmedEmail);
-      router.replace('/');
+      router.replace(Platform.OS === 'web' ? '/auth-redirect' : '/');
     } catch (err: any) {
       const message = String(err?.message || '');
       if (message.includes('auth/email-already-in-use')) {
         try {
           const credential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
           await createProfile(credential.user.uid, role, normalizedName, defaultFullName, trimmedEmail);
-          router.replace('/');
+          router.replace(Platform.OS === 'web' ? '/auth-redirect' : '/');
           return;
         } catch {
           showToast({

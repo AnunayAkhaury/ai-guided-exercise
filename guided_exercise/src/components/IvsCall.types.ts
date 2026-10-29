@@ -11,6 +11,8 @@ export type IvsCallProps = {
   onJoinAttempt?: () => void | Promise<void>;
   onJoinFailed?: (message: string) => void | Promise<void>;
   localParticipantLabel?: string;
+  localParticipantId?: string;
+  localUserId?: string;
   participantNamesById?: Record<string, string>;
   participantRolesById?: Record<string, string>;
   localParticipantRole?: 'student' | 'instructor';

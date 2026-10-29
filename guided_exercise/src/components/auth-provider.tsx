@@ -3,8 +3,6 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/src/api/Firebase/firebase-config';
 import { hydrateUserProfile } from '@/src/api/Firebase/firebase-auth';
 import { useUserStore } from '@/src/store/userStore';
-import { router } from 'expo-router';
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -22,7 +20,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         useUserStore.getState().reset();
-        router.replace('/(onboarding)/signup');
       }
 
       useUserStore.setState({ authInitialized: true });

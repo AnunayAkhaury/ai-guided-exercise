@@ -3,7 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type ToastVariant = 'success' | 'error' | 'info';
+type ToastVariant = 'success' | 'error' | 'info' | 'achievement';
 
 type ToastInput = {
   title: string;
@@ -42,6 +42,12 @@ const variantStyles = {
     accent: '#6155F5',
     background: '#F4F1FF',
     border: '#DCD5FF'
+  },
+  achievement: {
+    icon: 'trophy' as const,
+    accent: '#F7D78D',
+    background: '#FDFBD4',
+    border: '#DBCC79'
   }
 };
 

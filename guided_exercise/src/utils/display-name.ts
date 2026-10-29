@@ -1,6 +1,11 @@
+export function isGeneratedProfileName(value?: string | null): boolean {
+  const normalized = value?.trim().toLowerCase() || '';
+  return normalized === 'new instructor' || normalized === 'new student';
+}
+
 export function isPlaceholderProfileName(value?: string | null): boolean {
   const normalized = value?.trim().toLowerCase() || '';
-  return normalized === 'new instructor' || normalized === 'new student' || normalized === 'instructor' || normalized === 'student';
+  return isGeneratedProfileName(value) || normalized === 'instructor' || normalized === 'student';
 }
 
 export function resolvePreferredDisplayName(input: {
@@ -14,11 +19,8 @@ export function resolvePreferredDisplayName(input: {
   if (fullname && !isPlaceholderProfileName(fullname)) {
     return fullname;
   }
-  if (username) {
+  if (username && !isPlaceholderProfileName(username)) {
     return username;
-  }
-  if (fullname) {
-    return fullname;
   }
   return input.fallback;
 }

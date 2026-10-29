@@ -17,6 +17,7 @@ import {
 import { useFirestoreSessions } from '@/src/hooks/use-ivs-firestore';
 import { useUserStore } from '@/src/store/userStore';
 import { useToast } from '@/src/components/ui/ToastProvider';
+import { resolvePreferredDisplayName } from '@/src/utils/display-name';
 
 function toSessionWindow(session: IvsSession) {
   const start = session.scheduledStartAt ? new Date(session.scheduledStartAt) : new Date(session.createdAt);
@@ -72,6 +73,7 @@ export default function ClassesScreen() {
 
   const scheduledSessions = useMemo(() => sessions.filter((item) => item.status === 'scheduled'), [sessions]);
   const liveSessions = useMemo(() => sessions.filter((item) => item.status === 'live'), [sessions]);
+  const hasLiveSession = liveSessions.length > 0;
   const readyToStartSessions = useMemo(
     () => scheduledSessions.filter((item) => canStartSession(item)),
     [scheduledSessions]
@@ -95,7 +97,11 @@ export default function ClassesScreen() {
 
   const handleOpenLiveSession = async (session: IvsSession) => {
     const effectiveUid = uid?.trim();
-    const displayName = fullname?.trim() || username?.trim() || 'Instructor';
+    const displayName = resolvePreferredDisplayName({
+      fullname,
+      username,
+      fallback: 'Instructor'
+    });
     const sessionRole = getSessionRole(session, effectiveUid);
 
     if (!effectiveUid) {
@@ -242,9 +248,21 @@ export default function ClassesScreen() {
                 desc={`${isLive ? 'Live' : 'Ready'} • Code: ${item.sessionCode}`}
                 active={isLive}
                 subtitle={`Coach: ${item.coachName || item.instructorUid}`}
-                startLabel={isLive ? (joiningSessionId === item.sessionId ? 'Joining...' : isOwner ? 'Open Live' : 'Join Class') : isOwner ? 'Start Meeting' : 'Waiting for coach'}
+                startLabel={
+                  isLive
+                    ? joiningSessionId === item.sessionId
+                      ? 'Joining...'
+                      : isOwner
+                        ? 'Open Live'
+                        : 'Join Class'
+                    : hasLiveSession
+                      ? 'Class in progress'
+                      : isOwner
+                        ? 'Start Meeting'
+                        : 'Waiting for coach'
+                }
                 cancelLabel={cancelingSessionId === item.sessionId ? 'Canceling...' : 'Cancel'}
-                startDisabled={Boolean(cancelingSessionId) || Boolean(joiningSessionId) || (!isLive && !isOwner)}
+                startDisabled={Boolean(cancelingSessionId) || Boolean(joiningSessionId) || (!isLive && (!isOwner || hasLiveSession))}
                 cancelDisabled={Boolean(cancelingSessionId) || Boolean(joiningSessionId) || !isOwner}
                 onStartPress={() => {
                   if (isLive) {
@@ -252,6 +270,14 @@ export default function ClassesScreen() {
                     return;
                   }
                   if (!isOwner) {
+                    return;
+                  }
+                  if (hasLiveSession) {
+                    showToast({
+                      title: 'Class already live',
+                      message: 'Please wait until the current class ends before starting another one.',
+                      variant: 'info'
+                    });
                     return;
                   }
                   router.push({

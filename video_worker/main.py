@@ -230,8 +230,10 @@ def feedback_pipeline(s3_client, output_bucket):
             end_ms = int(t["endtime"])
             exercise = t.get("exercise")
 
+            BUFFER_SECONDS = 1.0
+
             start_offset = max(0, (start_ms - recording_start_ms) / 1000)
-            duration = max(0.1, (end_ms - start_ms) / 1000)
+            duration = max(0.1, ((end_ms - start_ms) / 1000) + BUFFER_SECONDS)
 
             clip_path = clips_dir / f"{exercise}_{i}.mp4"
 

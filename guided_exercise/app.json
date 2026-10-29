@@ -80,10 +80,10 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {},
       "eas": {
-        "projectId": "c03fc618-d597-4720-87be-c60bf0712b7e"
+        "projectId": "e6a7a15d-0c32-4bb4-a23d-634e9db34e21"
       }
-    }
+    },
+    "owner": "mthts-team"
   }
 }

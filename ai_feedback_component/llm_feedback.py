@@ -5,18 +5,18 @@ from google.genai import types
 from pydantic import BaseModel, Field
 from typing import List
 
-class RepetitionFeedback(BaseModel):
+class FlagFeedback(BaseModel):
     timestamp_start: int = Field(description="Start timestamp of grouped reps")
     timestamp_end: int = Field(description="End timestamp of grouped reps")
     feedback: str = Field(description="Feedback in few words")
 
 class OutputFeedback(BaseModel):
-    repetition_feedbacks: List[RepetitionFeedback]
+    flag_feedbacks: List[FlagFeedback]
     summary: str = Field(description="Summary less than 2 sentences")
     score: int = Field(description="Extract the points field from file exactly")
+    rep_count: int = Field(description="Extract the repitition number from total_reps field in file exactly")
 
-def llm_generate_feedback(exercise_name, json_dir):
-
+def llm_generate_feedback(exercise_name, json_dir):    
     bad_reps_file_path = json_dir / "bad-reps.json"
 
     client = genai.Client()
@@ -44,8 +44,9 @@ def llm_generate_feedback(exercise_name, json_dir):
         json_str = json.dumps(json_data, indent=2)
 
         print("LLM generating feedback...")
+        model = "gemini-3.5-flash"
         response = client.models.generate_content(
-            model="gemini-3-flash-preview",
+            model=model,
             contents=[
                 types.Content(
                     role="user",

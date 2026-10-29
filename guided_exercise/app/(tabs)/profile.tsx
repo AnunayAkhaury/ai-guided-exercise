@@ -1,4 +1,4 @@
-import { Alert, Image, TouchableOpacity, View, ActivityIndicator, ScrollView, useWindowDimensions } from "react-native";
+import { Alert, Image, TouchableOpacity, View, ActivityIndicator, ScrollView, useWindowDimensions, Linking } from "react-native";
 import BgImage from '@/src/assets/images/profile-background.png'; 
 import ProfileImage from '@/src/assets/images/default-profile.jpg';
 import { AntDesign, Entypo, Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
@@ -9,6 +9,8 @@ import { logout } from "@/src/api/Firebase/firebase-auth";
 import { router } from "expo-router";
 import { resolvePreferredDisplayName } from "@/src/utils/display-name";
 import { useToast } from "@/src/components/ui/ToastProvider";
+
+const DONATE_URL = 'https://giveto.ucdavis.edu/schools/UniversityofCaliforniaDavis/crowdfund-uc-davis-february-2026/pages/youngcancerwarriors';
 
 function Button({ icon, title, onPress }: { icon: ReactNode, title: string, onPress?: () => void }) {
     return (
@@ -68,6 +70,18 @@ export default function Profile() {
 
     const handleComingSoon = (title: string) => {
         showToast({ title, message: 'This page is not wired up yet.', variant: 'info' });
+    };
+
+    const handleDonate = async () => {
+        try {
+            const canOpen = await Linking.canOpenURL(DONATE_URL);
+            if (!canOpen) {
+                throw new Error('Unable to open donation page.');
+            }
+            await Linking.openURL(DONATE_URL);
+        } catch (err: any) {
+            showToast({ title: 'Donation page unavailable', message: err?.message || 'Unable to open donation page.', variant: 'error' });
+        }
     };
     
     return (
@@ -131,8 +145,8 @@ export default function Profile() {
                 <View className="w-full rounded-3xl overflow-hidden">
                     <Button
                         icon={<MaterialCommunityIcons name="hand-heart-outline" size={17} color="black" />}
-                        title="Donate Page"
-                        onPress={() => handleComingSoon('Donate Page')}
+                        title="Donate"
+                        onPress={handleDonate}
                     />
                     <View className="w-full h-[1px] bg-[#dadada]" />
                     <Button

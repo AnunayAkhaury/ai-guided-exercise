@@ -1,0 +1,105 @@
+{
+  "sourceFile": "C:\\Users\\grace\\All Programming\\ai-guided-exercise\\ai_feedback_component\\ideals\\modified-pushup\\ideal.json",
+  "generatedAt": "2026-06-02T22:56:32.560774+00:00",
+  "joints": {
+    "left_elbow": {
+      "avg_peak": 169.958925,
+      "avg_valley": 93.30662,
+      "prominence": 15.880100000000002,
+      "rom": 79.40050000000001,
+      "rep_boundaries": [
+        986,
+        3367,
+        5714,
+        7891,
+        10510
+      ]
+    },
+    "right_elbow": {
+      "avg_peak": 164.3025,
+      "avg_valley": 68.57296,
+      "prominence": 19.581879999999998,
+      "rom": 97.90939999999999,
+      "rep_boundaries": [
+        986,
+        3367,
+        5714,
+        7993,
+        10442
+      ]
+    },
+    "left_shoulder": {
+      "avg_peak": 72.39605,
+      "avg_valley": 23.29484,
+      "prominence": 10.45178,
+      "rom": 52.2589,
+      "rep_boundaries": [
+        1258,
+        3605,
+        5850,
+        8231,
+        10782
+      ]
+    },
+    "right_shoulder": {
+      "avg_peak": 67.051525,
+      "avg_valley": 5.538819999999999,
+      "prominence": 13.29182,
+      "rom": 66.45909999999999,
+      "rep_boundaries": [
+        1122,
+        3265,
+        5612,
+        7925,
+        10408
+      ]
+    },
+    "left_knee": {
+      "avg_peak": 171.94256000000001,
+      "avg_valley": 131.51195,
+      "prominence": 9.431220000000001,
+      "rom": 47.15610000000001,
+      "rep_boundaries": [
+        1870,
+        4183,
+        6530,
+        9320
+      ]
+    },
+    "right_knee": {
+      "avg_peak": 159.88378,
+      "avg_valley": 139.45172499999998,
+      "prominence": 5.3089200000000005,
+      "rom": 26.544600000000003,
+      "rep_boundaries": []
+    },
+    "left_hip": {
+      "avg_peak": 175.34195,
+      "avg_valley": 165.05656666666667,
+      "prominence": 3.497279999999995,
+      "rom": 17.486399999999975,
+      "rep_boundaries": []
+    },
+    "right_hip": {
+      "avg_peak": 161.0046888888889,
+      "avg_valley": 152.46113333333332,
+      "prominence": 3.274640000000005,
+      "rom": 16.373200000000026,
+      "rep_boundaries": []
+    },
+    "left_ankle": {
+      "avg_peak": 164.362325,
+      "avg_valley": 130.66092,
+      "prominence": 7.1873599999999955,
+      "rom": 35.93679999999998,
+      "rep_boundaries": []
+    },
+    "right_ankle": {
+      "avg_peak": 72.8391888888889,
+      "avg_valley": 49.60274444444444,
+      "prominence": 7.588380000000001,
+      "rom": 37.941900000000004,
+      "rep_boundaries": []
+    }
+  }
+}

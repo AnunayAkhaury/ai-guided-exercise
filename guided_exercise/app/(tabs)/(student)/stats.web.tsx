@@ -8,6 +8,7 @@ import { getFeedbackFromUserId, type Feedback } from '@/src/api/Firebase/firebas
 import { useUserStore } from '@/src/store/userStore';
 import { EXERCISE_TITLE_MAP } from '@/src/constants/exerciseMap';
 import * as Haptics from 'expo-haptics';
+import { getMonthlySummary, MonthlySummaryResponse } from '@/src/api/monthly-summary';
 
 type GraphPoint = {
   score: number;
@@ -42,6 +43,9 @@ export default function Stats() {
 
   const [selectedPoint, setSelectedPoint] = useState<GraphPoint | null>(null);
   const [lastHaptickedPointId, setLastHaptickedPointId] = useState<string | null>(null);
+
+  const [monthlySummary, setMonthlySummary] = useState<MonthlySummaryResponse | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const uid = useUserStore((state) => state.uid);
 
@@ -78,10 +82,22 @@ export default function Stats() {
       setLoading(true);
       setError(null);
 
-      const res = await getFeedbackFromUserId(uid);
-      const validArray = res || [];
+      const [feedbackRes, summaryRes] = await Promise.all([
+        getFeedbackFromUserId(uid),
+        (async () => {
+          setSummaryLoading(true);
+          try {
+            return await getMonthlySummary(uid);
+          } finally {
+            setSummaryLoading(false);
+          }
+        })()
+      ]);
 
+      const validArray = feedbackRes || [];
       setFeedbacks(validArray);
+      setMonthlySummary(summaryRes);
+      console.log(summaryRes, ' ', summaryLoading);
 
       if (validArray.length > 0 && validArray[0]?.exercise) {
         setSelectedExercise(validArray[0].exercise);
@@ -164,7 +180,9 @@ export default function Stats() {
   }, [points]);
 
   return (
-    <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}>
+    <ScrollView
+      contentContainerStyle={{ flexGrow: 1 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6155F5" />}>
       <View className="flex-1 bg-[#FAF8FF]">
         <Header title="Stats" />
 
@@ -207,11 +225,33 @@ export default function Stats() {
           {/* CHART */}
           <View className="rounded-2xl border border-[#E3DAFF] bg-[#F6F3FF] p-4">
             {loading ? (
-              <ActivityIndicator color="#5B4BFF" />
+              <View className="items-center py-10">
+                <ActivityIndicator color="#5B4BFF" />
+                <Typography className="text-[#6B6490] mt-3">Loading stats...</Typography>
+              </View>
             ) : error ? (
-              <Typography>{error}</Typography>
+              <View className="items-center py-8">
+                <Typography font="inter-semibold" className="text-[#5B4BFF]">
+                  Error
+                </Typography>
+                <Typography className="text-[#6B6490] text-center">{error}</Typography>
+              </View>
             ) : points.length < 2 ? (
-              <Typography>No data</Typography>
+              <View className="items-center py-8">
+                <Typography font="inter-semibold" className="text-[#5B4BFF]">
+                  {points.length === 0 ? 'No data yet' : 'Keep going!'}
+                </Typography>
+
+                <Typography className="text-[#6B6490] mt-2 text-center px-4">
+                  {points.length === 0
+                    ? `You haven't recorded any ${
+                        selectedExercise ? (EXERCISE_TITLE_MAP[selectedExercise] ?? selectedExercise) : 'sessions'
+                      } in this timeframe.`
+                    : `Record one more ${
+                        selectedExercise ? (EXERCISE_TITLE_MAP[selectedExercise] ?? selectedExercise) : 'session'
+                      } to see your trend.`}
+                </Typography>
+              </View>
             ) : (
               <View style={{ width: '100%', height: 220 }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -256,6 +296,34 @@ export default function Stats() {
                   </Typography>
                 </TouchableOpacity>
               ))}
+            </View>
+          )}
+
+          {(summaryLoading || (monthlySummary && monthlySummary.summary)) && (
+            <View className="mt-5 rounded-2xl border border-[#E3DAFF] bg-[#F6F3FF] p-4">
+              {summaryLoading ? (
+                <View className="items-center py-4">
+                  <ActivityIndicator color="#5B4BFF" />
+                </View>
+              ) : monthlySummary?.summary ? (
+                <>
+                  <View className="flex-row justify-between items-center mb-3">
+                    <Typography font="inter-semibold" className="text-[#5B4BFF]">
+                      Monthly Recap
+                    </Typography>
+                    <Typography font="inter-medium" className="text-[#8A82B6] text-xs">
+                      {new Date(monthlySummary.month + '-01').toLocaleString('en-US', {
+                        month: 'long',
+                        year: 'numeric',
+                        timeZone: 'UTC',
+                      })}
+                    </Typography>
+                  </View>
+                  <Typography font="inter-medium" className="text-[#3D3560] leading-5">
+                    {monthlySummary.summary}
+                  </Typography>
+                </>
+              ) : null}
             </View>
           )}
         </View>

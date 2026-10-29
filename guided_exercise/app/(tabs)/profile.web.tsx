@@ -9,6 +9,8 @@ import { useUserStore } from '@/src/store/userStore';
 import { resolvePreferredDisplayName } from '@/src/utils/display-name';
 import { useToast } from '@/src/components/ui/ToastProvider';
 
+const DONATE_URL = 'https://giveto.ucdavis.edu/schools/UniversityofCaliforniaDavis/crowdfund-uc-davis-february-2026/pages/youngcancerwarriors';
+
 function ActionRow({ icon, title, onPress, destructive = false }: { icon: ReactNode; title: string; onPress?: () => void; destructive?: boolean }) {
   return (
     <TouchableOpacity style={styles.actionRow} onPress={onPress}>
@@ -58,6 +60,13 @@ export default function ProfileWeb() {
     showToast({ title, message: 'This page is not wired up yet.', variant: 'info' });
   };
 
+  const handleDonate = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.open(DONATE_URL, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <View style={styles.page}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -99,8 +108,8 @@ export default function ProfileWeb() {
               <View style={styles.group}>
                 <ActionRow
                   icon={<MaterialCommunityIcons name="hand-heart-outline" size={18} color="#111" />}
-                  title="Donate Page"
-                  onPress={() => handleComingSoon('Donate Page')}
+                  title="Donate"
+                  onPress={handleDonate}
                 />
                 <View style={styles.divider} />
                 <ActionRow

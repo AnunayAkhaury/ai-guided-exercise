@@ -14,6 +14,7 @@ import { Link, router } from 'expo-router';
 import React, { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '@/src/components/ui/ToastProvider';
+import { login, sendPasswordReset } from '@/src/api/Firebase/firebase-auth';
 
 export default function Login() {
   const { showToast } = useToast();
@@ -38,7 +39,7 @@ export default function Login() {
     try {
       setIsSubmitting(true);
       await login(trimmedEmail, password);
-      router.replace('/');
+      router.replace(Platform.OS === 'web' ? '/auth-redirect' : '/');
     } catch (error: any) {
       showToast({
         title: 'Login failed',

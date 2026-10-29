@@ -10,7 +10,9 @@ function getErrorMessage(err: unknown, fallback: string): string {
 
 export async function getAchievements() {
   try {
-    const uid = useUserStore.getState().uid ?? 'abc';
+    const uid = useUserStore.getState().uid;
+    if (!uid) return;
+
     const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/firebase/getAchievements`, {
       method: 'POST',
       headers: {

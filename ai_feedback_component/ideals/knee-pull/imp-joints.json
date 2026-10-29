@@ -1,0 +1,8 @@
+{
+  "primary_joints": [
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee"
+  ]
+}

@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { createProfile, getProfile, listProfilesByRole, updateProfile } from '@/services/Firebase/firebase-auth.js';
 import { addRecording, getUserRecordings } from '@/services/Firebase/firebase-recording.js';
-import { getAchievements } from '@/services/Firebase/firebase-user.js';
+import { getAchievements } from '@/services/Firebase/firebase-achievement.js';
 import { getRequestId, logControllerError, sendErrorResponse } from '@/utils/request-logging.js';
 import { createApprovalRequest, getUserVerificationStatus, setVerified } from '@/services/email-service.js';
 

@@ -1,0 +1,350 @@
+diff --git a/node_modules/expo-realtime-ivs-broadcast/ios/ExpoIVSRemoteStreamView.swift b/node_modules/expo-realtime-ivs-broadcast/ios/ExpoIVSRemoteStreamView.swift
+index 756047b..e5e9a63 100644
+--- a/node_modules/expo-realtime-ivs-broadcast/ios/ExpoIVSRemoteStreamView.swift
++++ b/node_modules/expo-realtime-ivs-broadcast/ios/ExpoIVSRemoteStreamView.swift
+@@ -8,10 +8,27 @@ class ExpoIVSRemoteStreamView: ExpoView {
+     private var ivsImagePreviewView: IVSImagePreviewView?
+     private weak var stageManager: IVSStageManager?
+     
+-    // This is the only state this view needs: what is it currently rendering?
++    // The React tile this native view is expected to render.
++    var targetParticipantId: String? {
++        didSet {
++            if targetParticipantId != oldValue {
++                clearIfTargetChanged()
++            }
++        }
++    }
++
++    var targetDeviceUrn: String? {
++        didSet {
++            if targetDeviceUrn != oldValue {
++                clearIfTargetChanged()
++            }
++        }
++    }
++
++    // What this view is currently rendering.
++    private(set) var currentRenderedParticipantId: String?
+     private(set) var currentRenderedDeviceUrn: String?
+ 
+-    // No more participantId or deviceUrn props!
+     var scaleMode: String = "fill" {
+         didSet { updateScaleMode() }
+     }
+@@ -24,7 +41,15 @@ class ExpoIVSRemoteStreamView: ExpoView {
+     
+     /// Returns whether this view is currently rendering video
+     public var isRenderingVideo: Bool {
+-        return ivsImagePreviewView != nil && currentRenderedDeviceUrn != nil
++        return ivsImagePreviewView != nil && currentRenderedParticipantId != nil && currentRenderedDeviceUrn != nil
++    }
++
++    var currentRenderedStreamKey: String? {
++        guard let participantId = currentRenderedParticipantId,
++              let deviceUrn = currentRenderedDeviceUrn else {
++            return nil
++        }
++        return "\(participantId):\(deviceUrn)"
+     }
+ 
+     // MARK: - Initializers
+@@ -76,7 +101,15 @@ class ExpoIVSRemoteStreamView: ExpoView {
+ 
+     public func renderStream(participantId: String, deviceUrn: String) {
+         guard let manager = self.stageManager else { return }
+-        if deviceUrn == self.currentRenderedDeviceUrn { return }
++        if let targetParticipantId = self.targetParticipantId,
++           targetParticipantId != participantId {
++            return
++        }
++        if let targetDeviceUrn = self.targetDeviceUrn,
++           targetDeviceUrn != deviceUrn {
++            return
++        }
++        if participantId == self.currentRenderedParticipantId && deviceUrn == self.currentRenderedDeviceUrn { return }
+ 
+         print("--------------------------------------------------")
+         print("✅ [REMOTE VIEW] renderStream called.")
+@@ -94,6 +127,7 @@ class ExpoIVSRemoteStreamView: ExpoView {
+             let newPreview = try imageDevice.previewView()
+             
+             self.ivsImagePreviewView = newPreview
++            self.currentRenderedParticipantId = participantId
+             self.currentRenderedDeviceUrn = deviceUrn
+             addSubview(newPreview)
+ 
+@@ -134,7 +168,27 @@ class ExpoIVSRemoteStreamView: ExpoView {
+         if let oldPreview = self.ivsImagePreviewView {
+             oldPreview.removeFromSuperview()
+             self.ivsImagePreviewView = nil
+-            self.currentRenderedDeviceUrn = nil
++        }
++        self.currentRenderedParticipantId = nil
++        self.currentRenderedDeviceUrn = nil
++    }
++
++    private func clearIfTargetChanged() {
++        if let currentParticipantId = currentRenderedParticipantId,
++           let targetParticipantId = targetParticipantId,
++           currentParticipantId != targetParticipantId {
++            cleanupStreamView()
++        }
++
++        if let currentDeviceUrn = currentRenderedDeviceUrn,
++           let targetDeviceUrn = targetDeviceUrn,
++           currentDeviceUrn != targetDeviceUrn {
++            cleanupStreamView()
++        }
++
++        DispatchQueue.main.async { [weak self] in
++            guard let self = self else { return }
++            self.stageManager?.remoteViewTargetDidChange(self)
+         }
+     }
+ 
+diff --git a/node_modules/expo-realtime-ivs-broadcast/ios/ExpoRealtimeIvsBroadcastModule.swift b/node_modules/expo-realtime-ivs-broadcast/ios/ExpoRealtimeIvsBroadcastModule.swift
+index 8aafd8a..e6f9fa3 100644
+--- a/node_modules/expo-realtime-ivs-broadcast/ios/ExpoRealtimeIvsBroadcastModule.swift
++++ b/node_modules/expo-realtime-ivs-broadcast/ios/ExpoRealtimeIvsBroadcastModule.swift
+@@ -149,6 +149,12 @@ public class ExpoRealtimeIvsBroadcastModule: Module, IVSStageManagerDelegate {
+ 
+     // Expose the custom view for remote stream rendering
+     View(ExpoIVSRemoteStreamView.self) {
++      Prop("participantId") { (view: ExpoIVSRemoteStreamView, participantId: String?) in
++          view.targetParticipantId = participantId
++      }
++      Prop("deviceUrn") { (view: ExpoIVSRemoteStreamView, deviceUrn: String?) in
++          view.targetDeviceUrn = deviceUrn
++      }
+       Prop("scaleMode") { (view: ExpoIVSRemoteStreamView, scaleMode: String?) in
+           view.scaleMode = scaleMode ?? "fit"
+       }
+diff --git a/node_modules/expo-realtime-ivs-broadcast/ios/IVSStageManager.swift b/node_modules/expo-realtime-ivs-broadcast/ios/IVSStageManager.swift
+index f92f823..738e1a4 100644
+--- a/node_modules/expo-realtime-ivs-broadcast/ios/IVSStageManager.swift
++++ b/node_modules/expo-realtime-ivs-broadcast/ios/IVSStageManager.swift
+@@ -995,7 +995,7 @@ class IVSStageManager: NSObject, IVSStageStreamDelegate, IVSStageStrategy, IVSSt
+         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+             guard let self = self else { return }
+             // Check if the view still exists and needs assignment
+-            if view.currentRenderedDeviceUrn == nil && !self.participants.isEmpty {
++            if view.currentRenderedStreamKey == nil && !self.participants.isEmpty {
+                 print("📺 [MANAGER] Delayed retry - view still needs stream assignment")
+                 self.assignStreamsToAvailableViews()
+             }
+@@ -1030,6 +1030,16 @@ class IVSStageManager: NSObject, IVSStageStreamDelegate, IVSStageStrategy, IVSSt
+         }
+     }
+ 
++    func remoteViewTargetDidChange(_ view: ExpoIVSRemoteStreamView) {
++        guard self.remoteViews.contains(where: { $0.value === view }) else {
++            return
++        }
++
++        DispatchQueue.main.async { [weak self] in
++            self?.assignStreamsToAvailableViews()
++        }
++    }
++
+     private func assignStreamsToAvailableViews() {
+         print("🧠 [MANAGER] ========== assignStreamsToAvailableViews called ==========")
+         
+@@ -1045,7 +1055,7 @@ class IVSStageManager: NSObject, IVSStageStreamDelegate, IVSStageStrategy, IVSSt
+         // These views should release their streams
+         for viewWrapper in self.remoteViews {
+             if let view = viewWrapper.value,
+-               view.currentRenderedDeviceUrn != nil,
++               view.currentRenderedStreamKey != nil,
+                view.window == nil {
+                 print("🧠 [MANAGER] Found orphaned view (not in window), clearing its stream")
+                 view.clearStream()
+@@ -1053,19 +1063,19 @@ class IVSStageManager: NSObject, IVSStageStreamDelegate, IVSStageStrategy, IVSSt
+         }
+         
+         // Get a set of all streams that are already being rendered by VALID views
+-        let renderedUrns = Set(self.remoteViews.compactMap { wrapper -> String? in
++        let renderedStreamKeys = Set(self.remoteViews.compactMap { wrapper -> String? in
+             guard let view = wrapper.value,
+                   view.window != nil,  // Only count views that are actually visible
+-                  let urn = view.currentRenderedDeviceUrn else {
++                  let streamKey = view.currentRenderedStreamKey else {
+                 return nil
+             }
+-            return urn
++            return streamKey
+         })
+-        print("🧠 [MANAGER] Currently rendered URNs (by visible views): \(renderedUrns)")
++        print("🧠 [MANAGER] Currently rendered stream keys (by visible views): \(renderedStreamKeys)")
+         
+         // Find all views that are not currently rendering anything AND are in a window
+         let availableViews = self.remoteViews.compactMap { $0.value }.filter { 
+-            $0.currentRenderedDeviceUrn == nil && $0.window != nil 
++            $0.currentRenderedStreamKey == nil && $0.window != nil 
+         }
+         
+         // Log all views and their state
+@@ -1088,11 +1098,13 @@ class IVSStageManager: NSObject, IVSStageStreamDelegate, IVSStageStrategy, IVSSt
+                 let urn = s.device.descriptor().urn
+                 let type = s.device.descriptor().type.rawValue
+                 let isVideo = type == 5
+-                let alreadyRendered = renderedUrns.contains(urn)
++                let participantId = p.info.participantId
++                let streamKey = "\(participantId):\(urn)"
++                let alreadyRendered = renderedStreamKeys.contains(streamKey)
+                 print("🧠 [MANAGER]     Stream URN: \(urn), type: \(type), isVideo: \(isVideo), alreadyRendered: \(alreadyRendered)")
+                 
+                 if isVideo && !alreadyRendered {
+-                    availableStreams.append((p.info.participantId, s))
++                    availableStreams.append((participantId, s))
+                 }
+             }
+         }
+@@ -1116,7 +1128,7 @@ class IVSStageManager: NSObject, IVSStageStreamDelegate, IVSStageStrategy, IVSSt
+             var freedSomething = false
+             for viewWrapper in self.remoteViews {
+                 if let view = viewWrapper.value,
+-                   view.currentRenderedDeviceUrn != nil,
++                   view.currentRenderedStreamKey != nil,
+                    view.window == nil {
+                     print("🧠 [MANAGER] Freeing stream from orphaned view")
+                     view.clearStream()
+@@ -1135,9 +1147,33 @@ class IVSStageManager: NSObject, IVSStageStreamDelegate, IVSStageStrategy, IVSSt
+             }
+         }
+         
+-        for (view, streamInfo) in zip(availableViews, availableStreams) {
+-            print("🧠 [MANAGER] ✅ Assigning stream \(streamInfo.stream.device.descriptor().urn) to view")
+-            view.renderStream(participantId: streamInfo.participantId, deviceUrn: streamInfo.stream.device.descriptor().urn)
++        var remainingStreams = availableStreams
++        for view in availableViews {
++            let matchingStreamIndex = remainingStreams.firstIndex { streamInfo in
++                let deviceUrn = streamInfo.stream.device.descriptor().urn
++                if let targetParticipantId = view.targetParticipantId,
++                   streamInfo.participantId != targetParticipantId {
++                    return false
++                }
++                if let targetDeviceUrn = view.targetDeviceUrn,
++                   deviceUrn != targetDeviceUrn {
++                    return false
++                }
++                return true
++            }
++
++            let streamIndex = view.targetParticipantId != nil || view.targetDeviceUrn != nil
++                ? matchingStreamIndex
++                : remainingStreams.indices.first
++
++            guard let selectedIndex = streamIndex else {
++                continue
++            }
++
++            let streamInfo = remainingStreams.remove(at: selectedIndex)
++            let deviceUrn = streamInfo.stream.device.descriptor().urn
++            print("🧠 [MANAGER] ✅ Assigning stream \(deviceUrn) from participant \(streamInfo.participantId) to view")
++            view.renderStream(participantId: streamInfo.participantId, deviceUrn: deviceUrn)
+         }
+         print("🧠 [MANAGER] ========== assignStreamsToAvailableViews complete ==========")
+     }
+@@ -1618,12 +1654,21 @@ class IVSStageManager: NSObject, IVSStageStreamDelegate, IVSStageStrategy, IVSSt
+     }
+     
+     public func findStream(forParticipantId participantId: String, deviceUrn: String) -> IVSStageStream? {
+-        guard let participant = self.participants.first(where: { $0.info.participantId == participantId }) else {
+-            print("IVSStageManager: findStream: Participant NOT FOUND.")
+-            return nil // Remote participant not found in our state.
++        let matchingParticipants = self.participants.reversed().filter { $0.info.participantId == participantId }
++        guard !matchingParticipants.isEmpty else {
++            print("IVSStageManager: findStream: Participant NOT FOUND: \(participantId).")
++            return nil
++        }
++
++        for participant in matchingParticipants {
++            if let stream = participant.streams.first(where: { $0.device.descriptor().urn == deviceUrn }) {
++                print("IVSStageManager: findStream: Stream FOUND for participant \(participantId), device \(deviceUrn).")
++                return stream
++            }
+         }
+-        print("IVSStageManager: findStream: Participant FOUND.")
+-        return participant.streams.first(where: { $0.device.descriptor().urn == deviceUrn })
++
++        print("IVSStageManager: findStream: Stream NOT FOUND for participant \(participantId), device \(deviceUrn).")
++        return nil
+     }
+ 
+     func getCameraPreview() -> UIView? {
+@@ -1817,7 +1862,12 @@ extension IVSStageManager {
+ 
+         if participant.isLocal { return }
+         
++        let existingStreams = self.participants
++            .filter { $0.info.participantId == participant.participantId }
++            .flatMap { $0.streams }
++        self.participants.removeAll { $0.info.participantId == participant.participantId }
+         let newParticipant = StageParticipant(info: participant)
++        newParticipant.streams = existingStreams
+         self.participants.append(newParticipant)
+ 
+         delegate?.stageManagerDidEmitEvent(eventName: "onParticipantJoined", body: ["participantId": participant.participantId])
+@@ -1830,7 +1880,10 @@ extension IVSStageManager {
+         if let leavingParticipant = self.participants.first(where: { $0.info.participantId == participant.participantId }) {
+             let removedUrns = leavingParticipant.streams.map { $0.device.descriptor().urn }
+             for viewWrapper in self.remoteViews {
+-                if let view = viewWrapper.value, let renderedUrn = view.currentRenderedDeviceUrn, removedUrns.contains(renderedUrn) {
++                if let view = viewWrapper.value,
++                   view.currentRenderedParticipantId == participant.participantId,
++                   let renderedUrn = view.currentRenderedDeviceUrn,
++                   removedUrns.contains(renderedUrn) {
+                     print("🧠 [MANAGER] A participant left. Commanding their view to clear.")
+                     view.clearStream()
+                 }
+@@ -1855,11 +1908,17 @@ extension IVSStageManager {
+ 
+         if participant.isLocal { return }
+ 
+-        guard let stageParticipant = self.participants.first(where: { $0.info.participantId == participant.participantId }) else {
+-            print("IVSStageManager: Received streams for a participant not in our list: \(participant.participantId ?? "N/A")")
+-            return
++        let stageParticipant: StageParticipant
++        if let existingParticipant = self.participants.first(where: { $0.info.participantId == participant.participantId }) {
++            stageParticipant = existingParticipant
++        } else {
++            print("IVSStageManager: Received streams before participant join event. Creating participant: \(participant.participantId ?? "N/A")")
++            stageParticipant = StageParticipant(info: participant)
++            self.participants.append(stageParticipant)
+         }
+ 
++        let incomingUrns = streams.map { $0.device.descriptor().urn }
++        stageParticipant.streams.removeAll { incomingUrns.contains($0.device.descriptor().urn) }
+         stageParticipant.streams.append(contentsOf: streams)
+ 
+         let streamDicts = streams.map { stream -> [String: Any] in
+@@ -1905,16 +1964,19 @@ extension IVSStageManager {
+         let removedUrns = streams.map { $0.device.descriptor().urn }
+ 
+         for viewWrapper in self.remoteViews {
+-            if let view = viewWrapper.value, let renderedUrn = view.currentRenderedDeviceUrn, removedUrns.contains(renderedUrn) {
++            if let view = viewWrapper.value,
++               view.currentRenderedParticipantId == participant.participantId,
++               let renderedUrn = view.currentRenderedDeviceUrn,
++               removedUrns.contains(renderedUrn) {
+                 print("🧠 [MANAGER] A stream being rendered was removed. Commanding view to clear.")
+                 // Tell the view to clear itself.
+                 view.clearStream()
+             }
+         }
+ 
+-        // Find the participant and remove the streams from their list
+-        if let existingParticipant = self.participants.first(where: { $0.info.participantId == participant.participantId }) {
+-            let removedUrns = streams.map { $0.device.descriptor().urn }
++        // Remove the streams from every matching participant record in case an older SDK event
++        // left duplicate participant state around a reconnect.
++        for existingParticipant in self.participants where existingParticipant.info.participantId == participant.participantId {
+             existingParticipant.streams.removeAll { removedUrns.contains($0.device.descriptor().urn) }
+         }
+ 
+@@ -2011,4 +2073,3 @@ extension IVSStageManager: IVSPictureInPictureControllerDelegate {
+         delegate?.stageManagerDidEmitEvent(eventName: "onPiPError", body: ["error": error])
+     }
+ }
+-
